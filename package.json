@@ -1,0 +1,19 @@
+{
+  "name": "taskflow-pro",
+  "version": "1.0.0",
+  "description": "AI-powered task management & productivity coaching PWA",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'Static site — no build step needed'",
+    "db:setup": "node scripts/setup-db.js",
+    "db:seed": "node scripts/seed-db.js"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.0",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  }
+}
