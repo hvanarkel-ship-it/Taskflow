@@ -64,6 +64,7 @@ async function setup() {
       due_date     DATE NOT NULL DEFAULT CURRENT_DATE,
       time_slot    VARCHAR(5),
       duration     INTEGER DEFAULT 30,
+      recur        VARCHAR(20) DEFAULT 'none',
       completed    BOOLEAN DEFAULT FALSE,
       completed_at TIMESTAMPTZ,
       user_id      INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -74,6 +75,19 @@ async function setup() {
     )
   `;
   console.log('✅ tasks table');
+
+  // Subtasks
+  await sql`
+    CREATE TABLE IF NOT EXISTS task_subtasks (
+      id         SERIAL PRIMARY KEY,
+      task_id    INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+      title      VARCHAR(500) NOT NULL,
+      done       BOOLEAN DEFAULT FALSE,
+      sort_order INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  console.log('✅ task_subtasks table');
 
   // Task notes
   await sql`
@@ -104,6 +118,7 @@ async function setup() {
   await sql`CREATE INDEX IF NOT EXISTS idx_tasks_completed ON tasks(completed)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_task_notes_task ON task_notes(task_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_task_links_task ON task_links(task_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_task_subtasks_task ON task_subtasks(task_id)`;
   console.log('✅ indexes');
 
   console.log('\n🎉 Database setup complete! Tables are ready in Neon.');
