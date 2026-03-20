@@ -1,144 +1,84 @@
-# ✦ TaskFlow Pro
+# ✦ TaskFlow Pro V2
 
-**AI-powered taakmanagement & productiviteitscoaching — PWA**
+AI-powered taakmanagement en productiviteitscoaching — PWA voor Netlify + Neon.
 
-Een complete productiviteits-app met 30-minuten tijdslot planning, team-samenwerking, AI coaching, en real-time rapportages. Gebouwd voor Netlify + Neon PostgreSQL.
+## 🚀 Deploy (15 min)
 
----
+### 1. GitHub Repo
+```bash
+git init && git add . && git commit -m "TaskFlow Pro V2"
+git branch -M main
+git remote add origin https://github.com/JOUW-USERNAME/taskflow-pro.git
+git push -u origin main
+```
 
-## 🚀 Deploy naar Productie (15 minuten)
+### 2. Neon Database
+- [console.neon.tech](https://console.neon.tech) → New Project → kopieer connection string
 
-### Stap 1: Neon Database aanmaken
+### 3. Netlify
+- [app.netlify.com](https://app.netlify.com) → Import existing project → selecteer repo
+- Publish directory: `public`
+- Functions directory: `netlify/functions`
 
-1. Ga naar **[console.neon.tech](https://console.neon.tech)** en maak een gratis account
-2. Klik **"New Project"** → noem het `taskflow-pro`
-3. Kopieer de **Connection String** (die begint met `postgresql://...`)
-4. Bewaar deze — je hebt hem straks nodig
-
-### Stap 2: Netlify deployen
-
-#### Optie A: Via GitHub (aanbevolen)
-
-1. Push deze map naar een **GitHub repository**:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin https://github.com/JOUW-USERNAME/taskflow-pro.git
-   git push -u origin main
-   ```
-2. Ga naar **[app.netlify.com](https://app.netlify.com)**
-3. Klik **"Add new site"** → **"Import an existing project"**
-4. Selecteer je GitHub repo
-5. Settings:
-   - **Build command:** _(laat leeg)_
-   - **Publish directory:** `public`
-6. Klik **"Deploy site"**
-
-#### Optie B: Drag & Drop (snelste)
-
-1. Ga naar **[app.netlify.com/drop](https://app.netlify.com/drop)**
-2. Sleep de **`public`** map naar het scherm
-3. Je site is live! (maar functies werken nog niet — gebruik optie A voor volledige functionaliteit)
-
-### Stap 3: Environment Variables instellen
-
-1. In Netlify: ga naar **Site Settings** → **Environment Variables**
-2. Voeg toe:
-
+### 4. Environment Variables (Netlify → Site Settings)
 | Key | Value |
 |-----|-------|
-| `DATABASE_URL` | Je Neon connection string |
-| `JWT_SECRET` | Genereer met: `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"` |
+| `DATABASE_URL` | Neon pooled connection string |
+| `JWT_SECRET` | `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"` |
 
-### Stap 4: Database tabellen aanmaken
-
+### 5. Database tabellen
 ```bash
-# Lokaal (eenmalig):
-npm install
-cp .env.example .env
-# Vul DATABASE_URL in .env
+npm install && cp .env.example .env
+# vul DATABASE_URL in
 node scripts/setup-db.js
 ```
 
-### Stap 5: PWA Icons genereren
-
-Voor de beste ervaring op telefoons, maak 192x192 en 512x512 PNG icons:
-- Open `public/icons/icon.svg` in een browser
-- Screenshot op 192×192 → sla op als `public/icons/icon-192.png`
-- Screenshot op 512×512 → sla op als `public/icons/icon-512.png`
-
-Of gebruik een tool als [realfavicongenerator.net](https://realfavicongenerator.net)
-
-### ✅ Klaar!
-
-Je app is nu live op `https://jouw-site.netlify.app`
+### 6. Icons
+Maak `icon-192.png` en `icon-512.png` vanuit `public/icons/icon.svg`
 
 ---
-
-## 📱 Installeren als App
-
-- **iPhone/iPad:** Open in Safari → Deel-knop → "Zet op beginscherm"
-- **Android:** Open in Chrome → Menu → "App installeren"
-- **Desktop:** Chrome adresbalk → installatie-icoon
-
----
-
-## 🏗 Projectstructuur
-
-```
-taskflow-pro/
-├── public/                    ← Frontend (wordt geserved door Netlify)
-│   ├── index.html             ← Volledige React PWA app
-│   ├── manifest.json          ← PWA manifest
-│   ├── sw.js                  ← Service Worker (offline support)
-│   └── icons/                 ← PWA iconen
-├── netlify/
-│   └── functions/             ← Backend API (serverless)
-│       ├── shared/db.js       ← Database & auth helpers
-│       ├── auth.js            ← POST /api/auth (login/register)
-│       ├── tasks.js           ← CRUD /api/tasks
-│       └── team.js            ← /api/team management
-├── scripts/
-│   └── setup-db.js            ← Database migratie script
-├── netlify.toml               ← Netlify configuratie
-├── package.json
-├── .env.example               ← Template voor environment vars
-└── README.md
-```
-
-## 🔌 API Endpoints
-
-| Method | Endpoint | Beschrijving |
-|--------|----------|-------------|
-| POST | `/api/auth` | `{action:"register"\|"login", email, password, name?}` |
-| GET | `/api/tasks?date=YYYY-MM-DD` | Taken ophalen per dag |
-| GET | `/api/tasks?from=&to=` | Taken ophalen voor periode |
-| GET | `/api/tasks` | Alle taken |
-| POST | `/api/tasks` | Nieuwe taak aanmaken |
-| PUT | `/api/tasks` | Taak bijwerken |
-| DELETE | `/api/tasks` | Taak verwijderen |
-| GET | `/api/team` | Teams ophalen |
-| POST | `/api/team` | Team aanmaken of joinen |
-
-Alle endpoints (behalve auth) vereisen: `Authorization: Bearer <token>`
 
 ## ⚡ Features
 
-- **30-minuten planner** met dag/week navigatie
-- **Toekomst-planning** — plan taken voor elke datum
-- **Team takenlijst** — wijs taken toe aan teamleden
-- **AI Coach** — zoek, analyseer, planning-advies
-- **Categorieën** — Werk, Sport, Ontspanning, Persoonlijk, Zakelijk
-- **Notities & Hyperlinks** per taak
-- **Positieve feedback** bij afvinken (confetti!)
-- **Outlook export** (.ics met tijdsloten)
-- **Dagrapport per mail**
-- **CSV export**
-- **Offline support** via Service Worker
-- **Installeerbaar** als PWA op alle apparaten
-- **Responsive** — werkt op desktop, tablet, mobiel
+- 30-minuten planner met dag/week navigatie
+- Drag & drop naar tijdsloten en tussen dagen
+- Subtaken en taken samenvoegen
+- Herhalende taken (dagelijks/wekelijks/maandelijks)
+- AI Coach (Claude API + lokale fallback)
+- Team management (toevoegen/verwijderen)
+- Pomodoro timer per taak
+- SVG statistieken (bar + donut chart)
+- Dark/Light mode
+- Export: Outlook (.ics), Apple Calendar, e-mail rapport
+- Per-taak .ics download met 15-min herinnering
+- Confetti bij afvinken
+- PWA — installeerbaar op alle apparaten
+- Responsive: desktop, tablet, mobiel
 
-## 📄 Licentie
+## 📁 Structuur
 
-MIT
+```
+public/index.html          ← Frontend (React + Babel)
+public/sw.js               ← Service Worker
+public/manifest.json       ← PWA manifest
+netlify/functions/auth.js  ← Login/register API
+netlify/functions/tasks.js ← CRUD taken API
+netlify/functions/team.js  ← Team API
+scripts/setup-db.js        ← Database migratie
+```
+
+## ✅ Test Checklist
+
+**Planner:** tijdsloten, datumnavigatie, nu-lijn, slot-klik, conflict-check
+**Drag & Drop:** sleep naar slot, tussen slots, tussen dagen, naar buiten (.ics)
+**Taken:** aanmaken, bewerken, verwijderen, afvinken, ongepland verwijderen
+**Subtaken:** toevoegen, afvinken, voortgang, samenvoegen
+**Herhaling:** dagelijks/werkdagen/wekelijks/maandelijks, 🔄 indicator
+**Team:** leden toevoegen/verwijderen, toewijzen, voortgang
+**AI Coach:** chat, zoek, tips, planning, rapport, Claude API + fallback
+**Pomodoro:** 25/5 timer, cirkel, start/pauze/reset, rondeteller
+**Export:** Outlook .ics, Apple Calendar, per-taak .ics, mail rapport, VALARM
+**Statistieken:** bar chart, donut chart, voortgang
+**Dark/Light:** toggle, alle kleuren
+**PWA:** Service Worker, manifest, installeerbaar
+**Responsive:** desktop, tablet, mobiel
