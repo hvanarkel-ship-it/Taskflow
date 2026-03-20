@@ -324,12 +324,19 @@ const expMail = (tasks,date) => {
   window.open(`mailto:?subject=${encodeURIComponent('TaskFlow Dagrapport — '+fullD(date))}&body=${encodeURIComponent(r)}`,'_self');
 };
 
+// ═══ PERSISTENCE (localStorage) ═════════════════════════
+const LS = {
+  get: (key, fallback) => { try { const v = localStorage.getItem('tf_'+key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+  set: (key, val) => { try { localStorage.setItem('tf_'+key, JSON.stringify(val)); } catch {} },
+  del: (key) => { try { localStorage.removeItem('tf_'+key); } catch {} },
+};
+
 // ═══ MAIN APP ═══════════════════════════════════════════
 const App = function() {
-  const [dark,setDark]=useState(true);
+  const [dark,setDark]=useState(()=>LS.get('dark',true));
   const t = dark ? DARK : LIGHT;
-  const [tasks,setTasks]=useState(INIT_TASKS);
-  const [team,setTeam]=useState(INIT_TEAM);
+  const [tasks,setTasks]=useState(()=>LS.get('tasks',INIT_TASKS));
+  const [team,setTeam]=useState(()=>LS.get('team',INIT_TEAM));
   const [view,setView]=useState('planner');
   const [selDate,setSelDate]=useState(td());
   const [modal,setModal]=useState(false);
@@ -348,6 +355,7 @@ const App = function() {
   const [mergeMode,setMergeMode]=useState(false);
   const [mergeSelected,setMergeSelected]=useState([]);
   const [weekDrop,setWeekDrop]=useState(null);
+  const [dbStatus,setDbStatus]=useState('checking'); // 'checking' | 'connected' | 'offline'
   const [aiMsgs,setAiMsgs]=useState([{id:1,role:'bot',text:'👋 Welkom bij TaskFlow Pro V2!\n\n🤖 Ik ben je AI coach (powered by Claude)\n⏰ Sleep taken naar tijdsloten\n🔄 Stel herhalende taken in\n🍅 Start een Pomodoro timer\n🌓 Wissel dark/light mode\n\nStel me een vraag!',time:ft()}]);
   const [aiIn,setAiIn]=useState('');
   const [aiLoading,setAiLoading]=useState(false);
@@ -357,6 +365,44 @@ const App = function() {
 
   useEffect(()=>{const i=setInterval(()=>setNowM(new Date().getHours()*60+new Date().getMinutes()),60000);return()=>clearInterval(i);},[]);
   useEffect(()=>{if(view==='planner'&&sRef.current&&selDate===td()){const r=sRef.current.querySelector('[data-now="1"]');if(r)setTimeout(()=>r.scrollIntoView({behavior:'smooth',block:'center'}),300);}},[view,selDate]);
+
+  // ─── Persist to localStorage on every change ──────
+  useEffect(()=>{LS.set('tasks',tasks);},[tasks]);
+  useEffect(()=>{LS.set('team',team);},[team]);
+  useEffect(()=>{LS.set('dark',dark);},[dark]);
+
+  // ─── Database connection check ────────────────────
+  const [dbLatency,setDbLatency]=useState(null);
+  const checkDb = useCallback(async () => {
+    try {
+      const r = await fetch('/api/health', { signal: AbortSignal.timeout(8000) });
+      if (r.ok) {
+        const data = await r.json();
+        setDbStatus('connected');
+        setDbLatency(data.latency_ms || null);
+      } else if (r.status === 503) {
+        setDbStatus('offline');
+        setDbLatency(null);
+      } else {
+        // API reachable but DB misconfigured
+        setDbStatus('offline');
+        setDbLatency(null);
+      }
+    } catch {
+      setDbStatus('offline');
+      setDbLatency(null);
+    }
+  },[]);
+
+  useEffect(()=>{
+    if (location.hostname.includes('claudeusercontent') || location.protocol === 'file:') {
+      setDbStatus('offline');
+      return;
+    }
+    checkDb();
+    const iv = setInterval(checkDb, 60000);
+    return ()=>clearInterval(iv);
+  },[checkDb]);
 
   const toast=(m,ty='success')=>{const i=uid();setToasts(p=>[...p,{id:i,message:m,type:ty}]);setTimeout(()=>setToasts(p=>p.filter(x=>x.id!==i)),3000);};
   const celebrate=m=>{setCeleb({s:true,m});setTimeout(()=>setCeleb({s:false,m:''}),2000);};
@@ -483,9 +529,9 @@ const App = function() {
       {subs.length>0&&<span style={{fontSize:9,opacity:.7}}>☐{subsDone}/{subs.length}</span>}
       <span style={{fontSize:9,opacity:.6}}>{tk.duration}m</span>
       {tk.recur&&tk.recur!=='none'&&<span style={{fontSize:9}}>🔄</span>}
-      <span onClick={e=>{e.stopPropagation();downloadTaskICS(tk);}} style={{fontSize:10,cursor:'pointer',opacity:.6}} title="Download .ics voor Outlook">📅</span>
+      <span onClick={e=>{e.stopPropagation();downloadTaskICS(tk);}} style={{fontSize:10,cursor:'pointer',opacity:.6}} title="Outlook .ics">📅</span>
       <span onClick={e=>{e.stopPropagation();setPomoTask(tk);}} style={{fontSize:10,cursor:'pointer',opacity:.6}} title="Pomodoro">🍅</span>
-      <span onClick={e=>{e.stopPropagation();unsched(tk.id);}} style={{fontSize:10,cursor:'pointer',opacity:0}} className="srm">×</span>
+      <span onClick={e=>{e.stopPropagation();del(tk.id);}} style={{fontSize:10,cursor:'pointer',opacity:.7}} title="Taak verwijderen">🗑</span>
     </div>);
   };
 
@@ -775,6 +821,12 @@ const App = function() {
           <div><div style={{fontSize:9,color:t.muted,textTransform:'uppercase',letterSpacing:2,padding:'0 10px',marginBottom:5}}>Thema</div>
             <div onClick={()=>setDark(!dark)} style={{display:'flex',alignItems:'center',gap:9,padding:'8px 10px',borderRadius:8,cursor:'pointer',color:t.dim,fontSize:13}}><span>{dark?'🌙':'☀️'}</span>{dark?'Donker':'Licht'} Mode</div>
           </div>
+          <div style={{marginTop:12}}><div style={{fontSize:9,color:t.muted,textTransform:'uppercase',letterSpacing:2,padding:'0 10px',marginBottom:5}}>Status</div>
+            <div onClick={dbStatus!=='connected'?checkDb:undefined} style={{display:'flex',alignItems:'center',gap:9,padding:'8px 10px',borderRadius:8,cursor:dbStatus!=='connected'?'pointer':'default',color:dbStatus==='connected'?t.success:dbStatus==='checking'?t.accent:t.warn,fontSize:12}}>
+              <div style={{width:7,height:7,borderRadius:'50%',background:dbStatus==='connected'?t.success:dbStatus==='checking'?t.accent:t.warn,animation:dbStatus==='checking'?'pulse 1.5s ease infinite':'none'}}/>
+              {dbStatus==='connected'?`Neon verbonden${dbLatency?' ('+dbLatency+'ms)':''}`:dbStatus==='checking'?'Controleren...':'Lokale opslag'}
+            </div>
+          </div>
         </nav>
       </aside>
 
@@ -786,7 +838,18 @@ const App = function() {
             <button onClick={()=>setAiOpen(!aiOpen)} style={{width:34,height:34,padding:0,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:8,background:aiOpen?t.accentS:t.elev,border:`1px solid ${aiOpen?t.accent:t.border}`,color:aiOpen?t.accent:t.dim,cursor:'pointer'}} title="AI Coach">✦</button>
           </div>
         </header>
-        <div className="mc" style={{flex:1,overflowY:'auto',padding:'18px 24px'}}>{views[view]?.()}</div>
+        <div className="mc" style={{flex:1,overflowY:'auto',padding:'18px 24px'}}>
+          {dbStatus==='offline'&&<div style={{padding:'10px 16px',marginBottom:16,borderRadius:10,background:t.warnS,border:`1px solid ${t.warn}44`,display:'flex',alignItems:'center',gap:10,animation:'fadeIn .3s'}}>
+            <span style={{fontSize:18}}>⚠️</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:600,color:t.warn}}>Database niet verbonden</div>
+              <div style={{fontSize:11,color:t.dim,marginTop:2}}>Data wordt lokaal opgeslagen in je browser. Configureer Neon + environment variables voor cloud sync.</div>
+            </div>
+            <button onClick={checkDb} style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${t.warn}66`,background:'transparent',color:t.warn,cursor:'pointer',fontFamily:'inherit',fontSize:11,fontWeight:500,whiteSpace:'nowrap'}}>↻ Opnieuw</button>
+          </div>}
+          {dbStatus==='checking'&&<div style={{padding:'8px 16px',marginBottom:16,borderRadius:10,background:t.accentS,border:`1px solid ${t.accent}33`,display:'flex',alignItems:'center',gap:8,fontSize:12,color:t.accent,animation:'pulse 1.5s ease infinite'}}>⏳ Verbinding controleren...</div>}
+          {views[view]?.()}
+        </div>
       </main>
 
       <aside className={`aip ${aiOpen?'open':''}`} style={{background:t.card,borderLeft:`1px solid ${t.border}`,display:'flex',flexDirection:'column'}}>

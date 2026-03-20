@@ -1,17 +1,23 @@
 {
   "name": "taskflow-pro",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "AI-powered task management & productivity coaching PWA",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "netlify dev",
-    "build": "echo 'Static site — no build step needed'",
     "db:setup": "node scripts/setup-db.js",
-    "db:seed": "node scripts/seed-db.js"
+    "db:reset": "node scripts/reset-db.js",
+    "db:health": "node scripts/health-check.js",
+    "postinstall": "echo '✅ Dependencies installed. Run npm run db:setup to initialize database.'"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.9.0",
+    "@neondatabase/serverless": "^0.10.0",
     "jsonwebtoken": "^9.0.2",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.0"
   },
   "devDependencies": {
     "netlify-cli": "^17.0.0"
