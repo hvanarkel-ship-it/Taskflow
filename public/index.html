@@ -95,7 +95,7 @@ const DEMO_CONTACTS=[
   {id:uid(),name:'Tom Bakker',email:'tom@startup.io',phone:'+31655551234',companyId:DEMO_COMPANIES[3].id,role:'CTO',tags:['startup','tech'],createdAt:new Date().toISOString(),avatar:'TB'},
 ];
 
-const mkOpp=(title,contactId,stage,value,prob)=>({id:uid(),title,contactId,companyId:'',stage,value,probability:prob,priority:'medium',nextAction:'',nextActionDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',notes:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),closedAt:null});
+const mkOpp=(title,contactId,stage,value,prob)=>({id:uid(),title,contactId,contactIds:[],companyId:'',stage,value,probability:prob,priority:'medium',nextAction:'',nextActionDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',notes:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),closedAt:null});
 
 const DEMO_OPPS=[
   {...mkOpp('Elastic Observability','','proposal',15000,60),contactId:DEMO_CONTACTS[0].id,companyId:DEMO_COMPANIES[0].id,nextAction:'Voorstel versturen',nextActionDate:td(),priority:'high',techTags:['Elastic','Kubernetes'],atosSalesId:DEMO_ATOS[0].id,atosDeliveryId:DEMO_ATOS[2].id,notes:[{id:uid(),text:'Sarah wil Q3 live gaan',at:new Date().toISOString()}]},
@@ -113,13 +113,36 @@ const DEMO_TASKS=[
   {id:uid(),title:'Tom terugbellen over app specs',contactId:DEMO_CONTACTS[3].id,oppId:DEMO_OPPS[3].id,dueDate:td(),dueTime:'16:30',done:false,priority:'low',reminder:true,reminderMin:15,createdAt:new Date().toISOString()},
 ];
 
+// ═══ SEARCHABLE SELECT ═════════════════════════════════
+const SearchSelect=({value,onChange,options,placeholder,style:sx,t:theme})=>{
+  const[open,setOpen]=useState(false);const[q,setQ]=useState('');const ref=useRef(null);
+  const filtered=options.filter(o=>o.label.toLowerCase().includes(q.toLowerCase()));
+  const selected=options.find(o=>o.value===value);
+  const dark=theme.bg==='#000';
+  const inpS={width:'100%',padding:'10px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:theme.text,fontFamily:'inherit',fontSize:14,outline:'none'};
+  useEffect(()=>{const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[]);
+  return <div ref={ref} style={{position:'relative',...(sx||{})}}>
+    <div onClick={()=>{setOpen(!open);setQ('');}} style={{...inpS,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',fontSize:13}}><span style={{color:selected?theme.text:theme.muted}}>{selected?selected.label:placeholder||'Selecteer...'}</span><span style={{color:theme.muted,fontSize:10}}>▼</span></div>
+    {open&&<div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,background:theme.solid,border:`0.5px solid ${theme.border}`,borderRadius:10,marginTop:4,boxShadow:theme.shadow,maxHeight:220,overflowY:'auto'}}>
+      <div style={{padding:'6px 8px',borderBottom:`0.5px solid ${theme.border}`}}><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Zoeken..." style={{...inpS,padding:'6px 10px',fontSize:12}}/></div>
+      <div onClick={()=>{onChange('');setOpen(false);}} style={{padding:'8px 12px',fontSize:12,cursor:'pointer',color:theme.muted,borderBottom:`0.5px solid ${theme.border}`}}>— Geen selectie —</div>
+      {filtered.map(o=><div key={o.value} onClick={()=>{onChange(o.value);setOpen(false);}} style={{padding:'8px 12px',fontSize:12,cursor:'pointer',color:value===o.value?theme.accent:theme.text,background:value===o.value?theme.accentS:'transparent',display:'flex',justifyContent:'space-between',alignItems:'center'}}><span>{o.label}</span>{o.sub&&<span style={{fontSize:10,color:theme.muted}}>{o.sub}</span>}</div>)}
+      {filtered.length===0&&<div style={{padding:'12px',fontSize:12,color:theme.muted,textAlign:'center'}}>Geen resultaten</div>}
+    </div>}
+  </div>;
+};
+
 // ═══ APP ════════════════════════════════════════════════
 const App = function(){
   const[dark,setDark]=useState(()=>LS.get('dark',true));
   const t=dark?DARK:LIGHT;
   const[contacts,setContacts]=useState(()=>LS.has('contacts')?LS.get('contacts',[]):isFirstLaunch?DEMO_CONTACTS:[]);
   const[companies,setCompanies]=useState(()=>LS.has('companies')?LS.get('companies',[]):isFirstLaunch?DEMO_COMPANIES:[]);
-  const[opps,setOpps]=useState(()=>LS.has('opps')?LS.get('opps',[]):isFirstLaunch?DEMO_OPPS:[]);
+  const[opps,setOpps]=useState(()=>{
+    let raw=LS.has('opps')?LS.get('opps',[]):isFirstLaunch?DEMO_OPPS:[];
+    // Schema migration: ensure contactIds exists on all opps
+    return raw.map(o=>({...o,contactIds:o.contactIds||[],techTags:o.techTags||[],atosSalesId:o.atosSalesId||'',atosDeliveryId:o.atosDeliveryId||''}));
+  });
   const[tasks,setTasks]=useState(()=>LS.has('tasks')?LS.get('tasks',[]):isFirstLaunch?DEMO_TASKS:[]);
   const[atosTeam,setAtosTeam]=useState(()=>LS.has('atos')?LS.get('atos',[]):isFirstLaunch?DEMO_ATOS:[]);
   const[interactions,setInteractions]=useState(()=>LS.get('interactions',[])); // {id,contactId,oppId,type:'call'|'email'|'meeting'|'note',text,at}
@@ -147,6 +170,9 @@ const App = function(){
   const[filtCompany,setFiltCompany]=useState('');
   const[filtContact,setFiltContact]=useState('');
   const[filtTech,setFiltTech]=useState('');
+  const[taskTab,setTaskTab]=useState('today');
+  const[atQ,setAtQ]=useState('');
+  const[atModal,setAtModal]=useState(null);
   useEffect(()=>{LS.set('dark',dark);},[dark]);
 
   // ─── Neon Connection Check ────────────────────────
@@ -225,8 +251,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
   };
   useEffect(()=>{aiEnd.current?.scrollIntoView({behavior:'smooth'});},[aiMsgs]);
   // Resolve display name for opp: contact name or company name
-  const oppWho=o=>{if(o.contactId&&cName(o.contactId))return cName(o.contactId);if(o.companyId)return compName(o.companyId);return '';};
-  const oppOrg=o=>{if(o.companyId)return compName(o.companyId);if(o.contactId)return cCompany(o.contactId);return '';};
+  const oppWho=o=>{const ids=[...(o.contactIds||[])];if(!ids.length&&o.contactId)ids.push(o.contactId);const names=ids.map(id=>cName(id)).filter(Boolean);if(names.length)return names.join(', ');if(o.companyId)return compName(o.companyId);return '';};
+  const oppOrg=o=>{if(o.companyId)return compName(o.companyId);const ids=[...(o.contactIds||[])];if(!ids.length&&o.contactId)ids.push(o.contactId);for(const id of ids){const cn=cCompany(id);if(cn)return cn;}return '';};
 
   // ─── REMINDER SYSTEM ──────────────────────────────
   const firedRef=useRef(new Set());
@@ -280,23 +306,6 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
   const lbl={display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:0.8,marginBottom:5,fontWeight:600};
   const eur=n=>'€'+n.toLocaleString('nl-NL');
 
-  // ─── SEARCHABLE SELECT COMPONENT ──────────────────
-  const SearchSelect=({value,onChange,options,placeholder,style:sx})=>{
-    const[open,setOpen]=useState(false);const[q,setQ]=useState('');const ref=useRef(null);
-    const filtered=options.filter(o=>o.label.toLowerCase().includes(q.toLowerCase()));
-    const selected=options.find(o=>o.value===value);
-    useEffect(()=>{const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[]);
-    return <div ref={ref} style={{position:'relative',...(sx||{})}}>
-      <div onClick={()=>{setOpen(!open);setQ('');}} style={{...inp,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',fontSize:13}}><span style={{color:selected?t.text:t.muted}}>{selected?selected.label:placeholder||'Selecteer...'}</span><span style={{color:t.muted,fontSize:10}}>▼</span></div>
-      {open&&<div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,background:t.solid,border:`0.5px solid ${t.border}`,borderRadius:10,marginTop:4,boxShadow:t.shadow,maxHeight:220,overflowY:'auto'}}>
-        <div style={{padding:'6px 8px',borderBottom:`0.5px solid ${t.border}`}}><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Zoeken..." style={{...inp,padding:'6px 10px',fontSize:12}}/></div>
-        <div onClick={()=>{onChange('');setOpen(false);}} style={{padding:'8px 12px',fontSize:12,cursor:'pointer',color:t.muted,borderBottom:`0.5px solid ${t.border}`}}>— Geen selectie —</div>
-        {filtered.map(o=><div key={o.value} onClick={()=>{onChange(o.value);setOpen(false);}} style={{padding:'8px 12px',fontSize:12,cursor:'pointer',color:value===o.value?t.accent:t.text,background:value===o.value?t.accentS:'transparent',display:'flex',justifyContent:'space-between',alignItems:'center'}}><span>{o.label}</span>{o.sub&&<span style={{fontSize:10,color:t.muted}}>{o.sub}</span>}</div>)}
-        {filtered.length===0&&<div style={{padding:'12px',fontSize:12,color:t.muted,textAlign:'center'}}>Geen resultaten</div>}
-      </div>}
-    </div>;
-  };
-
   // ─── PERIOD FILTER ────────────────────────────────
   const[period,setPeriod]=useState('all'); // all, week, month, quarter, year, custom
   const[customFrom,setCustomFrom]=useState('');
@@ -327,9 +336,9 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
     return <div>
       <PeriodBar/>
       <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap',alignItems:'flex-start'}}>
-        <SearchSelect value={filtCompany} onChange={setFiltCompany} placeholder="Alle bedrijven" options={companies.map(co=>({value:co.id,label:co.name,sub:co.industry}))} style={{minWidth:160}}/>
-        <SearchSelect value={filtContact} onChange={setFiltContact} placeholder="Alle contacten" options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)}))} style={{minWidth:160}}/>
-        <SearchSelect value={filtTech} onChange={setFiltTech} placeholder="Alle technologie" options={TECH_TAGS.map(tt=>({value:tt,label:tt}))} style={{minWidth:150}}/>
+        <SearchSelect t={t} value={filtCompany} onChange={setFiltCompany} placeholder="Alle bedrijven" options={companies.map(co=>({value:co.id,label:co.name,sub:co.industry}))} style={{minWidth:160}}/>
+        <SearchSelect t={t} value={filtContact} onChange={setFiltContact} placeholder="Alle contacten" options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)}))} style={{minWidth:160}}/>
+        <SearchSelect t={t} value={filtTech} onChange={setFiltTech} placeholder="Alle technologie" options={TECH_TAGS.map(tt=>({value:tt,label:tt}))} style={{minWidth:150}}/>
         {hasFilter&&<button onClick={()=>{setFiltCompany('');setFiltContact('');setFiltTech('');}} style={{...btnG,padding:'6px 12px',fontSize:11,color:t.red}}>✕ Reset</button>}
       </div>
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
@@ -397,7 +406,6 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
 
   // ─── TASKS VIEW ───────────────────────────────────
   const Tasks=()=>{
-    const[taskTab,setTaskTab]=useState('today');
     const allOpen=tasks.filter(t=>!t.done);
     const today=allOpen.filter(t=>t.dueDate===td());
     const overdue=allOpen.filter(t=>t.dueDate&&t.dueDate<td());
@@ -716,7 +724,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
     const[showAtosAdd,setShowAtosAdd]=useState(false);const[newAtosName,setNewAtosName]=useState('');const[newAtosRole,setNewAtosRole]=useState('sales');
     const addTech=(tag)=>{if(tag&&!(f.techTags||[]).includes(tag))sf({...f,techTags:[...(f.techTags||[]),tag]});setTechIn('');};
     const inlineAddCo=()=>{if(!newCoName.trim())return;const co={id:uid(),name:newCoName.trim(),website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],createdAt:new Date().toISOString()};setCompanies(p=>[...p,co]);sf({...f,companyId:co.id});setNewCoName('');setShowNewCo(false);toast('Bedrijf aangemaakt');};
-    const inlineAddCt=()=>{if(!newCtName.trim())return;const av=newCtName.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const ct={id:uid(),name:newCtName.trim(),email:'',phone:'',companyId:f.companyId||'',role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};setContacts(p=>[...p,ct]);sf({...f,contactId:ct.id});setNewCtName('');setShowNewCt(false);toast('Contact aangemaakt');};
+    const inlineAddCt=()=>{if(!newCtName.trim())return;const av=newCtName.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const ct={id:uid(),name:newCtName.trim(),email:'',phone:'',companyId:f.companyId||'',role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};setContacts(p=>[...p,ct]);sf({...f,contactId:ct.id,contactIds:[...(f.contactIds||[]),ct.id]});setNewCtName('');setShowNewCt(false);toast('Contact aangemaakt');};
+    const addContactToOpp=(cid)=>{if(!cid||((f.contactIds||[]).includes(cid)))return;const ct=contacts.find(c=>c.id===cid);sf({...f,contactId:f.contactId||cid,contactIds:[...(f.contactIds||[]),cid],companyId:ct?.companyId||f.companyId});};
     const inlineAddAtos=()=>{if(!newAtosName.trim())return;const a={id:uid(),name:newAtosName.trim(),role:newAtosRole,email:'',phone:''};setAtosTeam(p=>[...p,a]);if(newAtosRole==='sales')sf({...f,atosSalesId:a.id});else sf({...f,atosDeliveryId:a.id});setNewAtosName('');setShowAtosAdd(false);toast('Atos contact toegevoegd');};
   return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
     <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:540,maxHeight:'90vh',overflowY:'auto'}}>
@@ -726,14 +735,15 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
 
         {/* Bedrijf + inline aanmaken */}
         <div style={{marginBottom:12}}><label style={lbl}>Bedrijf</label>
-          <div style={{display:'flex',gap:5,alignItems:'flex-start'}}><SearchSelect value={f.companyId||''} onChange={v=>{sf({...f,companyId:v,contactId:''});}} placeholder="Kies bedrijf..." options={companies.map(co=>({value:co.id,label:co.name,sub:co.industry}))} style={{flex:1}}/>
+          <div style={{display:'flex',gap:5,alignItems:'flex-start'}}><SearchSelect t={t} value={f.companyId||''} onChange={v=>{sf({...f,companyId:v,contactId:''});}} placeholder="Kies bedrijf..." options={companies.map(co=>({value:co.id,label:co.name,sub:co.industry}))} style={{flex:1}}/>
           <button onClick={()=>setShowNewCo(!showNewCo)} style={{...btnG,padding:'8px 10px',fontSize:11,whiteSpace:'nowrap'}}>{showNewCo?'✕':'+ Nieuw'}</button></div>
           {showNewCo&&<div style={{display:'flex',gap:5,marginTop:6}}><input style={inp} value={newCoName} onChange={e=>setNewCoName(e.target.value)} placeholder="Bedrijfsnaam..." onKeyDown={e=>e.key==='Enter'&&inlineAddCo()}/><button onClick={inlineAddCo} style={{...btnP,padding:'6px 12px',fontSize:11}}>Aanmaken</button></div>}
         </div>
 
-        {/* Contact + inline aanmaken */}
-        <div style={{marginBottom:12}}><label style={lbl}>Contactpersoon</label>
-          <div style={{display:'flex',gap:5,alignItems:'flex-start'}}><SearchSelect value={f.contactId||''} onChange={v=>{const ct=contacts.find(c=>c.id===v);sf({...f,contactId:v,companyId:ct?.companyId||f.companyId});}} placeholder="Geen contact..." options={(f.companyId?contacts.filter(c=>c.companyId===f.companyId):contacts).map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)}))} style={{flex:1}}/>
+        {/* Contactpersonen (meerdere) + inline aanmaken */}
+        <div style={{marginBottom:12}}><label style={lbl}>Contactpersonen</label>
+          {(f.contactIds||[]).length>0&&<div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:6}}>{(f.contactIds||[]).map(cid=>{const ct=contacts.find(c=>c.id===cid);return ct?<span key={cid} style={{fontSize:11,padding:'3px 8px',borderRadius:8,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{ct.name}<span onClick={()=>sf({...f,contactIds:(f.contactIds||[]).filter(x=>x!==cid),contactId:(f.contactIds||[]).filter(x=>x!==cid)[0]||''})} style={{cursor:'pointer'}}>✕</span></span>:null;})}</div>}
+          <div style={{display:'flex',gap:5,alignItems:'flex-start'}}><SearchSelect t={t} value="" onChange={v=>{addContactToOpp(v);}} placeholder="Contact toevoegen..." options={(f.companyId?contacts.filter(c=>c.companyId===f.companyId):contacts).filter(c=>!(f.contactIds||[]).includes(c.id)).map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)}))} style={{flex:1}}/>
           <button onClick={()=>setShowNewCt(!showNewCt)} style={{...btnG,padding:'8px 10px',fontSize:11,whiteSpace:'nowrap'}}>{showNewCt?'✕':'+ Nieuw'}</button></div>
           {showNewCt&&<div style={{display:'flex',gap:5,marginTop:6}}><input style={inp} value={newCtName} onChange={e=>setNewCtName(e.target.value)} placeholder="Naam contactpersoon..." onKeyDown={e=>e.key==='Enter'&&inlineAddCt()}/><button onClick={inlineAddCt} style={{...btnP,padding:'6px 12px',fontSize:11}}>Aanmaken</button></div>}
         </div>
@@ -757,8 +767,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         {/* Atos Team */}
         <div style={{marginBottom:12}}><label style={lbl}>Atos Team</label>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-            <div><div style={{fontSize:10,color:t.muted,marginBottom:3}}>🔵 Sales</div><SearchSelect value={f.atosSalesId||''} onChange={v=>sf({...f,atosSalesId:v})} placeholder="Niet toegewezen" options={atosTeam.filter(a=>a.role==='sales').map(a=>({value:a.id,label:a.name}))}/></div>
-            <div><div style={{fontSize:10,color:t.muted,marginBottom:3}}>🟢 Delivery</div><SearchSelect value={f.atosDeliveryId||''} onChange={v=>sf({...f,atosDeliveryId:v})} placeholder="Niet toegewezen" options={atosTeam.filter(a=>a.role==='delivery').map(a=>({value:a.id,label:a.name}))}/></div>
+            <div><div style={{fontSize:10,color:t.muted,marginBottom:3}}>🔵 Sales</div><SearchSelect t={t} value={f.atosSalesId||''} onChange={v=>sf({...f,atosSalesId:v})} placeholder="Niet toegewezen" options={atosTeam.filter(a=>a.role==='sales').map(a=>({value:a.id,label:a.name}))}/></div>
+            <div><div style={{fontSize:10,color:t.muted,marginBottom:3}}>🟢 Delivery</div><SearchSelect t={t} value={f.atosDeliveryId||''} onChange={v=>sf({...f,atosDeliveryId:v})} placeholder="Niet toegewezen" options={atosTeam.filter(a=>a.role==='delivery').map(a=>({value:a.id,label:a.name}))}/></div>
           </div>
           <button onClick={()=>setShowAtosAdd(!showAtosAdd)} style={{...btnG,padding:'4px 10px',fontSize:11,marginTop:6}}>{showAtosAdd?'✕ Annuleren':'+ Atos contact toevoegen'}</button>
           {showAtosAdd&&<div style={{display:'flex',gap:5,marginTop:6,alignItems:'center'}}><input style={{...inp,flex:1}} value={newAtosName} onChange={e=>setNewAtosName(e.target.value)} placeholder="Naam..." onKeyDown={e=>e.key==='Enter'&&inlineAddAtos()}/><select style={{...inp,width:'auto'}} value={newAtosRole} onChange={e=>setNewAtosRole(e.target.value)}><option value="sales">Sales</option><option value="delivery">Delivery</option></select><button onClick={inlineAddAtos} style={{...btnP,padding:'6px 12px',fontSize:11}}>+</button></div>}
@@ -816,6 +826,91 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.name?.trim())return;if(d?.id){setCompanies(p=>p.map(x=>x.id===d.id?{...x,...f}:x));toast('Bedrijf bijgewerkt');}else{setCompanies(p=>[...p,{...f,id:uid(),createdAt:new Date().toISOString()}]);toast('Bedrijf toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
     </div>
   </div>;};
+
+  // ─── EXCEL IMPORT ──────────────────────────────────
+  const ImportModal=()=>{
+    const[impData,setImpData]=useState([]);const[impCols,setImpCols]=useState([]);
+    const[impMapping,setImpMapping]=useState({title:'',company:'',contact:'',value:'',stage:'',probability:'',tech:'',nextAction:''});
+    const[impStep,setImpStep]=useState(1);const[impResult,setImpResult]=useState(null);
+    const fileRef=useRef(null);
+    const fields=[{k:'title',l:'Titel *',req:true},{k:'company',l:'Bedrijf'},{k:'contact',l:'Contact'},{k:'value',l:'Waarde (€)'},{k:'stage',l:'Fase'},{k:'probability',l:'Kans (%)'},{k:'tech',l:'Technologie'},{k:'nextAction',l:'Volgende Actie'}];
+    const stageMap={'lead':'lead','prospect':'lead','gekwalificeerd':'qualified','qualified':'qualified','voorstel':'proposal','proposal':'proposal','offerte':'proposal','onderhandeling':'negotiation','negotiation':'negotiation','gewonnen':'won','won':'won','verloren':'lost','lost':'lost'};
+    const handleFile=async(e)=>{const file=e.target.files?.[0];if(!file)return;
+      const ext=file.name.split('.').pop().toLowerCase();
+      if(ext==='csv'||ext==='tsv'){
+        const text=await file.text();const sep=ext==='tsv'?'\t':text.includes(';')?';':',';
+        const lines=text.trim().split('\n').map(l=>l.split(sep).map(c=>c.replace(/^"|"$/g,'').trim()));
+        if(lines.length<2)return toast('Bestand is leeg','info');
+        setImpCols(lines[0]);setImpData(lines.slice(1));
+        // Auto-map columns
+        const m={...impMapping};lines[0].forEach((col,i)=>{const lc=col.toLowerCase();
+          if(lc.includes('titel')||lc.includes('title')||lc.includes('deal')||lc.includes('naam'))m.title=col;
+          else if(lc.includes('bedrijf')||lc.includes('company')||lc.includes('klant')||lc.includes('account'))m.company=col;
+          else if(lc.includes('contact')||lc.includes('persoon'))m.contact=col;
+          else if(lc.includes('waarde')||lc.includes('value')||lc.includes('bedrag')||lc.includes('omzet'))m.value=col;
+          else if(lc.includes('fase')||lc.includes('stage')||lc.includes('status'))m.stage=col;
+          else if(lc.includes('kans')||lc.includes('prob'))m.probability=col;
+          else if(lc.includes('tech'))m.tech=col;
+          else if(lc.includes('actie')||lc.includes('action')||lc.includes('next'))m.nextAction=col;
+        });setImpMapping(m);setImpStep(2);
+      }else{toast('Upload CSV of TSV bestand','info');}
+    };
+    const doImport=()=>{
+      let added=0,skipped=0,companiesAdded=0,contactsAdded=0;
+      impData.forEach(row=>{const g=col=>col?row[impCols.indexOf(col)]||'':'';
+        const title=g(impMapping.title);if(!title){skipped++;return;}
+        // Find or create company
+        let coId='';const coName=g(impMapping.company);
+        if(coName){const ex=companies.find(c=>c.name.toLowerCase()===coName.toLowerCase());if(ex)coId=ex.id;else{const nco={id:uid(),name:coName,website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],createdAt:new Date().toISOString()};setCompanies(p=>[...p,nco]);coId=nco.id;companiesAdded++;}}
+        // Find or create contact
+        let ctId='';const ctName=g(impMapping.contact);
+        if(ctName){const ex=contacts.find(c=>c.name.toLowerCase()===ctName.toLowerCase());if(ex)ctId=ex.id;else{const av=ctName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const nct={id:uid(),name:ctName,email:'',phone:'',companyId:coId,role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};setContacts(p=>[...p,nct]);ctId=nct.id;contactsAdded++;}}
+        const rawStage=(g(impMapping.stage)||'').toLowerCase();const stage=stageMap[rawStage]||'lead';
+        const val=parseInt((g(impMapping.value)||'0').replace(/[^\d]/g,''))||0;
+        const prob=parseInt(g(impMapping.probability))||20;
+        const tech=(g(impMapping.tech)||'').split(/[,;|]/).map(s=>s.trim()).filter(Boolean);
+        const now=new Date().toISOString();
+        setOpps(p=>[...p,{id:uid(),title,contactId:ctId,contactIds:ctId?[ctId]:[],companyId:coId,stage,value:val,probability:prob,priority:'medium',nextAction:g(impMapping.nextAction),nextActionDate:'',techTags:tech,atosSalesId:'',atosDeliveryId:'',notes:[],createdAt:now,updatedAt:now,closedAt:null}]);added++;
+      });
+      setImpResult({added,skipped,companiesAdded,contactsAdded});setImpStep(3);
+    };
+    return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:580,maxHeight:'90vh',overflowY:'auto'}}>
+        <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>📥 Opportunities Importeren</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
+        <div style={{padding:'16px 24px'}}>
+          {impStep===1&&<div>
+            <div style={{padding:30,borderRadius:12,border:`2px dashed ${t.border}`,textAlign:'center',cursor:'pointer',marginBottom:16}} onClick={()=>fileRef.current?.click()}>
+              <div style={{fontSize:32,marginBottom:8}}>📄</div>
+              <div style={{fontSize:14,fontWeight:600}}>Sleep een CSV of klik om te uploaden</div>
+              <div style={{fontSize:12,color:t.muted,marginTop:4}}>CSV, TSV — kolommen worden automatisch herkend</div>
+            </div>
+            <input ref={fileRef} type="file" accept=".csv,.tsv" onChange={handleFile} style={{display:'none'}}/>
+            <div style={{fontSize:12,color:t.dim,padding:'10px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)'}}>
+              <div style={{fontWeight:600,marginBottom:6}}>Verwachte kolommen (flexibel):</div>
+              Titel/Deal, Bedrijf/Account, Contact, Waarde/Bedrag, Fase/Stage, Kans(%), Technologie, Volgende Actie
+            </div>
+          </div>}
+          {impStep===2&&<div>
+            <div style={{fontSize:13,fontWeight:600,marginBottom:10}}>📋 {impData.length} rijen gevonden — Koppel kolommen:</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
+              {fields.map(f2=><div key={f2.k}><label style={lbl}>{f2.l}</label><select style={{...inp,cursor:'pointer',fontSize:12}} value={impMapping[f2.k]} onChange={e=>setImpMapping({...impMapping,[f2.k]:e.target.value})}><option value="">— Niet koppelen —</option>{impCols.map(c=><option key={c} value={c}>{c}</option>)}</select></div>)}
+            </div>
+            <div style={{fontSize:12,color:t.dim,marginBottom:12}}>Preview (eerste 3 rijen):</div>
+            <div style={{overflowX:'auto',marginBottom:16}}><table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}><thead><tr>{impCols.slice(0,6).map(c=><th key={c} style={{padding:'4px 8px',borderBottom:`1px solid ${t.border}`,textAlign:'left',color:t.muted}}>{c}</th>)}</tr></thead><tbody>{impData.slice(0,3).map((r,i)=><tr key={i}>{r.slice(0,6).map((c,j)=><td key={j} style={{padding:'4px 8px',borderBottom:`0.5px solid ${t.border}`}}>{c}</td>)}</tr>)}</tbody></table></div>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setImpStep(1)} style={btnG}>Terug</button><button onClick={doImport} disabled={!impMapping.title} style={{...btnP,opacity:impMapping.title?1:.5}}>Importeer {impData.length} deals</button></div>
+          </div>}
+          {impStep===3&&impResult&&<div style={{textAlign:'center',padding:20}}>
+            <div style={{fontSize:48,marginBottom:12}}>✅</div>
+            <div style={{fontSize:18,fontWeight:700,marginBottom:16}}>Import voltooid!</div>
+            <div style={{display:'flex',gap:8,justifyContent:'center',marginBottom:20}}>
+              {[{l:'Deals',v:impResult.added,c:t.green},{l:'Overgeslagen',v:impResult.skipped,c:t.orange},{l:'Bedrijven',v:impResult.companiesAdded,c:t.accent},{l:'Contacten',v:impResult.contactsAdded,c:t.purple}].map((s,i)=><div key={i} style={{...card,padding:'8px 14px'}}><div style={{fontSize:10,color:t.muted}}>{s.l}</div><div style={{fontSize:20,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
+            </div>
+            <button onClick={()=>setModal(null)} style={btnP}>Sluiten</button>
+          </div>}
+        </div>
+      </div>
+    </div>;
+  };
 
   // ─── REPORTS / SALES FUNNEL ────────────────────────
   const Reports=()=>{
@@ -900,7 +995,6 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
 
   // ─── ATOS TEAM VIEW ────────────────────────────────
   const AtosView=()=>{
-    const[atQ,setAtQ]=useState('');const[atModal,setAtModal]=useState(null);
     const sales=atosTeam.filter(a=>a.role==='sales');const delivery=atosTeam.filter(a=>a.role==='delivery');
     const filtered=atosTeam.filter(a=>{if(!atQ)return true;const q=atQ.toLowerCase();return a.name.toLowerCase().includes(q)||a.role.includes(q)||(a.email||'').includes(q);});
     const atosDeals=(aid)=>opps.filter(o=>o.atosSalesId===aid||o.atosDeliveryId===aid);
@@ -1012,7 +1106,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         <header style={{padding:'14px 24px',borderBottom:`0.5px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',background:t.bg}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}><button className="ham" onClick={()=>setSb(true)} style={{display:'none',width:36,height:36,border:'none',background:t.elev,borderRadius:10,cursor:'pointer',color:t.text,fontSize:18,alignItems:'center',justifyContent:'center'}}>☰</button><h1 style={{fontSize:24,fontWeight:800,letterSpacing:-.5}}>{titles[view]}</h1></div>
           <div style={{display:'flex',gap:8}}>
-            {view==='pipeline'&&<button onClick={()=>setModal({type:'opp'})} style={btnP}>+ Deal</button>}
+            {view==='pipeline'&&<><button onClick={()=>setModal({type:'import'})} style={btnG}>📥 Import</button><button onClick={()=>setModal({type:'opp'})} style={btnP}>+ Deal</button></>}
             {view==='contacts'&&<button onClick={()=>setModal({type:'contact'})} style={btnP}>+ Contact</button>}
             {view==='companies'&&<button onClick={()=>setModal({type:'company'})} style={btnP}>+ Bedrijf</button>}
             {view==='tasks'&&<button onClick={()=>setModal({type:'task'})} style={btnP}>+ Taak</button>}
@@ -1030,7 +1124,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             <button onClick={checkDb} style={{...btnG,padding:'4px 10px',fontSize:11,color:t.orange,borderColor:`${t.orange}44`,whiteSpace:'nowrap'}}>↻ Check</button>
           </div>}
           {dbStatus==='checking'&&!location.hostname.includes('claudeusercontent')&&<div style={{padding:'8px 16px',marginBottom:16,borderRadius:12,background:t.accentS,fontSize:12,color:t.accent,animation:'pulse 1.5s infinite'}}>⏳ Verbinding controleren...</div>}
-          {views[view]?.()}
+          {React.createElement(views[view]||'div')}
         </div>
       </main>
 
@@ -1046,6 +1140,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       {modal?.type==='opp'&&<OppModal/>}
       {modal?.type==='task'&&<TaskModal/>}
       {modal?.type==='company'&&<CompanyModal/>}
+      {modal?.type==='import'&&<ImportModal/>}
       <div style={{position:'fixed',bottom:20,right:20,zIndex:9999,display:'flex',flexDirection:'column',gap:6}}>{toasts.map(x=><div key={x.id} style={{padding:'10px 16px',background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:12,fontSize:13,boxShadow:t.shadow,animation:'fadeIn .3s',borderLeft:`3px solid ${x.ty==='ok'?t.green:t.accent}`}}>{x.ty==='ok'?'✓':'ℹ'} {x.m}</div>)}</div>
     </div>
   </>;
