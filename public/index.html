@@ -44,7 +44,15 @@ const fds=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'shor
 const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
-const LS={get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}}};
+const APP_VERSION='2.0';
+const LS={
+  get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
+  set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
+  has:(k)=>{try{return localStorage.getItem('pf_'+k)!==null;}catch{return false;}},
+};
+// Only use demo data on first-ever launch. After that, always use saved data (even if empty).
+const isFirstLaunch=!LS.has('_initialized');
+if(isFirstLaunch)LS.set('_initialized',APP_VERSION);
 
 // Pipeline stages
 const STAGES=[
@@ -59,6 +67,17 @@ const stageC=id=>STAGES.find(s=>s.id===id)||STAGES[0];
 
 // Priority
 const PRIS=[{id:'high',l:'Hoog',c:'#FF453A'},{id:'medium',l:'Midden',c:'#FF9F0A'},{id:'low',l:'Laag',c:'#30D158'}];
+
+// Technology tags
+const TECH_TAGS=['Elastic','Dynatrace','Splunk','ServiceNow','AWS','Azure','GCP','Kubernetes','Terraform','Datadog','Grafana','Confluent','MongoDB','PostgreSQL','Snowflake'];
+
+// Atos team (internal sales & delivery contacts)
+const DEMO_ATOS=[
+  {id:uid(),name:'Peter Smit',role:'sales',email:'peter.smit@atos.net',phone:'+31611111111'},
+  {id:uid(),name:'Karen de Groot',role:'sales',email:'karen.degroot@atos.net',phone:'+31622222222'},
+  {id:uid(),name:'Jan Willem Vos',role:'delivery',email:'jw.vos@atos.net',phone:'+31633333333'},
+  {id:uid(),name:'Michelle Bakker',role:'delivery',email:'m.bakker@atos.net',phone:'+31644444444'},
+];
 
 // Demo data
 const DEMO_COMPANIES=[
@@ -76,15 +95,15 @@ const DEMO_CONTACTS=[
   {id:uid(),name:'Tom Bakker',email:'tom@startup.io',phone:'+31655551234',companyId:DEMO_COMPANIES[3].id,role:'CTO',tags:['startup','tech'],createdAt:new Date().toISOString(),avatar:'TB'},
 ];
 
-const mkOpp=(title,contactId,stage,value,prob)=>({id:uid(),title,contactId,companyId:'',stage,value,probability:prob,priority:'medium',nextAction:'',nextActionDate:'',notes:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),closedAt:null});
+const mkOpp=(title,contactId,stage,value,prob)=>({id:uid(),title,contactId,companyId:'',stage,value,probability:prob,priority:'medium',nextAction:'',nextActionDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',notes:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),closedAt:null});
 
 const DEMO_OPPS=[
-  {...mkOpp('Website Redesign','','proposal',15000,60),contactId:DEMO_CONTACTS[0].id,companyId:DEMO_COMPANIES[0].id,nextAction:'Voorstel versturen',nextActionDate:td(),priority:'high',notes:[{id:uid(),text:'Sarah wil Q3 live gaan',at:new Date().toISOString()}]},
-  {...mkOpp('Brand Identity','','qualified',8500,40),contactId:DEMO_CONTACTS[1].id,companyId:DEMO_COMPANIES[1].id,nextAction:'Portfolio sturen',nextActionDate:td(),notes:[]},
-  {...mkOpp('Strategie Workshop','','negotiation',12000,75),contactId:DEMO_CONTACTS[2].id,companyId:DEMO_COMPANIES[2].id,nextAction:'Contract reviewen',nextActionDate:td(),priority:'high',notes:[{id:uid(),text:'Akkoord op scope, prijs nog open',at:new Date().toISOString()}]},
-  {...mkOpp('App Development','','lead',25000,20),contactId:DEMO_CONTACTS[3].id,companyId:DEMO_COMPANIES[3].id,nextAction:'Discovery call plannen',nextActionDate:'',notes:[]},
-  {...mkOpp('SEO Pakket','','won',4800,100),contactId:DEMO_CONTACTS[0].id,companyId:DEMO_COMPANIES[0].id,closedAt:new Date().toISOString(),notes:[]},
-  {...mkOpp('Pensioenadvies Platform','','lead',35000,15),contactId:'',companyId:DEMO_COMPANIES[4].id,nextAction:'Contactpersoon vinden',nextActionDate:td(),notes:[{id:uid(),text:'Nog geen contactpersoon, via LinkedIn benaderen',at:new Date().toISOString()}]},
+  {...mkOpp('Elastic Observability','','proposal',15000,60),contactId:DEMO_CONTACTS[0].id,companyId:DEMO_COMPANIES[0].id,nextAction:'Voorstel versturen',nextActionDate:td(),priority:'high',techTags:['Elastic','Kubernetes'],atosSalesId:DEMO_ATOS[0].id,atosDeliveryId:DEMO_ATOS[2].id,notes:[{id:uid(),text:'Sarah wil Q3 live gaan',at:new Date().toISOString()}]},
+  {...mkOpp('Dynatrace APM Implementatie','','qualified',8500,40),contactId:DEMO_CONTACTS[1].id,companyId:DEMO_COMPANIES[1].id,nextAction:'Demo plannen',nextActionDate:td(),techTags:['Dynatrace'],atosSalesId:DEMO_ATOS[1].id,notes:[]},
+  {...mkOpp('Cloud Monitoring Stack','','negotiation',12000,75),contactId:DEMO_CONTACTS[2].id,companyId:DEMO_COMPANIES[2].id,nextAction:'Contract reviewen',nextActionDate:td(),priority:'high',techTags:['Elastic','Dynatrace','Grafana'],atosSalesId:DEMO_ATOS[0].id,atosDeliveryId:DEMO_ATOS[3].id,notes:[{id:uid(),text:'Akkoord op scope, prijs nog open',at:new Date().toISOString()}]},
+  {...mkOpp('Kubernetes Platform','','lead',25000,20),contactId:DEMO_CONTACTS[3].id,companyId:DEMO_COMPANIES[3].id,nextAction:'Discovery call plannen',nextActionDate:'',techTags:['Kubernetes','Terraform','AWS'],notes:[]},
+  {...mkOpp('Elastic SIEM','','won',4800,100),contactId:DEMO_CONTACTS[0].id,companyId:DEMO_COMPANIES[0].id,closedAt:new Date().toISOString(),techTags:['Elastic'],atosSalesId:DEMO_ATOS[0].id,atosDeliveryId:DEMO_ATOS[2].id,notes:[]},
+  {...mkOpp('Dynatrace Licentie Advies','','lead',35000,15),contactId:'',companyId:DEMO_COMPANIES[4].id,nextAction:'Contactpersoon vinden',nextActionDate:td(),techTags:['Dynatrace'],notes:[{id:uid(),text:'Nog geen contactpersoon, via LinkedIn benaderen',at:new Date().toISOString()}]},
 ];
 
 const DEMO_TASKS=[
@@ -98,10 +117,12 @@ const DEMO_TASKS=[
 const App = function(){
   const[dark,setDark]=useState(()=>LS.get('dark',true));
   const t=dark?DARK:LIGHT;
-  const[contacts,setContacts]=useState(()=>LS.get('contacts',DEMO_CONTACTS));
-  const[companies,setCompanies]=useState(()=>LS.get('companies',DEMO_COMPANIES));
-  const[opps,setOpps]=useState(()=>LS.get('opps',DEMO_OPPS));
-  const[tasks,setTasks]=useState(()=>LS.get('tasks',DEMO_TASKS));
+  const[contacts,setContacts]=useState(()=>LS.has('contacts')?LS.get('contacts',[]):isFirstLaunch?DEMO_CONTACTS:[]);
+  const[companies,setCompanies]=useState(()=>LS.has('companies')?LS.get('companies',[]):isFirstLaunch?DEMO_COMPANIES:[]);
+  const[opps,setOpps]=useState(()=>LS.has('opps')?LS.get('opps',[]):isFirstLaunch?DEMO_OPPS:[]);
+  const[tasks,setTasks]=useState(()=>LS.has('tasks')?LS.get('tasks',[]):isFirstLaunch?DEMO_TASKS:[]);
+  const[atosTeam,setAtosTeam]=useState(()=>LS.has('atos')?LS.get('atos',[]):isFirstLaunch?DEMO_ATOS:[]);
+  const[interactions,setInteractions]=useState(()=>LS.get('interactions',[])); // {id,contactId,oppId,type:'call'|'email'|'meeting'|'note',text,at}
   const[view,setView]=useState('pipeline');
   const[sb,setSb]=useState(false);
   const[modal,setModal]=useState(null); // {type:'contact'|'opp'|'task'|'company', data?:...}
@@ -111,11 +132,21 @@ const App = function(){
   const[dragOpp,setDragOpp]=useState(null);
   const[dbStatus,setDbStatus]=useState('checking');
   const[dbMs,setDbMs]=useState(null);
+  const[aiOpen,setAiOpen]=useState(false);
+  const[aiMsgs,setAiMsgs]=useState([{id:1,r:'bot',t:'👋 Ik ben je AI sales assistent.\n\nIk analyseer je pipeline, geef advies en help met:\n• Pipeline status & bottlenecks\n• Deal prioritering & volgende stappen\n• Contactstrategie & opvolging\n• Technologie-inzichten\n\nStel een vraag of typ "analyse" voor een volledig overzicht.',time:ft()}]);
+  const[aiIn,setAiIn]=useState('');
+  const[aiLoad,setAiLoad]=useState(false);
+  const aiEnd=useRef(null);
 
   useEffect(()=>{LS.set('contacts',contacts);},[contacts]);
   useEffect(()=>{LS.set('companies',companies);},[companies]);
   useEffect(()=>{LS.set('opps',opps);},[opps]);
   useEffect(()=>{LS.set('tasks',tasks);},[tasks]);
+  useEffect(()=>{LS.set('atos',atosTeam);},[atosTeam]);
+  useEffect(()=>{LS.set('interactions',interactions);},[interactions]);
+  const[filtCompany,setFiltCompany]=useState('');
+  const[filtContact,setFiltContact]=useState('');
+  const[filtTech,setFiltTech]=useState('');
   useEffect(()=>{LS.set('dark',dark);},[dark]);
 
   // ─── Neon Connection Check ────────────────────────
@@ -139,6 +170,60 @@ const App = function(){
   const compName=id=>companies.find(c=>c.id===id)?.name||'';
   const cCompany=id=>{const c=contacts.find(x=>x.id===id);return c?compName(c.companyId):'';}
   const oppName=id=>opps.find(o=>o.id===id)?.title||'';
+  const atosName=id=>atosTeam.find(a=>a.id===id)?.name||'';
+
+  // ─── INTERACTION LOG ──────────────────────────────
+  const logInteraction=(contactId,oppId,type,text)=>{setInteractions(p=>[{id:uid(),contactId,oppId,type,text,at:new Date().toISOString()},...p]);};
+  const getInteractions=(contactId,oppId)=>interactions.filter(i=>(contactId&&i.contactId===contactId)||(oppId&&i.oppId===oppId)).slice(0,20);
+  const INT_TYPES=[{id:'call',l:'Gesprek',ic:'📞'},{id:'email',l:'E-mail',ic:'📧'},{id:'meeting',l:'Meeting',ic:'🤝'},{id:'note',l:'Notitie',ic:'📝'}];
+
+  // ─── TAG MANAGEMENT ───────────────────────────────
+  const addTagTo=(entity,setEntity,id,tag)=>{if(!tag.trim())return;setEntity(p=>p.map(x=>x.id===id?{...x,tags:[...new Set([...(x.tags||[]),tag.trim().toLowerCase()])]}:x));};
+  const removeTagFrom=(entity,setEntity,id,tag)=>{setEntity(p=>p.map(x=>x.id===id?{...x,tags:(x.tags||[]).filter(t2=>t2!==tag)}:x));};
+
+  // ─── CLAUDE AI ASSISTANT ──────────────────────────
+  const buildCRMContext=()=>{
+    const ac=activeOpps.length,wv=Math.round(weightedPipeline),wr=wonRevenue;
+    const byStage=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost').map(s=>({stage:s.l,count:opps.filter(o=>o.stage===s.id).length,value:opps.filter(o=>o.stage===s.id).reduce((sum,o)=>sum+o.value,0)}));
+    const overdue=overdueTasks.map(tk=>({task:tk.title,contact:cName(tk.contactId),days:Math.round((new Date()-new Date(tk.dueDate))/(86400000))}));
+    const staleDeals=activeOpps.filter(o=>{const d=new Date(o.updatedAt);return(new Date()-d)>7*86400000;}).map(o=>({deal:o.title,company:compName(o.companyId)||oppWho(o),stage:stageC(o.stage).l,daysSinceUpdate:Math.round((new Date()-new Date(o.updatedAt))/86400000),value:o.value}));
+    const topDeals=activeOpps.sort((a,b)=>b.value-a.value).slice(0,5).map(o=>({title:o.title,value:o.value,stage:stageC(o.stage).l,probability:o.probability,company:compName(o.companyId),contact:cName(o.contactId),nextAction:o.nextAction,techTags:o.techTags}));
+    const recentInt=interactions.slice(0,10).map(i=>({type:i.type,contact:cName(i.contactId),text:i.text,date:fds(i.at)}));
+    return `CRM Status:
+- ${ac} actieve deals, gewogen waarde €${wv}, gewonnen omzet €${wr}
+- Pipeline per fase: ${byStage.map(s=>`${s.stage}: ${s.count} deals (€${s.value})`).join(', ')}
+- ${overdue.length} achterstallige taken${overdue.length?': '+overdue.map(o=>`"${o.task}" (${o.contact}, ${o.days}d)`).join(', '):''}
+- ${staleDeals.length} deals zonder recente activiteit${staleDeals.length?': '+staleDeals.map(d=>`"${d.deal}" bij ${d.company} (${d.daysSinceUpdate}d, ${d.stage})`).join(', '):''}
+Top 5 deals: ${topDeals.map(d=>`${d.title} €${d.value} ${d.stage} ${d.probability}% [${d.company}] tech:${(d.techTags||[]).join(',')} actie:${d.nextAction||'geen'}`).join(' | ')}
+Recente interacties: ${recentInt.map(i=>`${i.type} ${i.contact}: ${i.text} (${i.date})`).join(' | ')||'geen'}
+Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
+  };
+
+  // AI send function
+  const sendAi=async()=>{if(!aiIn.trim()||aiLoad)return;const msg=aiIn;setAiIn('');setAiMsgs(p=>[...p,{id:uid(),r:'user',t:msg,time:ft()}]);setAiLoad(true);
+    let resp;
+    try{
+      const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:`Je bent een Nederlandse sales assistent voor een persoonlijk CRM systeem (DPM CRM). Je analyseert de pipeline, geeft proactief advies over deals, contactstrategie en opvolging. Je hebt toegang tot de volledige CRM data. Wees concreet, noem namen en bedragen. Geef actiegerichte adviezen.\n\n${buildCRMContext()}`,messages:[{role:'user',content:msg}]})});
+      const d=await r.json();resp=d.content?.[0]?.text;
+    }catch{}
+    if(!resp){
+      // Local fallback
+      const m=msg.toLowerCase();
+      if(m.includes('analyse')||m.includes('status')||m.includes('pipeline')){
+        const stale=activeOpps.filter(o=>(new Date()-new Date(o.updatedAt))>7*86400000);
+        resp=`📊 Pipeline Analyse\n\n💰 ${activeOpps.length} actieve deals — €${Math.round(totalPipeline).toLocaleString('nl-NL')} pipeline\n📈 Gewogen: €${Math.round(weightedPipeline).toLocaleString('nl-NL')}\n🏆 ${wonOpps.length} gewonnen — €${wonRevenue.toLocaleString('nl-NL')}\n\n${overdueTasks.length?`⚠️ ${overdueTasks.length} achterstallige taken!\n${overdueTasks.slice(0,3).map(tk=>`  • ${tk.title} (${cName(tk.contactId)})`).join('\n')}\n\n`:''}${stale.length?`🔴 ${stale.length} deals zonder recente activiteit:\n${stale.map(o=>`  • ${o.title} (${compName(o.companyId)||'?'}) — ${Math.round((new Date()-new Date(o.updatedAt))/86400000)}d stil`).join('\n')}\n\n`:''}💡 Tip: Focus op deals in Onderhandeling — daar zit de snelste omzet.`;
+      }else if(m.includes('deal')||m.includes('priorit')){
+        const top=activeOpps.sort((a,b)=>(b.value*b.probability)-(a.value*a.probability)).slice(0,5);
+        resp=`🎯 Top deals op gewogen waarde:\n\n${top.map((o,i)=>`${i+1}. ${o.title} — €${o.value} (${o.probability}%) = €${Math.round(o.value*o.probability/100)}\n   ${compName(o.companyId)} · ${stageC(o.stage).l}${o.nextAction?' · →'+o.nextAction:''}`).join('\n\n')}`;
+      }else if(m.includes('contact')||m.includes('opvolg')){
+        resp=`👥 Opvolgadvies:\n\n${overdueTasks.length?overdueTasks.slice(0,5).map(tk=>`⚠️ ${tk.title} — ${cName(tk.contactId)} (${Math.round((new Date()-new Date(tk.dueDate))/86400000)}d te laat)`).join('\n'):'✅ Geen achterstallige taken!'}\n\n💡 Typ "analyse" voor volledig overzicht.`;
+      }else{
+        resp=`Ik kan je helpen met:\n• "analyse" — volledige pipeline analyse\n• "deals" — top deals op waarde\n• "opvolging" — contacten die aandacht nodig hebben\n• Of stel een specifieke vraag over je pipeline!`;
+      }
+    }
+    setAiMsgs(p=>[...p,{id:uid(),r:'bot',t:resp,time:ft()}]);setAiLoad(false);
+  };
+  useEffect(()=>{aiEnd.current?.scrollIntoView({behavior:'smooth'});},[aiMsgs]);
   // Resolve display name for opp: contact name or company name
   const oppWho=o=>{if(o.contactId&&cName(o.contactId))return cName(o.contactId);if(o.companyId)return compName(o.companyId);return '';};
   const oppOrg=o=>{if(o.companyId)return compName(o.companyId);if(o.contactId)return cCompany(o.contactId);return '';};
@@ -198,54 +283,58 @@ const App = function(){
   // ─── PIPELINE VIEW (Kanban) ───────────────────────
   const Pipeline=()=>{
     const active=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost');
+    const filteredOpps=opps.filter(o=>{if(filtCompany&&o.companyId!==filtCompany)return false;if(filtContact&&o.contactId!==filtContact)return false;if(filtTech&&!(o.techTags||[]).includes(filtTech))return false;return true;});
+    const fActive=filteredOpps.filter(o=>o.stage!=='won'&&o.stage!=='lost');
+    const fWon=filteredOpps.filter(o=>o.stage==='won');
+    const fTotal=fActive.reduce((s,o)=>s+o.value,0);
+    const hasFilter=filtCompany||filtContact||filtTech;
     return <div>
+      <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
+        <select value={filtCompany} onChange={e=>setFiltCompany(e.target.value)} style={{...inp,width:'auto',padding:'6px 12px',fontSize:12}}><option value="">Alle bedrijven</option>{companies.map(co=><option key={co.id} value={co.id}>{co.name}</option>)}</select>
+        <select value={filtContact} onChange={e=>setFiltContact(e.target.value)} style={{...inp,width:'auto',padding:'6px 12px',fontSize:12}}><option value="">Alle contacten</option>{contacts.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
+        <select value={filtTech} onChange={e=>setFiltTech(e.target.value)} style={{...inp,width:'auto',padding:'6px 12px',fontSize:12}}><option value="">Alle technologie</option>{TECH_TAGS.map(tt=><option key={tt} value={tt}>{tt}</option>)}</select>
+        {hasFilter&&<button onClick={()=>{setFiltCompany('');setFiltContact('');setFiltTech('');}} style={{...btnG,padding:'5px 12px',fontSize:11,color:t.red}}>✕ Reset</button>}
+      </div>
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
-        {[{l:'Pipeline',v:eur(totalPipeline),c:t.accent},{l:'Gewogen',v:eur(Math.round(weightedPipeline)),c:t.purple},{l:'Gewonnen',v:eur(wonRevenue),c:t.green},{l:'Deals',v:activeOpps.length,c:t.text}].map((s,i)=><div key={i} style={{...card,flex:'1 1 140px',minWidth:140}}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
+        {[{l:'Pipeline',v:eur(fTotal),c:t.accent},{l:'Gewogen',v:eur(Math.round(fActive.reduce((s,o)=>s+(o.value*o.probability/100),0))),c:t.purple},{l:'Gewonnen',v:eur(fWon.reduce((s,o)=>s+o.value,0)),c:t.green},{l:'Deals',v:fActive.length,c:t.text}].map((s,i)=><div key={i} style={{...card,flex:'1 1 140px',minWidth:140}}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
       </div>
       <div style={{display:'grid',gridTemplateColumns:`repeat(${active.length},1fr)`,gap:10,overflowX:'auto'}}>
         {active.map(stage=>{
-          const stageOpps=opps.filter(o=>o.stage===stage.id);
-          const stageVal=stageOpps.reduce((s,o)=>s+o.value,0);
-          return <div key={stage.id}
-            onDragOver={e=>e.preventDefault()}
-            onDrop={()=>{if(dragOpp){setOpps(p=>p.map(o=>o.id===dragOpp?{...o,stage:stage.id,updatedAt:new Date().toISOString()}:o));toast(`Verplaatst naar ${stage.l}`);setDragOpp(null);}}}
-            style={{minWidth:200}}>
+          const stOps=filteredOpps.filter(o=>o.stage===stage.id);const stVal=stOps.reduce((s,o)=>s+o.value,0);
+          return <div key={stage.id} onDragOver={e=>e.preventDefault()} onDrop={()=>{if(dragOpp){setOpps(p=>p.map(o=>o.id===dragOpp?{...o,stage:stage.id,updatedAt:new Date().toISOString()}:o));toast(`Verplaatst naar ${stage.l}`);setDragOpp(null);}}} style={{minWidth:200}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'0 4px'}}>
-              <div style={{display:'flex',alignItems:'center',gap:6}}>
-                <div style={{width:8,height:8,borderRadius:'50%',background:stage.c}}/>
-                <span style={{fontSize:13,fontWeight:700}}>{stage.l}</span>
-                <span style={{fontSize:11,color:t.muted,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',padding:'1px 7px',borderRadius:8}}>{stageOpps.length}</span>
-              </div>
-              <span style={{fontSize:11,color:t.dim,fontWeight:500}}>{eur(stageVal)}</span>
+              <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:8,height:8,borderRadius:'50%',background:stage.c}}/><span style={{fontSize:13,fontWeight:700}}>{stage.l}</span><span style={{fontSize:11,color:t.muted,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',padding:'1px 7px',borderRadius:8}}>{stOps.length}</span></div>
+              <span style={{fontSize:11,color:t.dim,fontWeight:500}}>{eur(stVal)}</span>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:6,minHeight:100}}>
-              {stageOpps.map(opp=><div key={opp.id} draggable onDragStart={()=>setDragOpp(opp.id)} onClick={()=>setDetail({type:'opp',id:opp.id})}
-                style={{...card,padding:'12px 14px',cursor:'grab',transition:`all 0.15s ${sp}`,borderLeft:`3px solid ${PRIS.find(p=>p.id===opp.priority)?.c||t.accent}`}}>
-                <div style={{fontSize:13,fontWeight:600,marginBottom:4}}>{opp.title}</div>
-                <div style={{fontSize:11,color:t.dim,marginBottom:6}}>{oppWho(opp)}{oppOrg(opp)&&oppWho(opp)?' · '+oppOrg(opp):oppOrg(opp)}</div>
+              {stOps.map(opp=><div key={opp.id} draggable onDragStart={()=>setDragOpp(opp.id)} onClick={()=>setDetail({type:'opp',id:opp.id})} style={{...card,padding:'12px 14px',cursor:'grab',transition:`all 0.15s ${sp}`,borderLeft:`3px solid ${PRIS.find(p=>p.id===opp.priority)?.c||t.accent}`}}>
+                <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{opp.title}</div>
+                <div style={{fontSize:11,color:t.dim,marginBottom:3}}>{oppWho(opp)}{oppOrg(opp)&&oppWho(opp)?' · '+oppOrg(opp):oppOrg(opp)}</div>
+                {(opp.techTags||[]).length>0&&<div style={{display:'flex',gap:3,flexWrap:'wrap',marginBottom:4}}>{opp.techTags.map(tt=><span key={tt} style={{fontSize:9,padding:'1px 6px',borderRadius:5,background:t.purpleS,color:t.purple,fontWeight:600}}>{tt}</span>)}</div>}
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                  <span style={{fontSize:14,fontWeight:700,color:t.text}}>{eur(opp.value)}</span>
+                  <span style={{fontSize:14,fontWeight:700}}>{eur(opp.value)}</span>
                   <span style={{fontSize:10,padding:'2px 8px',borderRadius:8,background:`${stage.c}20`,color:stage.c,fontWeight:600}}>{opp.probability}%</span>
                 </div>
-                {opp.nextAction&&<div style={{fontSize:11,color:t.orange,marginTop:6,fontWeight:500}}>→ {opp.nextAction}</div>}
+                {(opp.atosSalesId||opp.atosDeliveryId)&&<div style={{fontSize:10,color:t.dim,marginTop:4,display:'flex',gap:8}}>{opp.atosSalesId&&<span>🔵{atosName(opp.atosSalesId)}</span>}{opp.atosDeliveryId&&<span>🟢{atosName(opp.atosDeliveryId)}</span>}</div>}
+                {opp.nextAction&&<div style={{fontSize:11,color:t.orange,marginTop:4,fontWeight:500}}>→ {opp.nextAction}</div>}
               </div>)}
               <div onClick={()=>setModal({type:'opp',data:{stage:stage.id}})} style={{padding:10,borderRadius:10,border:`1.5px dashed ${t.border}`,textAlign:'center',color:t.muted,fontSize:12,cursor:'pointer'}}>+ Deal</div>
             </div>
-          </div>;
-        })}
+          </div>;})}
       </div>
-      {(wonOpps.length>0||opps.filter(o=>o.stage==='lost').length>0)&&<div style={{marginTop:24}}>
+      {(fWon.length>0||filteredOpps.filter(o=>o.stage==='lost').length>0)&&<div style={{marginTop:24}}>
         <div style={{fontSize:15,fontWeight:700,marginBottom:10}}>Afgeronde deals</div>
         <div style={{display:'flex',flexDirection:'column',gap:6}}>
-          {opps.filter(o=>o.stage==='won'||o.stage==='lost').map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',opacity:.7}}>
-            <span style={{fontSize:16}}>{o.stage==='won'?'🏆':'✕'}</span>
-            <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{oppWho(o)}{oppOrg(o)&&oppWho(o)?' · '+oppOrg(o):oppOrg(o)}</div></div>
+          {filteredOpps.filter(o=>o.stage==='won'||o.stage==='lost').map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',opacity:.7}}>
+            <span style={{fontSize:16}}>{o.stage==='won'?'\u{1F3C6}':'✕'}</span>
+            <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{oppWho(o)}{(o.techTags||[]).length>0&&' · '+o.techTags.join(', ')}</div></div>
             <span style={{fontWeight:700,color:o.stage==='won'?t.green:t.red}}>{eur(o.value)}</span>
           </div>)}
         </div>
       </div>}
     </div>;
   };
+
 
   // ─── CONTACTS VIEW ────────────────────────────────
   const Contacts=()=>{
@@ -271,37 +360,72 @@ const App = function(){
 
   // ─── TASKS VIEW ───────────────────────────────────
   const Tasks=()=>{
-    const open=tasks.filter(t=>!t.done).sort((a,b)=>{
-      // Sort: overdue first, then by date+time
-      const aOver=a.dueDate&&a.dueDate<td()?0:1;
-      const bOver=b.dueDate&&b.dueDate<td()?0:1;
-      if(aOver!==bOver)return aOver-bOver;
-      return (a.dueDate||'z').localeCompare(b.dueDate||'z')||(a.dueTime||'zz').localeCompare(b.dueTime||'zz');
-    });
+    const[taskTab,setTaskTab]=useState('today');
+    const allOpen=tasks.filter(t=>!t.done);
+    const today=allOpen.filter(t=>t.dueDate===td());
+    const overdue=allOpen.filter(t=>t.dueDate&&t.dueDate<td());
+    const upcoming=allOpen.filter(t=>t.dueDate&&t.dueDate>td());
+    const noDue=allOpen.filter(t=>!t.dueDate);
     const done=tasks.filter(t=>t.done);
-    return <div>
-      <div style={{display:'flex',gap:8,marginBottom:16,justifyContent:'space-between',flexWrap:'wrap'}}><div style={{display:'flex',gap:10,flexWrap:'wrap'}}>{overdueTasks.length>0&&<div style={{...card,padding:'8px 14px',display:'flex',alignItems:'center',gap:6,borderColor:t.red+'44'}}><span style={{fontSize:13}}>🔴</span><span style={{fontSize:13,fontWeight:600,color:t.red}}>{overdueTasks.length} achterstallig</span></div>}<div style={{...card,padding:'8px 14px',display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:13}}>📋</span><span style={{fontSize:13,fontWeight:600}}>{todayTasks.length} vandaag</span></div>{tasks.filter(t=>t.reminder&&!t.done).length>0&&<div style={{...card,padding:'8px 14px',display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:13}}>🔔</span><span style={{fontSize:13,fontWeight:600}}>{tasks.filter(t=>t.reminder&&!t.done).length} herinneringen</span></div>}</div><button onClick={()=>setModal({type:'task'})} style={btnP}>+ Taak</button></div>
-      <div style={{display:'flex',flexDirection:'column',gap:6}}>
-        {open.map(tk=>{const isOverdue=tk.dueDate&&tk.dueDate<td();const oName=oppName(tk.oppId);return <div key={tk.id} style={{...card,padding:'12px 16px',display:'flex',alignItems:'center',gap:12,borderLeft:`3px solid ${isOverdue?t.red:PRIS.find(p=>p.id===tk.priority)?.c||t.accent}`}}>
-          <div onClick={()=>{setTasks(p=>p.map(x=>x.id===tk.id?{...x,done:true}:x));toast(`"${tk.title}" afgerond`);}} style={{width:20,height:20,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:`all 0.2s ${sp}`,flexShrink:0}}/>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:14,fontWeight:500}}>{tk.title}</div>
-            <div style={{fontSize:11,color:t.dim,display:'flex',gap:8,marginTop:3,flexWrap:'wrap',alignItems:'center'}}>
-              {tk.contactId&&<span>👤 {cName(tk.contactId)}</span>}
-              {oName&&<span onClick={e=>{e.stopPropagation();setDetail({type:'opp',id:tk.oppId});}} style={{color:t.accent,cursor:'pointer',fontWeight:500}}>📊 {oName}</span>}
-              {tk.dueDate&&<span style={{color:isOverdue?t.red:t.dim}}>{fds(tk.dueDate)}{tk.dueTime&&' · '+tk.dueTime}</span>}
-              {tk.reminder&&<span style={{display:'flex',alignItems:'center',gap:2}}>🔔{tk.reminderMin?<span style={{fontSize:10}}>{tk.reminderMin}m</span>:null}</span>}
-            </div>
-          </div>
-          <button onClick={()=>setModal({type:'task',data:tk})} style={{...btnG,padding:'4px 10px',fontSize:11}}>✎</button>
-          <button onClick={()=>{setTasks(p=>p.filter(x=>x.id!==tk.id));toast('Verwijderd','info');}} style={{background:'none',border:'none',color:t.red,cursor:'pointer',fontSize:14}}>✕</button>
-        </div>;})}
+    const withReminder=allOpen.filter(t=>t.reminder);
+
+    // Which tasks to show based on tab
+    let shown=[];
+    if(taskTab==='today')shown=[...overdue,...today];
+    else if(taskTab==='upcoming')shown=upcoming;
+    else if(taskTab==='all')shown=allOpen;
+    else if(taskTab==='done')shown=done;
+
+    // Group by date
+    const grouped=taskTab!=='done'?[...new Set(shown.map(t=>t.dueDate||'no-date'))].sort((a,b)=>a==='no-date'?1:b==='no-date'?-1:a.localeCompare(b)):[];
+
+    const TaskRow=({tk})=>{const isOverdue=tk.dueDate&&tk.dueDate<td()&&!tk.done;const oName=oppName(tk.oppId);return <div style={{...card,padding:'12px 16px',display:'flex',alignItems:'center',gap:12,borderLeft:`3px solid ${isOverdue?t.red:tk.done?t.green:PRIS.find(p=>p.id===tk.priority)?.c||t.accent}`}}>
+      {!tk.done?<div onClick={()=>{setTasks(p=>p.map(x=>x.id===tk.id?{...x,done:true}:x));toast(`"${tk.title}" afgerond`);}} style={{width:20,height:20,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}/>
+      :<div onClick={()=>setTasks(p=>p.map(x=>x.id===tk.id?{...x,done:false}:x))} style={{width:20,height:20,borderRadius:'50%',background:t.green,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#fff',fontWeight:700,cursor:'pointer',flexShrink:0}}>✓</div>}
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:14,fontWeight:500,textDecoration:tk.done?'line-through':'none',opacity:tk.done?.5:1}}>{tk.title}</div>
+        <div style={{fontSize:11,color:t.dim,display:'flex',gap:8,marginTop:3,flexWrap:'wrap',alignItems:'center'}}>
+          {tk.contactId&&<span>👤 {cName(tk.contactId)}</span>}
+          {oName&&<span onClick={e=>{e.stopPropagation();setDetail({type:'opp',id:tk.oppId});}} style={{color:t.accent,cursor:'pointer',fontWeight:500}}>📊 {oName}</span>}
+          {tk.dueDate&&<span style={{color:isOverdue?t.red:t.dim}}>{fds(tk.dueDate)}{tk.dueTime&&' · '+tk.dueTime}</span>}
+          {tk.reminder&&<span>🔔{tk.reminderMin?<span style={{fontSize:10}}>{tk.reminderMin}m</span>:null}</span>}
+          {tk.contactId&&compName(contacts.find(c=>c.id===tk.contactId)?.companyId)&&<span style={{color:t.muted}}>🏢 {compName(contacts.find(c=>c.id===tk.contactId)?.companyId)}</span>}
+        </div>
       </div>
-      {done.length>0&&<><div style={{fontSize:14,fontWeight:700,margin:'20px 0 8px',color:t.dim}}>Afgerond ({done.length})</div><div style={{display:'flex',flexDirection:'column',gap:4}}>{done.slice(0,10).map(tk=><div key={tk.id} style={{padding:'8px 16px',display:'flex',alignItems:'center',gap:10,opacity:.4}}>
-        <div onClick={()=>setTasks(p=>p.map(x=>x.id===tk.id?{...x,done:false}:x))} style={{width:18,height:18,borderRadius:'50%',background:t.green,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#fff',fontWeight:700,cursor:'pointer'}}>✓</div>
-        <span style={{fontSize:13,textDecoration:'line-through'}}>{tk.title}</span>
-        {tk.oppId&&<span style={{fontSize:10,color:t.dim}}>📊 {oppName(tk.oppId)}</span>}
-      </div>)}</div></>}
+      {!tk.done&&<button onClick={()=>setModal({type:'task',data:tk})} style={{...btnG,padding:'4px 10px',fontSize:11}}>✎</button>}
+      <button onClick={()=>{setTasks(p=>p.filter(x=>x.id!==tk.id));toast('Verwijderd','info');}} style={{background:'none',border:'none',color:t.red,cursor:'pointer',fontSize:14}}>✕</button>
+    </div>;};
+
+    return <div>
+      {/* Stats cards */}
+      <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+        {[{l:'Achterstallig',v:overdue.length,c:t.red,show:overdue.length>0},{l:'Vandaag',v:today.length,c:t.accent,show:true},{l:'Komend',v:upcoming.length,c:t.teal,show:true},{l:'Totaal Open',v:allOpen.length,c:t.text,show:true},{l:'Herinneringen',v:withReminder.length,c:t.orange,show:withReminder.length>0},{l:'Afgerond',v:done.length,c:t.green,show:true}].filter(s=>s.show).map((s,i)=><div key={i} style={{...card,padding:'8px 14px',flex:'1 1 100px',minWidth:100}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase',letterSpacing:.5,fontWeight:600}}>{s.l}</div><div style={{fontSize:22,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
+      </div>
+
+      {/* Tabs */}
+      <div style={{display:'flex',gap:4,marginBottom:16,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:10,padding:3}}>
+        {[{id:'today',l:`Vandaag (${overdue.length+today.length})`},{id:'upcoming',l:`Komend (${upcoming.length})`},{id:'all',l:`Alle (${allOpen.length})`},{id:'done',l:`Afgerond (${done.length})`}].map(tab=><button key={tab.id} onClick={()=>setTaskTab(tab.id)} style={{flex:1,padding:'7px 12px',borderRadius:8,fontSize:12,fontWeight:taskTab===tab.id?600:400,border:'none',background:taskTab===tab.id?t.accent:'transparent',color:taskTab===tab.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',transition:`all .15s ${sp}`}}>{tab.l}</button>)}
+      </div>
+
+      {/* Add task button */}
+      <div style={{display:'flex',justifyContent:'flex-end',marginBottom:12}}><button onClick={()=>setModal({type:'task'})} style={btnP}>+ Taak</button></div>
+
+      {/* Task list — grouped by date */}
+      {taskTab!=='done'?<div style={{display:'flex',flexDirection:'column',gap:4}}>
+        {grouped.map(date=>{const dateTasks=shown.filter(t=>(t.dueDate||'no-date')===date);const isOverdueGroup=date!=='no-date'&&date<td();const isTodayGroup=date===td();return <div key={date}>
+          <div style={{fontSize:12,fontWeight:700,color:isOverdueGroup?t.red:isTodayGroup?t.accent:t.dim,padding:'10px 4px 4px',textTransform:'uppercase',letterSpacing:1}}>
+            {date==='no-date'?'Geen datum':isTodayGroup?'Vandaag — '+fd(date):isOverdueGroup?'⚠ Achterstallig — '+fd(date):fd(date)}
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:5}}>{dateTasks.map(tk=><TaskRow key={tk.id} tk={tk}/>)}</div>
+        </div>;})}
+        {noDue.length>0&&taskTab==='all'&&<div><div style={{fontSize:12,fontWeight:700,color:t.muted,padding:'10px 4px 4px',textTransform:'uppercase',letterSpacing:1}}>Geen deadline</div><div style={{display:'flex',flexDirection:'column',gap:5}}>{noDue.map(tk=><TaskRow key={tk.id} tk={tk}/>)}</div></div>}
+        {shown.length===0&&<div style={{textAlign:'center',padding:40,color:t.muted}}>{taskTab==='today'?'Geen taken vandaag 👏':'Geen taken in deze categorie'}</div>}
+      </div>
+      :<div style={{display:'flex',flexDirection:'column',gap:4}}>
+        {done.length===0&&<div style={{textAlign:'center',padding:40,color:t.muted}}>Nog geen afgeronde taken</div>}
+        {done.slice(0,30).map(tk=><TaskRow key={tk.id} tk={tk}/>)}
+        {done.length>30&&<div style={{textAlign:'center',color:t.muted,fontSize:12,padding:8}}>+{done.length-30} meer</div>}
+      </div>}
     </div>;
   };
 
@@ -355,6 +479,11 @@ const App = function(){
             {c.email&&<a href={`mailto:${c.email}`} style={{...btnG,padding:'6px 12px',fontSize:12,textDecoration:'none'}}>📧 {c.email}</a>}
             {c.phone&&<a href={`tel:${c.phone}`} style={{...btnG,padding:'6px 12px',fontSize:12,textDecoration:'none'}}>📱 {c.phone}</a>}
           </div>
+          {/* INLINE TAG MANAGEMENT */}
+          <div style={{display:'flex',gap:4,marginTop:12,flexWrap:'wrap',alignItems:'center'}}>
+            {(c.tags||[]).map(tag=><span key={tag} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{tag}<span onClick={()=>{removeTagFrom(contacts,setContacts,c.id,tag);toast('Tag verwijderd','info');}} style={{cursor:'pointer',fontSize:12}}>✕</span></span>)}
+            <span onClick={()=>{const tg=prompt('Tag toevoegen:');if(tg){addTagTo(contacts,setContacts,c.id,tg);toast('Tag toegevoegd');}}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.border}`,color:t.muted,cursor:'pointer'}}>+ tag</span>
+          </div>
         </div>
         <div style={{padding:24}}>
           <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>Deals ({cOpps.length})</div>
@@ -374,6 +503,18 @@ const App = function(){
               {tk.dueDate&&<span style={{fontSize:11,color:tk.dueDate<td()?t.red:t.dim}}>{fds(tk.dueDate)}</span>}
             </div>)}
             <button onClick={()=>setModal({type:'task',data:{contactId:c.id}})} style={{...btnG,justifyContent:'center',fontSize:12}}>+ Taak</button>
+          </div>
+          {/* INTERACTIONS */}
+          <div style={{marginTop:20}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>Interacties</span></div>
+            <div style={{display:'flex',gap:4,marginBottom:10}}>{INT_TYPES.map(it=><button key={it.id} onClick={()=>{const txt=prompt(`${it.ic} ${it.l} met ${c.name}:`);if(txt){logInteraction(c.id,'',it.id,txt);toast(`${it.l} gelogd`);}}} style={{...btnG,padding:'5px 10px',fontSize:11}}>{it.ic} {it.l}</button>)}</div>
+            <div style={{display:'flex',flexDirection:'column',gap:5}}>
+              {getInteractions(c.id).map(i=><div key={i.id} style={{padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple}`,fontSize:12}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}><span style={{fontWeight:600}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}</span><span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span></div>
+                <div style={{color:t.dim}}>{i.text}</div>
+              </div>)}
+              {getInteractions(c.id).length===0&&<div style={{fontSize:12,color:t.muted,fontStyle:'italic',textAlign:'center',padding:12}}>Nog geen interacties gelogd</div>}
+            </div>
           </div>
         </div>
       </div></div>;
@@ -412,6 +553,18 @@ const App = function(){
               <span style={{flex:1}}>{tk.title}</span>
             </div>)}
           </div>
+          {/* INTERACTIONS for this deal */}
+          <div style={{marginTop:20}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>Interacties</span></div>
+            <div style={{display:'flex',gap:4,marginBottom:10}}>{INT_TYPES.map(it=><button key={it.id} onClick={()=>{const txt=prompt(`${it.ic} ${it.l}:`);if(txt){logInteraction(o.contactId||'',o.id,it.id,txt);toast(`${it.l} gelogd`);}}} style={{...btnG,padding:'5px 10px',fontSize:11}}>{it.ic} {it.l}</button>)}</div>
+            <div style={{display:'flex',flexDirection:'column',gap:5}}>
+              {getInteractions('',o.id).map(i=><div key={i.id} style={{padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple}`,fontSize:12}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}><span style={{fontWeight:600}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}{i.contactId&&cName(i.contactId)?' — '+cName(i.contactId):''}</span><span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span></div>
+                <div style={{color:t.dim}}>{i.text}</div>
+              </div>)}
+              {getInteractions('',o.id).length===0&&<div style={{fontSize:12,color:t.muted,fontStyle:'italic',textAlign:'center',padding:12}}>Nog geen interacties</div>}
+            </div>
+          </div>
         </div>
       </div></div>;
     }
@@ -434,7 +587,10 @@ const App = function(){
             {co.phone&&<a href={`tel:${co.phone}`} style={{...btnG,padding:'6px 12px',fontSize:12,textDecoration:'none'}}>📱 {co.phone}</a>}
           </div>
           {co.notes&&<div style={{marginTop:12,padding:'10px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',fontSize:13,color:t.dim,borderLeft:`3px solid ${t.teal}`}}>{co.notes}</div>}
-          {co.tags?.length>0&&<div style={{display:'flex',gap:4,marginTop:10,flexWrap:'wrap'}}>{co.tags.map(tg=><span key={tg} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500}}>{tg}</span>)}</div>}
+          <div style={{display:'flex',gap:4,marginTop:10,flexWrap:'wrap',alignItems:'center'}}>
+            {(co.tags||[]).map(tg=><span key={tg} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{tg}<span onClick={()=>{removeTagFrom(companies,setCompanies,co.id,tg);toast('Tag verwijderd','info');}} style={{cursor:'pointer',fontSize:12}}>✕</span></span>)}
+            <span onClick={()=>{const tg=prompt('Tag toevoegen:');if(tg){addTagTo(companies,setCompanies,co.id,tg);toast('Tag toegevoegd');}}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.border}`,color:t.muted,cursor:'pointer'}}>+ tag</span>
+          </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginTop:16}}>
             <div style={{...card,padding:'10px 12px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:700}}>{coContacts.length}</div><div style={{fontSize:10,color:t.muted}}>Contacten</div></div>
             <div style={{...card,padding:'10px 12px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:700}}>{coOpps.length}</div><div style={{fontSize:10,color:t.muted}}>Deals</div></div>
@@ -487,14 +643,35 @@ const App = function(){
     </div>
   </div>;};
 
-  const OppModal=()=>{const d=modal?.data;const[f,sf]=useState(d?.id?d:{title:'',contactId:d?.contactId||'',companyId:d?.companyId||'',stage:d?.stage||'lead',value:0,probability:20,priority:'medium',nextAction:'',nextActionDate:'',notes:[],...d});
+  const OppModal=()=>{const d=modal?.data;
+    const[f,sf]=useState(d?.id?d:{title:'',contactId:d?.contactId||'',companyId:d?.companyId||'',stage:d?.stage||'lead',value:0,probability:20,priority:'medium',nextAction:'',nextActionDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',notes:[],...d});
+    const[newCoName,setNewCoName]=useState('');const[newCtName,setNewCtName]=useState('');const[techIn,setTechIn]=useState('');
+    const[showNewCo,setShowNewCo]=useState(false);const[showNewCt,setShowNewCt]=useState(false);
+    const[showAtosAdd,setShowAtosAdd]=useState(false);const[newAtosName,setNewAtosName]=useState('');const[newAtosRole,setNewAtosRole]=useState('sales');
+    const addTech=(tag)=>{if(tag&&!(f.techTags||[]).includes(tag))sf({...f,techTags:[...(f.techTags||[]),tag]});setTechIn('');};
+    const inlineAddCo=()=>{if(!newCoName.trim())return;const co={id:uid(),name:newCoName.trim(),website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],createdAt:new Date().toISOString()};setCompanies(p=>[...p,co]);sf({...f,companyId:co.id});setNewCoName('');setShowNewCo(false);toast('Bedrijf aangemaakt');};
+    const inlineAddCt=()=>{if(!newCtName.trim())return;const av=newCtName.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const ct={id:uid(),name:newCtName.trim(),email:'',phone:'',companyId:f.companyId||'',role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};setContacts(p=>[...p,ct]);sf({...f,contactId:ct.id});setNewCtName('');setShowNewCt(false);toast('Contact aangemaakt');};
+    const inlineAddAtos=()=>{if(!newAtosName.trim())return;const a={id:uid(),name:newAtosName.trim(),role:newAtosRole,email:'',phone:''};setAtosTeam(p=>[...p,a]);if(newAtosRole==='sales')sf({...f,atosSalesId:a.id});else sf({...f,atosDeliveryId:a.id});setNewAtosName('');setShowAtosAdd(false);toast('Atos contact toegevoegd');};
   return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:500,maxHeight:'90vh',overflowY:'auto'}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:540,maxHeight:'90vh',overflowY:'auto'}}>
       <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?'Deal Bewerken':'Nieuwe Deal'}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
       <div style={{padding:'16px 24px'}}>
-        <div style={{marginBottom:12}}><label style={lbl}>Titel</label><input style={inp} value={f.title} onChange={e=>sf({...f,title:e.target.value})} placeholder="Website redesign, adviestraject..." autoFocus/></div>
-        <div style={{marginBottom:12}}><label style={lbl}>Bedrijf</label><select style={{...inp,cursor:'pointer'}} value={f.companyId||''} onChange={e=>{sf({...f,companyId:e.target.value,contactId:''});}}><option value="">Kies bedrijf (optioneel)...</option>{companies.map(co=><option key={co.id} value={co.id}>{co.name}</option>)}</select></div>
-        <div style={{marginBottom:12}}><label style={lbl}>Contactpersoon</label><select style={{...inp,cursor:'pointer'}} value={f.contactId||''} onChange={e=>{const ct=contacts.find(c=>c.id===e.target.value);sf({...f,contactId:e.target.value,companyId:ct?.companyId||f.companyId});}}><option value="">Geen contact (alleen bedrijf)...</option>{(f.companyId?contacts.filter(c=>c.companyId===f.companyId):contacts).map(c=><option key={c.id} value={c.id}>{c.name}{compName(c.companyId)?' — '+compName(c.companyId):''}</option>)}</select>{f.companyId&&!contacts.some(c=>c.companyId===f.companyId)&&<div style={{fontSize:11,color:t.orange,marginTop:4}}>⚠ Dit bedrijf heeft nog geen contactpersonen</div>}</div>
+        <div style={{marginBottom:12}}><label style={lbl}>Titel</label><input style={inp} value={f.title} onChange={e=>sf({...f,title:e.target.value})} placeholder="Elastic Observability, Dynatrace APM..." autoFocus/></div>
+
+        {/* Bedrijf + inline aanmaken */}
+        <div style={{marginBottom:12}}><label style={lbl}>Bedrijf</label>
+          <div style={{display:'flex',gap:5}}><select style={{...inp,flex:1,cursor:'pointer'}} value={f.companyId||''} onChange={e=>{sf({...f,companyId:e.target.value,contactId:''});}}><option value="">Kies bedrijf...</option>{companies.map(co=><option key={co.id} value={co.id}>{co.name}</option>)}</select>
+          <button onClick={()=>setShowNewCo(!showNewCo)} style={{...btnG,padding:'6px 10px',fontSize:11,whiteSpace:'nowrap'}}>{showNewCo?'✕':'+ Nieuw'}</button></div>
+          {showNewCo&&<div style={{display:'flex',gap:5,marginTop:6}}><input style={inp} value={newCoName} onChange={e=>setNewCoName(e.target.value)} placeholder="Bedrijfsnaam..." onKeyDown={e=>e.key==='Enter'&&inlineAddCo()}/><button onClick={inlineAddCo} style={{...btnP,padding:'6px 12px',fontSize:11}}>Aanmaken</button></div>}
+        </div>
+
+        {/* Contact + inline aanmaken */}
+        <div style={{marginBottom:12}}><label style={lbl}>Contactpersoon</label>
+          <div style={{display:'flex',gap:5}}><select style={{...inp,flex:1,cursor:'pointer'}} value={f.contactId||''} onChange={e=>{const ct=contacts.find(c=>c.id===e.target.value);sf({...f,contactId:e.target.value,companyId:ct?.companyId||f.companyId});}}><option value="">Geen contact...</option>{(f.companyId?contacts.filter(c=>c.companyId===f.companyId):contacts).map(c=><option key={c.id} value={c.id}>{c.name}{compName(c.companyId)?' — '+compName(c.companyId):''}</option>)}</select>
+          <button onClick={()=>setShowNewCt(!showNewCt)} style={{...btnG,padding:'6px 10px',fontSize:11,whiteSpace:'nowrap'}}>{showNewCt?'✕':'+ Nieuw'}</button></div>
+          {showNewCt&&<div style={{display:'flex',gap:5,marginTop:6}}><input style={inp} value={newCtName} onChange={e=>setNewCtName(e.target.value)} placeholder="Naam contactpersoon..." onKeyDown={e=>e.key==='Enter'&&inlineAddCt()}/><button onClick={inlineAddCt} style={{...btnP,padding:'6px 12px',fontSize:11}}>Aanmaken</button></div>}
+        </div>
+
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
           <div><label style={lbl}>Waarde (€)</label><input type="number" style={inp} value={f.value} onChange={e=>sf({...f,value:+e.target.value})}/></div>
           <div><label style={lbl}>Kans (%)</label><input type="number" min="0" max="100" style={inp} value={f.probability} onChange={e=>sf({...f,probability:+e.target.value})}/></div>
@@ -503,12 +680,31 @@ const App = function(){
           <div><label style={lbl}>Fase</label><select style={{...inp,cursor:'pointer'}} value={f.stage} onChange={e=>sf({...f,stage:e.target.value})}>{STAGES.map(s=><option key={s.id} value={s.id}>{s.l}</option>)}</select></div>
           <div><label style={lbl}>Prioriteit</label><select style={{...inp,cursor:'pointer'}} value={f.priority} onChange={e=>sf({...f,priority:e.target.value})}>{PRIS.map(p=><option key={p.id} value={p.id}>{p.l}</option>)}</select></div>
         </div>
-        <div style={{marginBottom:12}}><label style={lbl}>Volgende Actie</label><input style={inp} value={f.nextAction} onChange={e=>sf({...f,nextAction:e.target.value})} placeholder="Voorstel versturen, bellen..."/></div>
+
+        {/* Technology Tags */}
+        <div style={{marginBottom:12}}><label style={lbl}>Technologie</label>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:6}}>{TECH_TAGS.filter(tt=>!(f.techTags||[]).includes(tt)).slice(0,8).map(tt=><button key={tt} onClick={()=>addTech(tt)} style={{padding:'3px 10px',borderRadius:8,fontSize:11,border:`1px solid transparent`,background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)',color:t.dim,cursor:'pointer',fontFamily:'inherit'}}>+ {tt}</button>)}</div>
+          <div style={{display:'flex',gap:5}}><input style={inp} value={techIn} onChange={e=>setTechIn(e.target.value)} placeholder="Of typ een tag..." onKeyDown={e=>{if(e.key==='Enter')addTech(techIn.trim());}}/><button onClick={()=>addTech(techIn.trim())} style={{...btnG,padding:'6px 10px'}}>+</button></div>
+          {(f.techTags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.techTags.map((tt,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.purpleS,color:t.purple,fontWeight:600,display:'flex',alignItems:'center',gap:4}}>{tt}<span onClick={()=>sf({...f,techTags:f.techTags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}
+        </div>
+
+        {/* Atos Team */}
+        <div style={{marginBottom:12}}><label style={lbl}>Atos Team</label>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            <div><div style={{fontSize:10,color:t.muted,marginBottom:3}}>🔵 Sales</div><select style={{...inp,fontSize:12,cursor:'pointer'}} value={f.atosSalesId||''} onChange={e=>sf({...f,atosSalesId:e.target.value})}><option value="">Niet toegewezen</option>{atosTeam.filter(a=>a.role==='sales').map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
+            <div><div style={{fontSize:10,color:t.muted,marginBottom:3}}>🟢 Delivery</div><select style={{...inp,fontSize:12,cursor:'pointer'}} value={f.atosDeliveryId||''} onChange={e=>sf({...f,atosDeliveryId:e.target.value})}><option value="">Niet toegewezen</option>{atosTeam.filter(a=>a.role==='delivery').map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
+          </div>
+          <button onClick={()=>setShowAtosAdd(!showAtosAdd)} style={{...btnG,padding:'4px 10px',fontSize:11,marginTop:6}}>{showAtosAdd?'✕ Annuleren':'+ Atos contact toevoegen'}</button>
+          {showAtosAdd&&<div style={{display:'flex',gap:5,marginTop:6,alignItems:'center'}}><input style={{...inp,flex:1}} value={newAtosName} onChange={e=>setNewAtosName(e.target.value)} placeholder="Naam..." onKeyDown={e=>e.key==='Enter'&&inlineAddAtos()}/><select style={{...inp,width:'auto'}} value={newAtosRole} onChange={e=>setNewAtosRole(e.target.value)}><option value="sales">Sales</option><option value="delivery">Delivery</option></select><button onClick={inlineAddAtos} style={{...btnP,padding:'6px 12px',fontSize:11}}>+</button></div>}
+        </div>
+
+        <div style={{marginBottom:12}}><label style={lbl}>Volgende Actie</label><input style={inp} value={f.nextAction} onChange={e=>sf({...f,nextAction:e.target.value})} placeholder="Voorstel versturen, demo plannen..."/></div>
         <div style={{marginBottom:12}}><label style={lbl}>Actie Datum</label><input type="date" style={inp} value={f.nextActionDate} onChange={e=>sf({...f,nextActionDate:e.target.value})}/></div>
       </div>
       <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.title?.trim())return;const now=new Date().toISOString();if(d?.id){setOpps(p=>p.map(x=>x.id===d.id?{...x,...f,updatedAt:now}:x));toast('Deal bijgewerkt');}else{setOpps(p=>[...p,{...f,id:uid(),notes:[],createdAt:now,updatedAt:now,closedAt:null}]);toast('Deal toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
     </div>
   </div>;};
+
 
   const TaskModal=()=>{const d=modal?.data;const[f,sf]=useState(d?.id?d:{title:'',contactId:d?.contactId||'',oppId:d?.oppId||'',dueDate:td(),dueTime:'',done:false,priority:'medium',reminder:true,reminderMin:15,...d});
   return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
@@ -678,12 +874,14 @@ const App = function(){
       .sb{position:fixed;left:0;top:0;bottom:0;width:240px;z-index:200;transition:transform .3s ${sp}}
       @media(min-width:769px){.sb{position:relative;transform:none!important}}
       @media(max-width:768px){.sb{transform:translateX(-100%)}.sb.open{transform:translateX(0)}.ham{display:flex!important}.mc{padding:14px!important}}
+      .aip{position:fixed;right:0;top:0;bottom:0;width:360px;z-index:200;transform:translateX(100%);transition:transform .3s ${sp}}.aip.open{transform:translateX(0)}
+      @media(max-width:768px){.aip{width:100%}}
     `}</style>
     <div style={{display:'flex',height:'100vh'}}>
       {sb&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',zIndex:150}} onClick={()=>setSb(false)}/>}
       <aside className={`sb ${sb?'open':''}`} style={{background:t.bg2,borderRight:`0.5px solid ${t.border}`,display:'flex',flexDirection:'column'}}>
         <div style={{padding:'20px 16px',borderBottom:`0.5px solid ${t.border}`}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:36,height:36,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,color:'#fff',animation:'glow 3s ease infinite'}}>P</div><div><div style={{fontSize:18,fontWeight:800,letterSpacing:-.3}}>DPM CRM</div><div style={{fontSize:9,color:t.muted,letterSpacing:2,textTransform:'uppercase',fontWeight:600}}>Sales Pipeline</div></div></div>
+          <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:36,height:36,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,color:'#fff',animation:'glow 3s ease infinite'}}>D</div><div><div style={{fontSize:18,fontWeight:800,letterSpacing:-.3}}>DPM CRM</div><div style={{fontSize:9,color:t.muted,letterSpacing:2,textTransform:'uppercase',fontWeight:600}}>Sales Pipeline</div></div></div>
         </div>
         <nav style={{flex:1,padding:'12px 10px'}}>
           {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSb(false);}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:view===n.id?t.accent:t.dim,background:view===n.id?t.accentS:'transparent',fontSize:14,fontWeight:view===n.id?600:400,marginBottom:2,transition:`all .15s ${sp}`}}><span style={{fontSize:15}}>{n.ic}</span>{n.l}</div>)}
@@ -710,6 +908,7 @@ const App = function(){
             {view==='companies'&&<button onClick={()=>setModal({type:'company'})} style={btnP}>+ Bedrijf</button>}
             {view==='tasks'&&<button onClick={()=>setModal({type:'task'})} style={btnP}>+ Taak</button>}
             {view==='dashboard'&&<button onClick={()=>setModal({type:'opp'})} style={btnP}>+ Deal</button>}
+            <button onClick={()=>setAiOpen(!aiOpen)} style={{width:36,height:36,borderRadius:10,background:aiOpen?t.accentS:t.glass,backdropFilter:t.blur,border:`0.5px solid ${aiOpen?t.accent:t.border}`,color:aiOpen?t.accent:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}} title="AI Sales Assistent">✦</button>
           </div>
         </header>
         <div className="mc" style={{flex:1,overflowY:'auto',padding:'20px 24px',animation:'fadeIn .3s'}}>
@@ -725,6 +924,13 @@ const App = function(){
           {views[view]?.()}
         </div>
       </main>
+
+      {/* AI SALES ASSISTANT PANEL */}
+      <aside className={`aip ${aiOpen?'open':''}`} style={{background:t.bg2,borderLeft:`0.5px solid ${t.border}`,display:'flex',flexDirection:'column'}}>
+        <div style={{padding:'14px 16px',borderBottom:`0.5px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}><div style={{display:'flex',alignItems:'center',gap:8,fontWeight:700,fontSize:14}}><div style={{width:7,height:7,borderRadius:'50%',background:t.green,animation:'pulse 2s infinite'}}/>AI Sales Assistent</div><button onClick={()=>setAiOpen(false)} style={{width:28,height:28,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
+        <div style={{flex:1,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:10}}>{aiMsgs.map(m=><div key={m.id} style={{maxWidth:'90%',padding:'10px 14px',borderRadius:14,fontSize:13,lineHeight:1.6,background:m.r==='bot'?(dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)'):t.accentS,alignSelf:m.r==='bot'?'flex-start':'flex-end',whiteSpace:'pre-wrap'}}>{m.t}<div style={{fontSize:10,color:t.muted,marginTop:3}}>{m.time}</div></div>)}{aiLoad&&<div style={{padding:'10px 14px',borderRadius:14,fontSize:13,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',color:t.muted,animation:'pulse 1s infinite',alignSelf:'flex-start'}}>💭 Analyseert pipeline...</div>}<div ref={aiEnd}/></div>
+        <div style={{padding:'12px 16px',borderTop:`0.5px solid ${t.border}`,display:'flex',gap:8}}><input value={aiIn} onChange={e=>setAiIn(e.target.value)} onKeyDown={e=>e.key==='Enter'&&sendAi()} placeholder="Vraag over je pipeline..." style={{...inp,flex:1,fontSize:13}}/><button onClick={sendAi} disabled={aiLoad} style={{width:36,height:36,borderRadius:10,background:t.accent,border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,opacity:aiLoad?.5:1}}>↑</button></div>
+      </aside>
 
       {detail&&<DetailPanel/>}
       {modal?.type==='contact'&&<ContactModal/>}
