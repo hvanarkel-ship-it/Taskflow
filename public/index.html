@@ -280,20 +280,57 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
   const lbl={display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:0.8,marginBottom:5,fontWeight:600};
   const eur=n=>'€'+n.toLocaleString('nl-NL');
 
+  // ─── SEARCHABLE SELECT COMPONENT ──────────────────
+  const SearchSelect=({value,onChange,options,placeholder,style:sx})=>{
+    const[open,setOpen]=useState(false);const[q,setQ]=useState('');const ref=useRef(null);
+    const filtered=options.filter(o=>o.label.toLowerCase().includes(q.toLowerCase()));
+    const selected=options.find(o=>o.value===value);
+    useEffect(()=>{const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[]);
+    return <div ref={ref} style={{position:'relative',...(sx||{})}}>
+      <div onClick={()=>{setOpen(!open);setQ('');}} style={{...inp,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',fontSize:13}}><span style={{color:selected?t.text:t.muted}}>{selected?selected.label:placeholder||'Selecteer...'}</span><span style={{color:t.muted,fontSize:10}}>▼</span></div>
+      {open&&<div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,background:t.solid,border:`0.5px solid ${t.border}`,borderRadius:10,marginTop:4,boxShadow:t.shadow,maxHeight:220,overflowY:'auto'}}>
+        <div style={{padding:'6px 8px',borderBottom:`0.5px solid ${t.border}`}}><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Zoeken..." style={{...inp,padding:'6px 10px',fontSize:12}}/></div>
+        <div onClick={()=>{onChange('');setOpen(false);}} style={{padding:'8px 12px',fontSize:12,cursor:'pointer',color:t.muted,borderBottom:`0.5px solid ${t.border}`}}>— Geen selectie —</div>
+        {filtered.map(o=><div key={o.value} onClick={()=>{onChange(o.value);setOpen(false);}} style={{padding:'8px 12px',fontSize:12,cursor:'pointer',color:value===o.value?t.accent:t.text,background:value===o.value?t.accentS:'transparent',display:'flex',justifyContent:'space-between',alignItems:'center'}}><span>{o.label}</span>{o.sub&&<span style={{fontSize:10,color:t.muted}}>{o.sub}</span>}</div>)}
+        {filtered.length===0&&<div style={{padding:'12px',fontSize:12,color:t.muted,textAlign:'center'}}>Geen resultaten</div>}
+      </div>}
+    </div>;
+  };
+
+  // ─── PERIOD FILTER ────────────────────────────────
+  const[period,setPeriod]=useState('all'); // all, week, month, quarter, year, custom
+  const[customFrom,setCustomFrom]=useState('');
+  const[customTo,setCustomTo]=useState('');
+  const periodFilter=(dateStr)=>{
+    if(period==='all'||!dateStr)return true;
+    const d=new Date(dateStr);const now=new Date();
+    if(period==='week'){const w=new Date();w.setDate(w.getDate()-7);return d>=w;}
+    if(period==='month'){const m=new Date();m.setMonth(m.getMonth()-1);return d>=m;}
+    if(period==='quarter'){const q=new Date();q.setMonth(q.getMonth()-3);return d>=q;}
+    if(period==='year'){const y=new Date();y.setFullYear(y.getFullYear()-1);return d>=y;}
+    if(period==='custom'){return(!customFrom||d>=new Date(customFrom))&&(!customTo||d<=new Date(customTo+'T23:59:59'));}
+    return true;
+  };
+  const PeriodBar=()=><div style={{display:'flex',gap:4,marginBottom:14,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:10,padding:3,flexWrap:'wrap',alignItems:'center'}}>
+    {[{id:'all',l:'Alles'},{id:'week',l:'Week'},{id:'month',l:'Maand'},{id:'quarter',l:'Kwartaal'},{id:'year',l:'Jaar'},{id:'custom',l:'Periode'}].map(p=><button key={p.id} onClick={()=>setPeriod(p.id)} style={{padding:'5px 12px',borderRadius:8,fontSize:11,fontWeight:period===p.id?600:400,border:'none',background:period===p.id?t.accent:'transparent',color:period===p.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit'}}>{p.l}</button>)}
+    {period==='custom'&&<div style={{display:'flex',gap:4,alignItems:'center',marginLeft:4}}><input type="date" value={customFrom} onChange={e=>setCustomFrom(e.target.value)} style={{...inp,width:'auto',padding:'3px 8px',fontSize:11}}/><span style={{color:t.muted,fontSize:11}}>→</span><input type="date" value={customTo} onChange={e=>setCustomTo(e.target.value)} style={{...inp,width:'auto',padding:'3px 8px',fontSize:11}}/></div>}
+  </div>;
+
   // ─── PIPELINE VIEW (Kanban) ───────────────────────
   const Pipeline=()=>{
     const active=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost');
-    const filteredOpps=opps.filter(o=>{if(filtCompany&&o.companyId!==filtCompany)return false;if(filtContact&&o.contactId!==filtContact)return false;if(filtTech&&!(o.techTags||[]).includes(filtTech))return false;return true;});
+    const filteredOpps=opps.filter(o=>{if(filtCompany&&o.companyId!==filtCompany)return false;if(filtContact&&o.contactId!==filtContact)return false;if(filtTech&&!(o.techTags||[]).includes(filtTech))return false;if(!periodFilter(o.createdAt))return false;return true;});
     const fActive=filteredOpps.filter(o=>o.stage!=='won'&&o.stage!=='lost');
     const fWon=filteredOpps.filter(o=>o.stage==='won');
     const fTotal=fActive.reduce((s,o)=>s+o.value,0);
     const hasFilter=filtCompany||filtContact||filtTech;
     return <div>
-      <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
-        <select value={filtCompany} onChange={e=>setFiltCompany(e.target.value)} style={{...inp,width:'auto',padding:'6px 12px',fontSize:12}}><option value="">Alle bedrijven</option>{companies.map(co=><option key={co.id} value={co.id}>{co.name}</option>)}</select>
-        <select value={filtContact} onChange={e=>setFiltContact(e.target.value)} style={{...inp,width:'auto',padding:'6px 12px',fontSize:12}}><option value="">Alle contacten</option>{contacts.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
-        <select value={filtTech} onChange={e=>setFiltTech(e.target.value)} style={{...inp,width:'auto',padding:'6px 12px',fontSize:12}}><option value="">Alle technologie</option>{TECH_TAGS.map(tt=><option key={tt} value={tt}>{tt}</option>)}</select>
-        {hasFilter&&<button onClick={()=>{setFiltCompany('');setFiltContact('');setFiltTech('');}} style={{...btnG,padding:'5px 12px',fontSize:11,color:t.red}}>✕ Reset</button>}
+      <PeriodBar/>
+      <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap',alignItems:'flex-start'}}>
+        <SearchSelect value={filtCompany} onChange={setFiltCompany} placeholder="Alle bedrijven" options={companies.map(co=>({value:co.id,label:co.name,sub:co.industry}))} style={{minWidth:160}}/>
+        <SearchSelect value={filtContact} onChange={setFiltContact} placeholder="Alle contacten" options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)}))} style={{minWidth:160}}/>
+        <SearchSelect value={filtTech} onChange={setFiltTech} placeholder="Alle technologie" options={TECH_TAGS.map(tt=>({value:tt,label:tt}))} style={{minWidth:150}}/>
+        {hasFilter&&<button onClick={()=>{setFiltCompany('');setFiltContact('');setFiltTech('');}} style={{...btnG,padding:'6px 12px',fontSize:11,color:t.red}}>✕ Reset</button>}
       </div>
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
         {[{l:'Pipeline',v:eur(fTotal),c:t.accent},{l:'Gewogen',v:eur(Math.round(fActive.reduce((s,o)=>s+(o.value*o.probability/100),0))),c:t.purple},{l:'Gewonnen',v:eur(fWon.reduce((s,o)=>s+o.value,0)),c:t.green},{l:'Deals',v:fActive.length,c:t.text}].map((s,i)=><div key={i} style={{...card,flex:'1 1 140px',minWidth:140}}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
@@ -431,13 +468,19 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
 
   // ─── DASHBOARD ────────────────────────────────────
   const Dash=()=>{
-    const wonMonth=wonOpps.filter(o=>{const d=new Date(o.closedAt||o.updatedAt);const now=new Date();return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
-    const convRate=opps.length?(Math.round(wonOpps.length/opps.length*100)):0;
-    const stageData=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost').map(s=>({...s,count:opps.filter(o=>o.stage===s.id).length,val:opps.filter(o=>o.stage===s.id).reduce((sum,o)=>sum+o.value,0)}));
+    const pOpps=opps.filter(o=>periodFilter(o.createdAt));
+    const pActive=pOpps.filter(o=>o.stage!=='won'&&o.stage!=='lost');
+    const pWon=pOpps.filter(o=>o.stage==='won');
+    const pPipeline=pActive.reduce((s,o)=>s+o.value,0);
+    const pWeighted=pActive.reduce((s,o)=>s+(o.value*o.probability/100),0);
+    const pWonRev=pWon.reduce((s,o)=>s+o.value,0);
+    const convRate=pOpps.length?(Math.round(pWon.length/pOpps.length*100)):0;
+    const stageData=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost').map(s=>({...s,count:pOpps.filter(o=>o.stage===s.id).length,val:pOpps.filter(o=>o.stage===s.id).reduce((sum,o)=>sum+o.value,0)}));
     const maxVal=Math.max(...stageData.map(s=>s.val),1);
     return <div>
+      <PeriodBar/>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:20}}>
-        {[{l:'Open Pipeline',v:eur(totalPipeline),c:t.accent},{l:'Gewogen Waarde',v:eur(Math.round(weightedPipeline)),c:t.purple},{l:'Gewonnen',v:eur(wonRevenue),c:t.green},{l:'Conversie',v:convRate+'%',c:t.orange},{l:'Actieve Deals',v:activeOpps.length,c:t.text},{l:'Taken Vandaag',v:todayTasks.length+(overdueTasks.length?` (+${overdueTasks.length})`:'')+' ',c:overdueTasks.length?t.red:t.text}].map((s,i)=><div key={i} style={card}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
+        {[{l:'Open Pipeline',v:eur(pPipeline),c:t.accent},{l:'Gewogen Waarde',v:eur(Math.round(pWeighted)),c:t.purple},{l:'Gewonnen',v:eur(pWonRev),c:t.green},{l:'Conversie',v:convRate+'%',c:t.orange},{l:'Actieve Deals',v:pActive.length,c:t.text},{l:'Taken Vandaag',v:todayTasks.length+(overdueTasks.length?` (+${overdueTasks.length})`:'')+' ',c:overdueTasks.length?t.red:t.text}].map((s,i)=><div key={i} style={card}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:20}}>
         <div style={card}>
@@ -683,15 +726,15 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
 
         {/* Bedrijf + inline aanmaken */}
         <div style={{marginBottom:12}}><label style={lbl}>Bedrijf</label>
-          <div style={{display:'flex',gap:5}}><select style={{...inp,flex:1,cursor:'pointer'}} value={f.companyId||''} onChange={e=>{sf({...f,companyId:e.target.value,contactId:''});}}><option value="">Kies bedrijf...</option>{companies.map(co=><option key={co.id} value={co.id}>{co.name}</option>)}</select>
-          <button onClick={()=>setShowNewCo(!showNewCo)} style={{...btnG,padding:'6px 10px',fontSize:11,whiteSpace:'nowrap'}}>{showNewCo?'✕':'+ Nieuw'}</button></div>
+          <div style={{display:'flex',gap:5,alignItems:'flex-start'}}><SearchSelect value={f.companyId||''} onChange={v=>{sf({...f,companyId:v,contactId:''});}} placeholder="Kies bedrijf..." options={companies.map(co=>({value:co.id,label:co.name,sub:co.industry}))} style={{flex:1}}/>
+          <button onClick={()=>setShowNewCo(!showNewCo)} style={{...btnG,padding:'8px 10px',fontSize:11,whiteSpace:'nowrap'}}>{showNewCo?'✕':'+ Nieuw'}</button></div>
           {showNewCo&&<div style={{display:'flex',gap:5,marginTop:6}}><input style={inp} value={newCoName} onChange={e=>setNewCoName(e.target.value)} placeholder="Bedrijfsnaam..." onKeyDown={e=>e.key==='Enter'&&inlineAddCo()}/><button onClick={inlineAddCo} style={{...btnP,padding:'6px 12px',fontSize:11}}>Aanmaken</button></div>}
         </div>
 
         {/* Contact + inline aanmaken */}
         <div style={{marginBottom:12}}><label style={lbl}>Contactpersoon</label>
-          <div style={{display:'flex',gap:5}}><select style={{...inp,flex:1,cursor:'pointer'}} value={f.contactId||''} onChange={e=>{const ct=contacts.find(c=>c.id===e.target.value);sf({...f,contactId:e.target.value,companyId:ct?.companyId||f.companyId});}}><option value="">Geen contact...</option>{(f.companyId?contacts.filter(c=>c.companyId===f.companyId):contacts).map(c=><option key={c.id} value={c.id}>{c.name}{compName(c.companyId)?' — '+compName(c.companyId):''}</option>)}</select>
-          <button onClick={()=>setShowNewCt(!showNewCt)} style={{...btnG,padding:'6px 10px',fontSize:11,whiteSpace:'nowrap'}}>{showNewCt?'✕':'+ Nieuw'}</button></div>
+          <div style={{display:'flex',gap:5,alignItems:'flex-start'}}><SearchSelect value={f.contactId||''} onChange={v=>{const ct=contacts.find(c=>c.id===v);sf({...f,contactId:v,companyId:ct?.companyId||f.companyId});}} placeholder="Geen contact..." options={(f.companyId?contacts.filter(c=>c.companyId===f.companyId):contacts).map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)}))} style={{flex:1}}/>
+          <button onClick={()=>setShowNewCt(!showNewCt)} style={{...btnG,padding:'8px 10px',fontSize:11,whiteSpace:'nowrap'}}>{showNewCt?'✕':'+ Nieuw'}</button></div>
           {showNewCt&&<div style={{display:'flex',gap:5,marginTop:6}}><input style={inp} value={newCtName} onChange={e=>setNewCtName(e.target.value)} placeholder="Naam contactpersoon..." onKeyDown={e=>e.key==='Enter'&&inlineAddCt()}/><button onClick={inlineAddCt} style={{...btnP,padding:'6px 12px',fontSize:11}}>Aanmaken</button></div>}
         </div>
 
@@ -714,8 +757,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         {/* Atos Team */}
         <div style={{marginBottom:12}}><label style={lbl}>Atos Team</label>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-            <div><div style={{fontSize:10,color:t.muted,marginBottom:3}}>🔵 Sales</div><select style={{...inp,fontSize:12,cursor:'pointer'}} value={f.atosSalesId||''} onChange={e=>sf({...f,atosSalesId:e.target.value})}><option value="">Niet toegewezen</option>{atosTeam.filter(a=>a.role==='sales').map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
-            <div><div style={{fontSize:10,color:t.muted,marginBottom:3}}>🟢 Delivery</div><select style={{...inp,fontSize:12,cursor:'pointer'}} value={f.atosDeliveryId||''} onChange={e=>sf({...f,atosDeliveryId:e.target.value})}><option value="">Niet toegewezen</option>{atosTeam.filter(a=>a.role==='delivery').map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
+            <div><div style={{fontSize:10,color:t.muted,marginBottom:3}}>🔵 Sales</div><SearchSelect value={f.atosSalesId||''} onChange={v=>sf({...f,atosSalesId:v})} placeholder="Niet toegewezen" options={atosTeam.filter(a=>a.role==='sales').map(a=>({value:a.id,label:a.name}))}/></div>
+            <div><div style={{fontSize:10,color:t.muted,marginBottom:3}}>🟢 Delivery</div><SearchSelect value={f.atosDeliveryId||''} onChange={v=>sf({...f,atosDeliveryId:v})} placeholder="Niet toegewezen" options={atosTeam.filter(a=>a.role==='delivery').map(a=>({value:a.id,label:a.name}))}/></div>
           </div>
           <button onClick={()=>setShowAtosAdd(!showAtosAdd)} style={{...btnG,padding:'4px 10px',fontSize:11,marginTop:6}}>{showAtosAdd?'✕ Annuleren':'+ Atos contact toevoegen'}</button>
           {showAtosAdd&&<div style={{display:'flex',gap:5,marginTop:6,alignItems:'center'}}><input style={{...inp,flex:1}} value={newAtosName} onChange={e=>setNewAtosName(e.target.value)} placeholder="Naam..." onKeyDown={e=>e.key==='Enter'&&inlineAddAtos()}/><select style={{...inp,width:'auto'}} value={newAtosRole} onChange={e=>setNewAtosRole(e.target.value)}><option value="sales">Sales</option><option value="delivery">Delivery</option></select><button onClick={inlineAddAtos} style={{...btnP,padding:'6px 12px',fontSize:11}}>+</button></div>}
@@ -855,6 +898,49 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
     </div>;
   };
 
+  // ─── ATOS TEAM VIEW ────────────────────────────────
+  const AtosView=()=>{
+    const[atQ,setAtQ]=useState('');const[atModal,setAtModal]=useState(null);
+    const sales=atosTeam.filter(a=>a.role==='sales');const delivery=atosTeam.filter(a=>a.role==='delivery');
+    const filtered=atosTeam.filter(a=>{if(!atQ)return true;const q=atQ.toLowerCase();return a.name.toLowerCase().includes(q)||a.role.includes(q)||(a.email||'').includes(q);});
+    const atosDeals=(aid)=>opps.filter(o=>o.atosSalesId===aid||o.atosDeliveryId===aid);
+
+    return <div>
+      <div style={{display:'flex',gap:8,marginBottom:16}}>
+        <div style={{flex:1,...inp,display:'flex',alignItems:'center',gap:8,padding:'8px 14px'}}><span style={{color:t.muted}}>🔍</span><input value={atQ} onChange={e=>setAtQ(e.target.value)} placeholder="Zoek teamleden..." style={{flex:1,background:'none',border:'none',color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/>{atQ&&<span onClick={()=>setAtQ('')} style={{cursor:'pointer',color:t.muted}}>✕</span>}</div>
+        <button onClick={()=>setAtModal({name:'',role:'sales',email:'',phone:''})} style={btnP}>+ Teamlid</button>
+      </div>
+      <div style={{display:'flex',gap:8,marginBottom:16}}>
+        {[{l:'Sales',v:sales.length,c:t.accent},{l:'Delivery',v:delivery.length,c:t.green},{l:'Totaal',v:atosTeam.length,c:t.text}].map((s,i)=><div key={i} style={{...card,padding:'8px 14px',flex:1}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase',fontWeight:600}}>{s.l}</div><div style={{fontSize:20,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        {filtered.map(a=>{const deals=atosDeals(a.id);const dealVal=deals.filter(o=>o.stage!=='lost').reduce((s,o)=>s+o.value,0);return <div key={a.id} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14}}>
+          <div style={{width:42,height:42,borderRadius:10,background:a.role==='sales'?`linear-gradient(135deg,${t.accent},${t.purple})`:`linear-gradient(135deg,${t.green},${t.teal})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:'#fff',flexShrink:0}}>{a.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:14,fontWeight:600}}>{a.name}</div>
+            <div style={{fontSize:12,color:t.dim}}><span style={{color:a.role==='sales'?t.accent:t.green,fontWeight:600}}>{a.role==='sales'?'🔵 Sales':'🟢 Delivery'}</span>{a.email&&' · '+a.email}</div>
+            {deals.length>0&&<div style={{fontSize:11,color:t.dim,marginTop:3}}>{deals.length} deal{deals.length!==1?'s':''} · {eur(dealVal)}</div>}
+          </div>
+          <div style={{display:'flex',gap:4}}>
+            <button onClick={()=>setAtModal(a)} style={{...btnG,padding:'4px 10px',fontSize:11}}>✎</button>
+            <button onClick={()=>{if(confirm('Teamlid verwijderen?'))setAtosTeam(p=>p.filter(x=>x.id!==a.id));}} style={{...btnD,padding:'4px 10px',fontSize:11}}>✕</button>
+          </div>
+        </div>;})}
+      </div>
+      {/* Atos modal */}
+      {atModal&&<div onClick={()=>setAtModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:400}}>
+          <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{atModal.id?'Bewerken':'Nieuw Teamlid'}</span><button onClick={()=>setAtModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
+          <div style={{padding:'16px 24px'}}>
+            {[{k:'name',l:'Naam',p:'Volledige naam'},{k:'email',l:'E-mail',p:'naam@atos.net'},{k:'phone',l:'Telefoon',p:'+31...'}].map(x=><div key={x.k} style={{marginBottom:12}}><label style={lbl}>{x.l}</label><input style={inp} value={atModal[x.k]||''} onChange={e=>setAtModal({...atModal,[x.k]:e.target.value})} placeholder={x.p}/></div>)}
+            <div style={{marginBottom:12}}><label style={lbl}>Rol</label><div style={{display:'flex',gap:6}}>{['sales','delivery'].map(r=><button key={r} onClick={()=>setAtModal({...atModal,role:r})} style={{flex:1,padding:'8px',borderRadius:8,fontSize:13,fontWeight:600,border:`1.5px solid ${atModal.role===r?(r==='sales'?t.accent:t.green):'transparent'}`,background:atModal.role===r?(r==='sales'?t.accentS:t.greenS):(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:atModal.role===r?(r==='sales'?t.accent:t.green):t.dim,cursor:'pointer',fontFamily:'inherit'}}>{r==='sales'?'🔵 Sales':'🟢 Delivery'}</button>)}</div></div>
+          </div>
+          <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setAtModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!atModal.name?.trim())return;if(atModal.id){setAtosTeam(p=>p.map(x=>x.id===atModal.id?{...atModal}:x));toast('Bijgewerkt');}else{setAtosTeam(p=>[...p,{...atModal,id:uid()}]);toast('Teamlid toegevoegd');}setAtModal(null);}} style={btnP}>{atModal.id?'Opslaan':'Toevoegen'}</button></div>
+        </div>
+      </div>}
+    </div>;
+  };
+
   // ─── COMPANIES VIEW ────────────────────────────────
   const Companies=()=>{
     const filtered=companies.filter(c=>{if(!search)return true;const q=search.toLowerCase();return c.name.toLowerCase().includes(q)||(c.industry||'').toLowerCase().includes(q)||(c.address||'').toLowerCase().includes(q)||(c.tags||[]).some(tg=>tg.includes(q));});
@@ -881,9 +967,9 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
   };
 
   // Navigation
-  const views={pipeline:Pipeline,contacts:Contacts,companies:Companies,tasks:Tasks,dashboard:Dash,reports:Reports};
-  const titles={pipeline:'Pipeline',contacts:'Contacten',companies:'Bedrijven',tasks:'Taken',dashboard:'Dashboard',reports:'Rapporten'};
-  const nav=[{id:'dashboard',ic:'◆',l:'Dashboard'},{id:'pipeline',ic:'📊',l:'Pipeline'},{id:'companies',ic:'🏢',l:'Bedrijven'},{id:'contacts',ic:'👤',l:'Contacten'},{id:'tasks',ic:'☑',l:'Taken'},{id:'reports',ic:'📈',l:'Rapporten'}];
+  const views={pipeline:Pipeline,contacts:Contacts,companies:Companies,atos:AtosView,tasks:Tasks,dashboard:Dash,reports:Reports};
+  const titles={pipeline:'Pipeline',contacts:'Contacten',companies:'Bedrijven',atos:'Atos Team',tasks:'Taken',dashboard:'Dashboard',reports:'Rapporten'};
+  const nav=[{id:'dashboard',ic:'◆',l:'Dashboard'},{id:'pipeline',ic:'📊',l:'Pipeline'},{id:'companies',ic:'🏢',l:'Bedrijven'},{id:'contacts',ic:'👤',l:'Contacten'},{id:'atos',ic:'🔵',l:'Atos Team'},{id:'tasks',ic:'☑',l:'Taken'},{id:'reports',ic:'📈',l:'Rapporten'}];
 
   return <>
     <style>{`
