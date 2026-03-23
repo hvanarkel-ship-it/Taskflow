@@ -109,12 +109,30 @@ const App = function(){
   const[search,setSearch]=useState('');
   const[toasts,setToasts]=useState([]);
   const[dragOpp,setDragOpp]=useState(null);
+  const[dbStatus,setDbStatus]=useState('checking');
+  const[dbMs,setDbMs]=useState(null);
 
   useEffect(()=>{LS.set('contacts',contacts);},[contacts]);
   useEffect(()=>{LS.set('companies',companies);},[companies]);
   useEffect(()=>{LS.set('opps',opps);},[opps]);
   useEffect(()=>{LS.set('tasks',tasks);},[tasks]);
   useEffect(()=>{LS.set('dark',dark);},[dark]);
+
+  // ─── Neon Connection Check ────────────────────────
+  const checkDb=useCallback(async()=>{
+    try{
+      const r=await fetch('/api/health',{signal:AbortSignal.timeout(6000)});
+      if(r.ok){const d=await r.json();setDbStatus('connected');setDbMs(d.latency_ms||null);}
+      else setDbStatus('offline');
+    }catch{setDbStatus('offline');}
+  },[]);
+
+  useEffect(()=>{
+    if(location.hostname.includes('claudeusercontent')||location.protocol==='file:'){setDbStatus('offline');return;}
+    checkDb();
+    const iv=setInterval(()=>{if(document.visibilityState==='visible')checkDb();},300000);
+    return()=>clearInterval(iv);
+  },[checkDb]);
 
   const toast=(m,ty='ok')=>{const i=uid();setToasts(p=>[...p,{id:i,m,ty}]);setTimeout(()=>setToasts(p=>p.filter(x=>x.id!==i)),3000);};
   const cName=id=>contacts.find(c=>c.id===id)?.name||'';
@@ -521,6 +539,22 @@ const App = function(){
     </div>
   </div>;};
 
+  // ─── Company Modal ────────────────────────────────
+  const CompanyModal=()=>{const d=modal?.data;const[f,sf]=useState(d?.id?d:{name:'',website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],...(d||{})});const[tag,stg]=useState('');
+  return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:480,maxHeight:'90vh',overflowY:'auto'}}>
+      <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?'Bedrijf Bewerken':'Nieuw Bedrijf'}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
+      <div style={{padding:'16px 24px'}}>
+        {[{k:'name',l:'Bedrijfsnaam',p:'Voorbeeld BV'},{k:'website',l:'Website',p:'www.voorbeeld.nl'},{k:'industry',l:'Industrie',p:'Technologie, Consultancy...'},{k:'address',l:'Locatie',p:'Amsterdam'},{k:'email',l:'Algemeen E-mail',p:'info@voorbeeld.nl'},{k:'phone',l:'Telefoon',p:'+31...'}].map(x=><div key={x.k} style={{marginBottom:12}}><label style={lbl}>{x.l}</label><input style={inp} value={f[x.k]||''} onChange={e=>sf({...f,[x.k]:e.target.value})} placeholder={x.p} autoFocus={x.k==='name'}/></div>)}
+        <div style={{marginBottom:12}}><label style={lbl}>Grootte</label><select style={{...inp,cursor:'pointer'}} value={f.size||''} onChange={e=>sf({...f,size:e.target.value})}><option value="">Selecteer...</option>{['1-10','10-50','50-200','200-1000','1000+'].map(s=><option key={s} value={s}>{s} medewerkers</option>)}</select></div>
+        <div style={{marginBottom:12}}><label style={lbl}>Notities</label><textarea style={{...inp,minHeight:60,resize:'vertical'}} value={f.notes||''} onChange={e=>sf({...f,notes:e.target.value})} placeholder="Interne notities over dit bedrijf..."/></div>
+        <div style={{marginBottom:12}}><label style={lbl}>Tags</label><div style={{display:'flex',gap:5}}><input style={inp} value={tag} onChange={e=>stg(e.target.value)} placeholder="Tag toevoegen..." onKeyDown={e=>{if(e.key==='Enter'&&tag.trim()){sf({...f,tags:[...(f.tags||[]),tag.trim().toLowerCase()]});stg('');}}}/><button onClick={()=>{if(tag.trim()){sf({...f,tags:[...(f.tags||[]),tag.trim().toLowerCase()]});stg('');}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
+          {(f.tags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.tags.map((tg,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,display:'flex',alignItems:'center',gap:4}}>{tg}<span onClick={()=>sf({...f,tags:f.tags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}</div>
+      </div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.name?.trim())return;if(d?.id){setCompanies(p=>p.map(x=>x.id===d.id?{...x,...f}:x));toast('Bedrijf bijgewerkt');}else{setCompanies(p=>[...p,{...f,id:uid(),createdAt:new Date().toISOString()}]);toast('Bedrijf toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
+    </div>
+  </div>;};
+
   // ─── REPORTS / SALES FUNNEL ────────────────────────
   const Reports=()=>{
     const funnelStages=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost');
@@ -660,6 +694,10 @@ const App = function(){
         <div style={{padding:'12px 16px',borderTop:`0.5px solid ${t.border}`}}>
           <div style={{fontSize:11,color:t.muted}}>Pipeline: {eur(totalPipeline)}</div>
           <div style={{fontSize:11,color:t.green}}>{wonOpps.length} gewonnen · {eur(wonRevenue)}</div>
+          <div onClick={dbStatus!=='connected'?checkDb:undefined} style={{display:'flex',alignItems:'center',gap:6,marginTop:8,cursor:dbStatus!=='connected'?'pointer':'default',fontSize:11,color:dbStatus==='connected'?t.green:dbStatus==='checking'?t.accent:t.orange}}>
+            <div style={{width:7,height:7,borderRadius:'50%',background:dbStatus==='connected'?t.green:dbStatus==='checking'?t.accent:t.orange,animation:dbStatus==='checking'?'pulse 1.5s infinite':'none'}}/>
+            {dbStatus==='connected'?`Neon verbonden${dbMs?' ('+dbMs+'ms)':''}`:dbStatus==='checking'?'Verbinden...':'Lokale opslag'}
+          </div>
         </div>
       </aside>
 
@@ -675,6 +713,15 @@ const App = function(){
           </div>
         </header>
         <div className="mc" style={{flex:1,overflowY:'auto',padding:'20px 24px',animation:'fadeIn .3s'}}>
+          {dbStatus==='offline'&&!location.hostname.includes('claudeusercontent')&&<div style={{padding:'12px 16px',marginBottom:16,borderRadius:12,background:t.orangeS,border:`0.5px solid ${t.orange}44`,display:'flex',alignItems:'flex-start',gap:10}}>
+            <span style={{marginTop:2}}>⚠️</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:600,color:t.orange}}>Neon database niet verbonden</div>
+              <div style={{fontSize:11,color:t.dim,marginTop:3}}>Data wordt lokaal opgeslagen. Stel DATABASE_URL en JWT_SECRET in als Netlify env vars.</div>
+            </div>
+            <button onClick={checkDb} style={{...btnG,padding:'4px 10px',fontSize:11,color:t.orange,borderColor:`${t.orange}44`,whiteSpace:'nowrap'}}>↻ Check</button>
+          </div>}
+          {dbStatus==='checking'&&!location.hostname.includes('claudeusercontent')&&<div style={{padding:'8px 16px',marginBottom:16,borderRadius:12,background:t.accentS,fontSize:12,color:t.accent,animation:'pulse 1.5s infinite'}}>⏳ Verbinding controleren...</div>}
           {views[view]?.()}
         </div>
       </main>
@@ -683,21 +730,7 @@ const App = function(){
       {modal?.type==='contact'&&<ContactModal/>}
       {modal?.type==='opp'&&<OppModal/>}
       {modal?.type==='task'&&<TaskModal/>}
-      {modal?.type==='company'&&(()=>{const d=modal?.data;const[f,sf]=useState(d?.id?d:{name:'',website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],...(d||{})});const[tag,stg]=useState('');
-        return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:480,maxHeight:'90vh',overflowY:'auto'}}>
-            <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?'Bedrijf Bewerken':'Nieuw Bedrijf'}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
-            <div style={{padding:'16px 24px'}}>
-              {[{k:'name',l:'Bedrijfsnaam',p:'Voorbeeld BV'},{k:'website',l:'Website',p:'www.voorbeeld.nl'},{k:'industry',l:'Industrie',p:'Technologie, Consultancy...'},{k:'address',l:'Locatie',p:'Amsterdam'},{k:'email',l:'Algemeen E-mail',p:'info@voorbeeld.nl'},{k:'phone',l:'Telefoon',p:'+31...'}].map(x=><div key={x.k} style={{marginBottom:12}}><label style={lbl}>{x.l}</label><input style={inp} value={f[x.k]||''} onChange={e=>sf({...f,[x.k]:e.target.value})} placeholder={x.p} autoFocus={x.k==='name'}/></div>)}
-              <div style={{marginBottom:12}}><label style={lbl}>Grootte</label><select style={{...inp,cursor:'pointer'}} value={f.size||''} onChange={e=>sf({...f,size:e.target.value})}><option value="">Selecteer...</option>{['1-10','10-50','50-200','200-1000','1000+'].map(s=><option key={s} value={s}>{s} medewerkers</option>)}</select></div>
-              <div style={{marginBottom:12}}><label style={lbl}>Notities</label><textarea style={{...inp,minHeight:60,resize:'vertical'}} value={f.notes||''} onChange={e=>sf({...f,notes:e.target.value})} placeholder="Interne notities over dit bedrijf..."/></div>
-              <div style={{marginBottom:12}}><label style={lbl}>Tags</label><div style={{display:'flex',gap:5}}><input style={inp} value={tag} onChange={e=>stg(e.target.value)} placeholder="Tag toevoegen..." onKeyDown={e=>{if(e.key==='Enter'&&tag.trim()){sf({...f,tags:[...(f.tags||[]),tag.trim().toLowerCase()]});stg('');}}}/><button onClick={()=>{if(tag.trim()){sf({...f,tags:[...(f.tags||[]),tag.trim().toLowerCase()]});stg('');}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
-                {(f.tags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.tags.map((tg,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,display:'flex',alignItems:'center',gap:4}}>{tg}<span onClick={()=>sf({...f,tags:f.tags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}</div>
-            </div>
-            <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.name?.trim())return;if(d?.id){setCompanies(p=>p.map(x=>x.id===d.id?{...x,...f}:x));toast('Bedrijf bijgewerkt');}else{setCompanies(p=>[...p,{...f,id:uid(),createdAt:new Date().toISOString()}]);toast('Bedrijf toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
-          </div>
-        </div>;
-      })()}
+      {modal?.type==='company'&&<CompanyModal/>}
       <div style={{position:'fixed',bottom:20,right:20,zIndex:9999,display:'flex',flexDirection:'column',gap:6}}>{toasts.map(x=><div key={x.id} style={{padding:'10px 16px',background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:12,fontSize:13,boxShadow:t.shadow,animation:'fadeIn .3s',borderLeft:`3px solid ${x.ty==='ok'?t.green:t.accent}`}}>{x.ty==='ok'?'✓':'ℹ'} {x.m}</div>)}</div>
     </div>
   </>;
