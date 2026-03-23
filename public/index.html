@@ -3,23 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TaskFlow Pro — Slimmer Werken, Beter Leven</title>
-<meta name="description" content="AI-powered task management en productiviteitscoaching">
-<meta name="theme-color" content="#0a0a0f">
+<title>DPM CRM</title>
+<meta name="description" content="Persoonlijk CRM systeem voor sales pipeline management">
+<meta name="theme-color" content="#000000">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="TaskFlow Pro">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<meta name="apple-mobile-web-app-title" content="DPM CRM">
 <script>
-if ('serviceWorker' in navigator && !location.hostname.includes('claudeusercontent') && !location.hostname.includes('localhost')) {
-  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+if('serviceWorker' in navigator && !location.hostname.includes('claudeusercontent') && !location.hostname.includes('localhost')){
+  window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{});});
 }
-if (!location.hostname.includes('claudeusercontent')) {
-  const m = document.createElement('link'); m.rel='manifest'; m.href='/manifest.json'; document.head.appendChild(m);
+if(!location.hostname.includes('claudeusercontent')){
+  const m=document.createElement('link');m.rel='manifest';m.href='/manifest.json';document.head.appendChild(m);
 }
 </script>
-<style>body{margin:0;font-family:'DM Sans',system-ui,sans-serif;}</style>
+<style>body{margin:0;font-family:Outfit,system-ui,-apple-system,sans-serif;}</style>
 </head>
 <body>
 <div id="app"></div>
@@ -33,856 +32,678 @@ const _w=console.warn;console.warn=function(){if(arguments[0]&&typeof arguments[
 const {useState, useEffect, useRef, useMemo, useCallback} = React;
 
 // ═══════════════════════════════════════════════════════
-// TaskFlow Pro V2 — Ultimate Productivity Suite
+// DPM CRM · Apple Design
 // ═══════════════════════════════════════════════════════
 
-// ─── THEME ──────────────────────────────────────────────
-const DARK = {bg:'#0a0a0f',card:'#12121a',cardH:'#1a1a25',elev:'#1e1e2a',border:'#2a2a3a',borderL:'#3a3a4a',text:'#e8e8f0',dim:'#8888a0',muted:'#5a5a70',accent:'#6c5ce7',accentG:'#7c6cf7',accentS:'rgba(108,92,231,0.15)',success:'#00d2a0',successS:'rgba(0,210,160,0.12)',warn:'#ffa64d',warnS:'rgba(255,166,77,0.12)',danger:'#ff6b6b',dangerS:'rgba(255,107,107,0.12)',sport:'#00b4d8',sportS:'rgba(0,180,216,0.12)',relax:'#e77cd2',relaxS:'rgba(231,124,210,0.12)'};
-const LIGHT = {bg:'#f5f5f8',card:'#ffffff',cardH:'#f0f0f5',elev:'#eeeef3',border:'#dddde5',borderL:'#ccccd5',text:'#1a1a2e',dim:'#6a6a80',muted:'#9999aa',accent:'#6c5ce7',accentG:'#5a4bd6',accentS:'rgba(108,92,231,0.1)',success:'#00b88d',successS:'rgba(0,184,141,0.1)',warn:'#e8943a',warnS:'rgba(232,148,58,0.1)',danger:'#e55555',dangerS:'rgba(229,85,85,0.1)',sport:'#0099bb',sportS:'rgba(0,153,187,0.1)',relax:'#d066bb',relaxS:'rgba(208,102,187,0.1)'};
+const DARK={bg:'#000',bg2:'#1c1c1e',card:'rgba(44,44,46,0.82)',solid:'#2c2c2e',elev:'#3a3a3c',border:'rgba(84,84,88,0.35)',text:'#f5f5f7',dim:'#98989f',muted:'#636366',accent:'#0A84FF',accentS:'rgba(10,132,255,0.14)',green:'#30D158',greenS:'rgba(48,209,88,0.14)',orange:'#FF9F0A',orangeS:'rgba(255,159,10,0.14)',red:'#FF453A',redS:'rgba(255,69,58,0.14)',purple:'#BF5AF2',purpleS:'rgba(191,90,242,0.14)',teal:'#64D2FF',glass:'rgba(44,44,46,0.7)',blur:'blur(20px)',shadow:'0 2px 10px rgba(0,0,0,0.3)'};
+const LIGHT={bg:'#f2f2f7',bg2:'#fff',card:'rgba(255,255,255,0.82)',solid:'#fff',elev:'#e5e5ea',border:'rgba(60,60,67,0.12)',text:'#1c1c1e',dim:'#8e8e93',muted:'#aeaeb2',accent:'#007AFF',accentS:'rgba(0,122,255,0.1)',green:'#34C759',greenS:'rgba(52,199,89,0.1)',orange:'#FF9500',orangeS:'rgba(255,149,0,0.1)',red:'#FF3B30',redS:'rgba(255,59,48,0.1)',purple:'#AF52DE',purpleS:'rgba(175,82,222,0.1)',teal:'#5AC8FA',glass:'rgba(255,255,255,0.7)',blur:'blur(20px)',shadow:'0 1px 4px rgba(0,0,0,0.04),0 4px 20px rgba(0,0,0,0.08)'};
 
-const CATS = [{id:'werk',label:'Werk',icon:'💼'},{id:'sport',label:'Sport',icon:'🏃'},{id:'relax',label:'Ontspanning',icon:'🧘'},{id:'persoonlijk',label:'Persoonlijk',icon:'🏠'},{id:'zakelijk',label:'Zakelijk',icon:'📊'}];
-const catColor = (id,t) => ({werk:t.accent,sport:t.sport,relax:t.relax,persoonlijk:t.warn,zakelijk:t.success})[id]||t.accent;
-const catSoft = (id,t) => ({werk:t.accentS,sport:t.sportS,relax:t.relaxS,persoonlijk:t.warnS,zakelijk:t.successS})[id]||t.accentS;
-const PRIS = ['high','medium','low'];
-const PRI_L = {high:'Hoog',medium:'Midden',low:'Laag'};
-const PRI_C = (p,t) => ({high:t.danger,medium:t.warn,low:t.success})[p];
-const DURS = [{v:30,l:'30 min'},{v:60,l:'1 uur'},{v:90,l:'1,5 uur'},{v:120,l:'2 uur'}];
-const RECUR = [{v:'none',l:'Geen'},{v:'daily',l:'Dagelijks'},{v:'weekdays',l:'Werkdagen'},{v:'weekly',l:'Wekelijks'},{v:'monthly',l:'Maandelijks'}];
+const uid=()=>Math.random().toString(36).substr(2,9);
+const fd=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'short',year:'numeric'}):'';
+const fds=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'short'}):'';
+const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+const td=()=>new Date().toISOString().split('T')[0];
+const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
+const LS={get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}}};
 
-const uid = () => Math.random().toString(36).substr(2,9);
-const fd = d => new Date(d+'T12:00:00').toLocaleDateString('nl-NL',{day:'numeric',month:'short'});
-const ft = () => new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
-const td = () => new Date().toISOString().split('T')[0];
-const addD = (s,n) => {const d=new Date(s+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];};
-const dayN = s => new Date(s+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short'});
-const dayNum = s => new Date(s+'T12:00:00').getDate();
-const fullD = s => new Date(s+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'long'});
-const p2 = n => String(n).padStart(2,'0');
+// Pipeline stages
+const STAGES=[
+  {id:'lead',l:'Lead',ic:'🎯',c:'#5AC8FA'},
+  {id:'qualified',l:'Gekwalificeerd',ic:'✓',c:'#007AFF'},
+  {id:'proposal',l:'Voorstel',ic:'📄',c:'#BF5AF2'},
+  {id:'negotiation',l:'Onderhandeling',ic:'🤝',c:'#FF9F0A'},
+  {id:'won',l:'Gewonnen',ic:'🏆',c:'#30D158'},
+  {id:'lost',l:'Verloren',ic:'✕',c:'#FF453A'},
+];
+const stageC=id=>STAGES.find(s=>s.id===id)||STAGES[0];
 
-const SLOTS = [];
-for(let h=6;h<22;h++){SLOTS.push(`${p2(h)}:00`);SLOTS.push(`${p2(h)}:30`);}
-const sIdx = s => SLOTS.indexOf(s);
-const sNeed = d => Math.ceil(d/30);
+// Priority
+const PRIS=[{id:'high',l:'Hoog',c:'#FF453A'},{id:'medium',l:'Midden',c:'#FF9F0A'},{id:'low',l:'Laag',c:'#30D158'}];
 
-const INIT_TEAM = [
-  {id:'me',name:'Ik',ini:'IK',c:'#6c5ce7'},
-  {id:'anna',name:'Anna',ini:'AB',c:'#00d2a0'},
-  {id:'mark',name:'Mark',ini:'MV',c:'#00b4d8'},
+// Demo data
+const DEMO_COMPANIES=[
+  {id:uid(),name:'TechVentures BV',website:'techventures.nl',industry:'Technologie',address:'Amsterdam',size:'10-50',phone:'+31201234567',email:'info@techventures.nl',notes:'Innovatief bedrijf, groeit snel',tags:['tech','enterprise'],createdAt:new Date().toISOString()},
+  {id:uid(),name:'Design Studio',website:'designstudio.nl',industry:'Creatief',address:'Rotterdam',size:'1-10',phone:'',email:'hello@designstudio.nl',notes:'',tags:['design'],createdAt:new Date().toISOString()},
+  {id:uid(),name:'Berg Consultancy',website:'bergconsultancy.nl',industry:'Consultancy',address:'Utrecht',size:'10-50',phone:'',email:'info@bergconsultancy.nl',notes:'',tags:['consultancy'],createdAt:new Date().toISOString()},
+  {id:uid(),name:'GreenTech Startup',website:'greentech.io',industry:'Duurzaamheid',address:'Eindhoven',size:'1-10',phone:'',email:'hi@greentech.io',notes:'Seed-fase, zoekt partners',tags:['startup','duurzaam'],createdAt:new Date().toISOString()},
+  {id:uid(),name:'Nexus Finance',website:'nexusfinance.nl',industry:'Financieel',address:'Den Haag',size:'50-200',phone:'+31703456789',email:'contact@nexusfinance.nl',notes:'Nog geen contactpersoon',tags:['finance','prospect'],createdAt:new Date().toISOString()},
 ];
 
-const INIT_TASKS = [
-  {id:uid(),title:'Kwartaalrapport afronden',category:'werk',priority:'high',assignee:'me',dueDate:td(),completed:false,notes:['Data verifiëren'],links:['https://docs.google.com'],createdAt:new Date().toISOString(),timeSlot:'09:00',duration:60,recur:'none'},
-  {id:uid(),title:'Hardlopen 5km',category:'sport',priority:'medium',assignee:'me',dueDate:td(),completed:false,notes:[],links:[],createdAt:new Date().toISOString(),timeSlot:'17:00',duration:30,recur:'weekdays'},
-  {id:uid(),title:'Teammeeting',category:'zakelijk',priority:'high',assignee:'anna',dueDate:td(),completed:false,notes:['Agenda'],links:[],createdAt:new Date().toISOString(),timeSlot:'10:30',duration:60,recur:'weekly'},
-  {id:uid(),title:'Yoga',category:'relax',priority:'low',assignee:'me',dueDate:td(),completed:true,notes:[],links:[],createdAt:new Date().toISOString(),completedAt:new Date().toISOString(),timeSlot:'07:00',duration:30,recur:'daily'},
-  {id:uid(),title:'Offerte versturen',category:'zakelijk',priority:'high',assignee:'mark',dueDate:td(),completed:false,notes:[],links:[],createdAt:new Date().toISOString(),timeSlot:'11:30',duration:30,recur:'none'},
-  {id:uid(),title:'Boodschappen',category:'persoonlijk',priority:'low',assignee:'me',dueDate:td(),completed:false,notes:[],links:[],createdAt:new Date().toISOString(),timeSlot:null,duration:30,recur:'none'},
-  {id:uid(),title:'Website review',category:'werk',priority:'medium',assignee:'me',dueDate:td(),completed:false,notes:[],links:[],createdAt:new Date().toISOString(),timeSlot:'14:00',duration:90,recur:'none'},
-  {id:uid(),title:'Meditatie',category:'relax',priority:'low',assignee:'me',dueDate:td(),completed:true,notes:[],links:[],createdAt:new Date().toISOString(),completedAt:new Date().toISOString(),timeSlot:'06:30',duration:30,recur:'daily'},
-  {id:uid(),title:'Q2 Strategie',category:'werk',priority:'high',assignee:'me',dueDate:addD(td(),1),completed:false,notes:[],links:[],createdAt:new Date().toISOString(),timeSlot:'09:00',duration:120,recur:'none'},
-  {id:uid(),title:'Presentatie oefenen',category:'zakelijk',priority:'medium',assignee:'me',dueDate:addD(td(),2),completed:false,notes:[],links:[],createdAt:new Date().toISOString(),timeSlot:'10:00',duration:60,recur:'none'},
+const DEMO_CONTACTS=[
+  {id:uid(),name:'Sarah de Vries',email:'sarah@example.nl',phone:'+31612345678',companyId:DEMO_COMPANIES[0].id,role:'CEO',tags:['beslisser','tech'],createdAt:new Date().toISOString(),avatar:'SV'},
+  {id:uid(),name:'Mark Jansen',email:'mark@designstudio.nl',phone:'+31698765432',companyId:DEMO_COMPANIES[1].id,role:'Creative Director',tags:['design','partner'],createdAt:new Date().toISOString(),avatar:'MJ'},
+  {id:uid(),name:'Lisa van den Berg',email:'lisa@consultancy.nl',phone:'',companyId:DEMO_COMPANIES[2].id,role:'Managing Partner',tags:['consultancy'],createdAt:new Date().toISOString(),avatar:'LB'},
+  {id:uid(),name:'Tom Bakker',email:'tom@startup.io',phone:'+31655551234',companyId:DEMO_COMPANIES[3].id,role:'CTO',tags:['startup','tech'],createdAt:new Date().toISOString(),avatar:'TB'},
 ];
 
-// Fake completion history for stats
-const STATS_HISTORY = Array.from({length:7},(_,i) => ({
-  date: addD(td(), i-6),
-  dag: dayN(addD(td(), i-6)),
-  afgerond: Math.floor(Math.random()*6)+2,
-  gepland: Math.floor(Math.random()*4)+4,
-}));
+const mkOpp=(title,contactId,stage,value,prob)=>({id:uid(),title,contactId,companyId:'',stage,value,probability:prob,priority:'medium',nextAction:'',nextActionDate:'',notes:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),closedAt:null});
 
-// ─── CSS HELPER ─────────────────────────────────────────
-const S = (t) => `
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'DM Sans',system-ui,sans-serif; background:${t.bg}; color:${t.text}; }
-  ::-webkit-scrollbar { width:6px } ::-webkit-scrollbar-thumb { background:${t.border}; border-radius:3px }
-  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
-  @keyframes confetti { 0%{transform:translateY(0) rotate(0);opacity:1} 100%{transform:translateY(-80px) rotate(720deg);opacity:0} }
-  @keyframes fadeOut { to{opacity:0;transform:translateY(-15px)} }
-  @keyframes glow { 0%,100%{box-shadow:0 0 15px ${t.accentS}} 50%{box-shadow:0 0 30px rgba(108,92,231,.35)} }
-  @keyframes pomoPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.02)} }
-  .fin{animation:fadeIn .35s ease}
-`;
+const DEMO_OPPS=[
+  {...mkOpp('Website Redesign','','proposal',15000,60),contactId:DEMO_CONTACTS[0].id,companyId:DEMO_COMPANIES[0].id,nextAction:'Voorstel versturen',nextActionDate:td(),priority:'high',notes:[{id:uid(),text:'Sarah wil Q3 live gaan',at:new Date().toISOString()}]},
+  {...mkOpp('Brand Identity','','qualified',8500,40),contactId:DEMO_CONTACTS[1].id,companyId:DEMO_COMPANIES[1].id,nextAction:'Portfolio sturen',nextActionDate:td(),notes:[]},
+  {...mkOpp('Strategie Workshop','','negotiation',12000,75),contactId:DEMO_CONTACTS[2].id,companyId:DEMO_COMPANIES[2].id,nextAction:'Contract reviewen',nextActionDate:td(),priority:'high',notes:[{id:uid(),text:'Akkoord op scope, prijs nog open',at:new Date().toISOString()}]},
+  {...mkOpp('App Development','','lead',25000,20),contactId:DEMO_CONTACTS[3].id,companyId:DEMO_COMPANIES[3].id,nextAction:'Discovery call plannen',nextActionDate:'',notes:[]},
+  {...mkOpp('SEO Pakket','','won',4800,100),contactId:DEMO_CONTACTS[0].id,companyId:DEMO_COMPANIES[0].id,closedAt:new Date().toISOString(),notes:[]},
+  {...mkOpp('Pensioenadvies Platform','','lead',35000,15),contactId:'',companyId:DEMO_COMPANIES[4].id,nextAction:'Contactpersoon vinden',nextActionDate:td(),notes:[{id:uid(),text:'Nog geen contactpersoon, via LinkedIn benaderen',at:new Date().toISOString()}]},
+];
 
-// ═══ COMPONENTS ═════════════════════════════════════════
+const DEMO_TASKS=[
+  {id:uid(),title:'Voorstel Sarah versturen',contactId:DEMO_CONTACTS[0].id,oppId:DEMO_OPPS[0].id,dueDate:td(),dueTime:'10:00',done:false,priority:'high',reminder:true,reminderMin:15,createdAt:new Date().toISOString()},
+  {id:uid(),title:'Follow-up Mark bellen',contactId:DEMO_CONTACTS[1].id,oppId:DEMO_OPPS[1].id,dueDate:td(),dueTime:'14:00',done:false,priority:'medium',reminder:true,reminderMin:30,createdAt:new Date().toISOString()},
+  {id:uid(),title:'Contract Lisa opstellen',contactId:DEMO_CONTACTS[2].id,oppId:DEMO_OPPS[2].id,dueDate:td(),dueTime:'',done:false,priority:'high',reminder:false,reminderMin:0,createdAt:new Date().toISOString()},
+  {id:uid(),title:'Tom terugbellen over app specs',contactId:DEMO_CONTACTS[3].id,oppId:DEMO_OPPS[3].id,dueDate:td(),dueTime:'16:30',done:false,priority:'low',reminder:true,reminderMin:15,createdAt:new Date().toISOString()},
+];
 
-// ─── Pomodoro Timer ─────────────────────────────────────
-const Pomodoro = ({task, theme:t, onClose}) => {
-  const [mode, setMode] = useState('work'); // work | break
-  const [secs, setSecs] = useState(25*60);
-  const [running, setRunning] = useState(false);
-  const [cycles, setCycles] = useState(0);
-  const iv = useRef(null);
+// ═══ APP ════════════════════════════════════════════════
+const App = function(){
+  const[dark,setDark]=useState(()=>LS.get('dark',true));
+  const t=dark?DARK:LIGHT;
+  const[contacts,setContacts]=useState(()=>LS.get('contacts',DEMO_CONTACTS));
+  const[companies,setCompanies]=useState(()=>LS.get('companies',DEMO_COMPANIES));
+  const[opps,setOpps]=useState(()=>LS.get('opps',DEMO_OPPS));
+  const[tasks,setTasks]=useState(()=>LS.get('tasks',DEMO_TASKS));
+  const[view,setView]=useState('pipeline');
+  const[sb,setSb]=useState(false);
+  const[modal,setModal]=useState(null); // {type:'contact'|'opp'|'task'|'company', data?:...}
+  const[detail,setDetail]=useState(null); // {type:'contact'|'opp'|'company', id:...}
+  const[search,setSearch]=useState('');
+  const[toasts,setToasts]=useState([]);
+  const[dragOpp,setDragOpp]=useState(null);
 
-  useEffect(() => {
-    if (running && secs > 0) {
-      iv.current = setInterval(() => setSecs(s => s - 1), 1000);
-    } else if (secs === 0) {
-      if (mode === 'work') { setCycles(c => c+1); setMode('break'); setSecs(5*60); }
-      else { setMode('work'); setSecs(25*60); }
-      try { new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAAB/f39/').play(); } catch(e){}
-    }
-    return () => clearInterval(iv.current);
-  }, [running, secs, mode]);
-
-  const pct = mode === 'work' ? (1 - secs/(25*60))*100 : (1 - secs/(5*60))*100;
-  const mm = Math.floor(secs/60), ss = secs%60;
-
-  return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.75)',backdropFilter:'blur(8px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',animation:'fadeIn .2s ease'}} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:20,padding:32,width:340,textAlign:'center'}}>
-        <div style={{fontSize:12,color:t.muted,textTransform:'uppercase',letterSpacing:2,marginBottom:4}}>{mode==='work'?'🍅 Focus':'☕ Pauze'}</div>
-        <div style={{fontSize:11,color:t.dim,marginBottom:16}}>{task?.title || 'Pomodoro Timer'}</div>
-        <div style={{position:'relative',width:180,height:180,margin:'0 auto 20px'}}>
-          <svg viewBox="0 0 100 100" style={{transform:'rotate(-90deg)'}}>
-            <circle cx="50" cy="50" r="44" fill="none" stroke={t.border} strokeWidth="6"/>
-            <circle cx="50" cy="50" r="44" fill="none" stroke={mode==='work'?t.danger:t.success} strokeWidth="6" strokeDasharray={`${pct*2.76} 276`} strokeLinecap="round" style={{transition:'stroke-dasharray .5s'}}/>
-          </svg>
-          <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-            <div style={{fontSize:42,fontWeight:700,fontFamily:'monospace',animation:running?'pomoPulse 2s ease infinite':'none'}}>{p2(mm)}:{p2(ss)}</div>
-          </div>
-        </div>
-        <div style={{display:'flex',gap:8,justifyContent:'center',marginBottom:16}}>
-          <button onClick={()=>setRunning(!running)} style={{padding:'10px 24px',borderRadius:10,border:'none',background:running?t.dangerS:t.accentS,color:running?t.danger:t.accent,fontFamily:'inherit',fontSize:14,fontWeight:600,cursor:'pointer'}}>{running?'⏸ Pauze':'▶ Start'}</button>
-          <button onClick={()=>{setSecs(mode==='work'?25*60:5*60);setRunning(false);}} style={{padding:'10px 16px',borderRadius:10,border:`1px solid ${t.border}`,background:'transparent',color:t.dim,fontFamily:'inherit',fontSize:13,cursor:'pointer'}}>↺ Reset</button>
-        </div>
-        <div style={{fontSize:11,color:t.muted}}>Rondes voltooid: {cycles}</div>
-      </div>
-    </div>
-  );
-};
-
-// ─── Team Manager Modal ─────────────────────────────────
-const TeamManager = ({team, onUpdate, onClose, theme:t}) => {
-  const [name, setName] = useState('');
-  const add = () => {
-    if (!name.trim()) return;
-    const ini = name.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-    const cols = ['#6c5ce7','#00d2a0','#00b4d8','#e77cd2','#ffa64d','#ff6b6b','#a855f7'];
-    onUpdate([...team, {id:uid(), name:name.trim(), ini, c:cols[team.length%cols.length]}]);
-    setName('');
-  };
-  const remove = (id) => { if (id==='me') return; onUpdate(team.filter(m=>m.id!==id)); };
-  return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:20,padding:24,width:'100%',maxWidth:400}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-          <div style={{fontWeight:700,fontSize:18}}>Team Beheren</div>
-          <button onClick={onClose} style={{width:28,height:28,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
-        </div>
-        <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
-          {team.map(m => (
-            <div key={m.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:t.elev,borderRadius:10}}>
-              <div style={{width:30,height:30,borderRadius:'50%',background:m.c,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,color:'#fff'}}>{m.ini}</div>
-              <div style={{flex:1,fontSize:13,fontWeight:500}}>{m.name}{m.id==='me'&&<span style={{fontSize:10,color:t.muted,marginLeft:6}}>(jij)</span>}</div>
-              {m.id!=='me'&&<button onClick={()=>remove(m.id)} style={{background:'none',border:'none',color:t.danger,cursor:'pointer',fontSize:14}}>✕</button>}
-            </div>
-          ))}
-        </div>
-        <div style={{display:'flex',gap:8}}>
-          <input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Naam nieuw teamlid..." style={{flex:1,padding:'8px 12px',background:t.elev,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,fontFamily:'inherit',fontSize:13,outline:'none'}}/>
-          <button onClick={add} style={{padding:'8px 16px',borderRadius:8,background:t.accent,color:'#fff',border:'none',fontFamily:'inherit',fontWeight:600,cursor:'pointer'}}>+ Toevoegen</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── Task Modal ─────────────────────────────────────────
-const TaskModal = ({task,onSave,onClose,isNew,tasks,selDate,team,theme:t}) => {
-  const [f,sf]=useState(task||{title:'',category:'werk',priority:'medium',assignee:'me',dueDate:selDate||td(),notes:[],links:[],subtasks:[],completed:false,timeSlot:null,duration:30,recur:'none'});
-  const [nn,snn]=useState('');const [nl,snl]=useState('');const [sp,ssp]=useState(false);const [ns,sns]=useState('');
-  const occ=useMemo(()=>{const s=new Set();tasks.filter(x=>x.id!==(task?.id)&&x.dueDate===f.dueDate&&x.timeSlot).forEach(x=>{const i=sIdx(x.timeSlot),n=sNeed(x.duration||30);for(let j=0;j<n&&i+j<SLOTS.length;j++)s.add(SLOTS[i+j]);});return s;},[tasks,f.dueDate,task]);
-  const canFit=s=>{const i=sIdx(s),n=sNeed(f.duration||30);for(let j=0;j<n;j++){if(i+j>=SLOTS.length||occ.has(SLOTS[i+j]))return false;}return true;};
-  const addNote=()=>{if(!nn.trim())return;sf({...f,notes:[...(f.notes||[]),nn.trim()]});snn('');};
-  const addLink=()=>{if(!nl.trim())return;let u=nl.trim();if(!u.startsWith('http'))u='https://'+u;sf({...f,links:[...(f.links||[]),u]});snl('');};
-  const inp = {width:'100%',padding:'8px 11px',background:t.elev,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,fontFamily:'inherit',fontSize:13,outline:'none'};
-  const lbl = {display:'block',fontSize:10,color:t.muted,textTransform:'uppercase',letterSpacing:1,marginBottom:4};
-  return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16,animation:'fadeIn .2s'}} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:20,width:'100%',maxWidth:520,maxHeight:'90vh',overflowY:'auto',animation:'fadeIn .3s'}}>
-        <div style={{padding:'18px 22px 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <div style={{fontWeight:700,fontSize:18}}>{isNew?'Nieuwe Taak':'Taak Bewerken'}</div>
-          <button onClick={onClose} style={{width:28,height:28,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
-        </div>
-        <div style={{padding:'18px 22px'}}>
-          <div style={{marginBottom:12}}><label style={lbl}>Titel</label><input style={inp} value={f.title} onChange={e=>sf({...f,title:e.target.value})} placeholder="Wat moet er gebeuren?" autoFocus/></div>
-          <div style={{marginBottom:12}}><label style={lbl}>Categorie</label><div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{CATS.map(c=><button key={c.id} onClick={()=>sf({...f,category:c.id})} style={{padding:'4px 12px',borderRadius:20,fontSize:11,fontWeight:500,border:`1px solid ${f.category===c.id?catColor(c.id,t):t.border}`,background:f.category===c.id?catSoft(c.id,t):'transparent',color:f.category===c.id?catColor(c.id,t):t.dim,cursor:'pointer',fontFamily:'inherit'}}>{c.icon} {c.label}</button>)}</div></div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:12}}>
-            <div><label style={lbl}>Prioriteit</label><select style={{...inp,cursor:'pointer'}} value={f.priority} onChange={e=>sf({...f,priority:e.target.value})}>{PRIS.map(p=><option key={p} value={p}>{PRI_L[p]}</option>)}</select></div>
-            <div><label style={lbl}>Datum</label><input type="date" style={inp} value={f.dueDate} onChange={e=>sf({...f,dueDate:e.target.value,timeSlot:null})}/></div>
-            <div><label style={lbl}>Duur</label><select style={{...inp,cursor:'pointer'}} value={f.duration} onChange={e=>sf({...f,duration:+e.target.value,timeSlot:null})}>{DURS.map(d=><option key={d.v} value={d.v}>{d.l}</option>)}</select></div>
-          </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
-            <div><label style={lbl}>Tijdslot</label>
-              <div style={{display:'flex',gap:5}}><input style={{...inp,cursor:'pointer'}} readOnly value={f.timeSlot?`${f.timeSlot} (${f.duration}m)`:'Niet ingepland'} onClick={()=>ssp(!sp)}/>{f.timeSlot&&<button onClick={()=>sf({...f,timeSlot:null})} style={{padding:'4px 8px',borderRadius:6,border:`1px solid ${t.border}`,background:'transparent',color:t.dim,cursor:'pointer',fontSize:13}}>×</button>}</div>
-              {sp&&<div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:3,maxHeight:200,overflowY:'auto',marginTop:6}}>{SLOTS.map(s=>{const ok=canFit(s);return<button key={s} disabled={!ok} onClick={()=>{if(ok){sf({...f,timeSlot:s});ssp(false);}}} style={{padding:'6px 2px',borderRadius:6,border:`1px solid ${f.timeSlot===s?t.accent:t.border}`,background:f.timeSlot===s?t.accentS:t.elev,color:ok?(f.timeSlot===s?t.accent:t.dim):t.muted,opacity:ok?1:.25,cursor:ok?'pointer':'not-allowed',fontFamily:'inherit',fontSize:11}}>{s}</button>})}</div>}
-            </div>
-            <div><label style={lbl}>Toewijzen</label><select style={{...inp,cursor:'pointer'}} value={f.assignee} onChange={e=>sf({...f,assignee:e.target.value})}>{team.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></div>
-          </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr',gap:10,marginBottom:12}}>
-            <div><label style={lbl}>Herhaling</label><select style={{...inp,cursor:'pointer'}} value={f.recur||'none'} onChange={e=>sf({...f,recur:e.target.value})}>{RECUR.map(r=><option key={r.v} value={r.v}>{r.l}</option>)}</select></div>
-          </div>
-          <div style={{marginBottom:12}}><label style={lbl}>Notities</label><div style={{display:'flex',gap:5}}><input style={inp} placeholder="Notitie..." value={nn} onChange={e=>snn(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addNote()}/><button onClick={addNote} style={{padding:'4px 10px',borderRadius:6,border:`1px solid ${t.border}`,background:'transparent',color:t.dim,cursor:'pointer',fontSize:14}}>+</button></div>
-            {f.notes?.length>0&&<div style={{display:'flex',flexDirection:'column',gap:3,marginTop:5}}>{f.notes.map((n,i)=><div key={i} style={{background:t.elev,padding:'6px 10px',borderRadius:6,fontSize:12,borderLeft:`3px solid ${t.accent}`,display:'flex',justifyContent:'space-between'}}>{n}<span style={{cursor:'pointer',color:t.muted}} onClick={()=>sf({...f,notes:f.notes.filter((_,j)=>j!==i)})}>×</span></div>)}</div>}</div>
-          <div style={{marginBottom:12}}><label style={lbl}>Links</label><div style={{display:'flex',gap:5}}><input style={inp} placeholder="https://..." value={nl} onChange={e=>snl(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addLink()}/><button onClick={addLink} style={{padding:'4px 10px',borderRadius:6,border:`1px solid ${t.border}`,background:'transparent',color:t.dim,cursor:'pointer',fontSize:14}}>+</button></div>
-            {f.links?.length>0&&<div style={{display:'flex',flexDirection:'column',gap:3,marginTop:5}}>{f.links.map((l,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 9px',background:t.elev,borderRadius:6,fontSize:11}}>🔗 <a href={l} target="_blank" rel="noopener" style={{color:t.accent,textDecoration:'none',wordBreak:'break-all'}}>{l.length>30?l.substr(0,30)+'...':l}</a><span style={{marginLeft:'auto',cursor:'pointer',color:t.muted}} onClick={()=>sf({...f,links:f.links.filter((_,j)=>j!==i)})}>×</span></div>)}</div>}</div>
-          <div style={{marginBottom:12}}><label style={lbl}>Subtaken</label>
-            <div style={{display:'flex',gap:5}}><input style={inp} placeholder="Voeg subtaak toe..." value={ns} onChange={e=>sns(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&ns.trim()){sf({...f,subtasks:[...(f.subtasks||[]),{id:uid(),title:ns.trim(),done:false}]});sns('');}}}/><button onClick={()=>{if(ns.trim()){sf({...f,subtasks:[...(f.subtasks||[]),{id:uid(),title:ns.trim(),done:false}]});sns('');}}} style={{padding:'4px 10px',borderRadius:6,border:`1px solid ${t.border}`,background:'transparent',color:t.dim,cursor:'pointer',fontSize:14}}>+</button></div>
-            {(f.subtasks||[]).length>0&&<div style={{display:'flex',flexDirection:'column',gap:3,marginTop:6}}>
-              {f.subtasks.map((s,i)=><div key={s.id||i} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',background:t.elev,borderRadius:6,fontSize:12}}>
-                <div onClick={()=>{const subs=[...(f.subtasks||[])];subs[i]={...subs[i],done:!subs[i].done};sf({...f,subtasks:subs});}} style={{width:14,height:14,minWidth:14,border:`2px solid ${s.done?t.success:t.borderL}`,borderRadius:'50%',background:s.done?t.success:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:8,fontWeight:700,color:'#fff'}}>{s.done&&'✓'}</div>
-                <span style={{flex:1,textDecoration:s.done?'line-through':'none',opacity:s.done?.5:1}}>{s.title}</span>
-                <span style={{cursor:'pointer',color:t.muted,fontSize:13}} onClick={()=>sf({...f,subtasks:f.subtasks.filter((_,j)=>j!==i)})}>×</span>
-              </div>)}
-              <div style={{fontSize:10,color:t.muted,marginTop:2}}>{(f.subtasks||[]).filter(s=>s.done).length}/{(f.subtasks||[]).length} subtaken afgerond</div>
-            </div>}
-          </div>
-        </div>
-        <div style={{padding:'0 22px 18px',display:'flex',gap:8,justifyContent:'flex-end'}}>
-          <button onClick={onClose} style={{padding:'8px 16px',borderRadius:8,border:`1px solid ${t.border}`,background:'transparent',color:t.dim,cursor:'pointer',fontFamily:'inherit',fontSize:12}}>Annuleren</button>
-          <button onClick={()=>{if(!f.title.trim())return;onSave({...f,id:f.id||uid(),createdAt:f.createdAt||new Date().toISOString()});}} style={{padding:'8px 18px',borderRadius:8,background:`linear-gradient(135deg,${t.accent},#8b5cf6)`,color:'#fff',border:'none',fontFamily:'inherit',fontWeight:600,cursor:'pointer',fontSize:12}}>{isNew?'✦ Toevoegen':'✓ Opslaan'}</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── AI Coach with Claude API ───────────────────────────
-const aiCall = async (msg, tasks, selDate, history) => {
-  const sys = `Je bent een Nederlandse productiviteitscoach in TaskFlow Pro. Je hebt toegang tot de taken van de gebruiker. Wees kort, praktisch en motiverend. Gebruik emoji's. Huidige datum: ${selDate}. Taken vandaag: ${JSON.stringify(tasks.filter(t=>t.dueDate===selDate).map(t=>({titel:t.title,cat:t.category,prio:t.priority,tijd:t.timeSlot,klaar:t.completed,duur:t.duration+'m'})))}. Alle taken: ${tasks.length} totaal, ${tasks.filter(t=>!t.completed).length} open, ${tasks.filter(t=>t.completed).length} af.`;
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:500, system:sys,
-        messages: [...history.slice(-6).map(m=>({role:m.role==='user'?'user':'assistant',content:m.text})), {role:'user',content:msg}]
-      })
-    });
-    const data = await res.json();
-    return data.content?.[0]?.text || 'Ik kon geen antwoord genereren. Probeer het opnieuw.';
-  } catch(e) {
-    return fallbackAI(msg, tasks, selDate);
-  }
-};
-
-const fallbackAI = (msg, tasks, selDate) => {
-  const m=msg.toLowerCase(),dt=tasks.filter(t=>t.dueDate===selDate),op=tasks.filter(t=>!t.completed),hp=op.filter(t=>t.priority==='high'),up=dt.filter(t=>!t.timeSlot&&!t.completed);
-  if(m.includes('zoek')||m.includes('vind')){const q=m.replace(/zoek|vind|search|naar|taken|taak|voor/gi,'').trim();if(q){const f=tasks.filter(t=>t.title.toLowerCase().includes(q)||t.category.includes(q));return f.length?`🔍 ${f.length} gevonden:\n${f.map(t=>`• ${t.completed?'✅':'⬜'} ${t.title} (${fd(t.dueDate)} ${t.timeSlot||''})`).join('\n')}`:`🔍 Niets gevonden.`;}}
-  if(m.includes('rapport')||m.includes('report')){return `📊 Dagrapport ${fd(selDate)}\n✅ ${dt.filter(t=>t.completed).length} af\n⬜ ${dt.filter(t=>!t.completed).length} open\n📅 ${dt.filter(t=>t.timeSlot).length} gepland`;}
-  if(m.includes('tip')||m.includes('coach')||m.includes('help')){const tips=[];if(up.length)tips.push(`📌 ${up.length} ongeplande taken.`);if(hp.length>2)tips.push(`⚡ ${hp.length} urgente taken.`);if(!dt.some(x=>x.category==='sport'&&!x.completed))tips.push('🏃 Plan sport in!');return tips.length?tips.join('\n\n'):'👏 Ziet er goed uit!';}
-  if(m.includes('planning')||m.includes('tijd')){const pl=dt.filter(t=>t.timeSlot).sort((a,b)=>a.timeSlot.localeCompare(b.timeSlot));return pl.length?`⏰ ${pl.map(t=>`${t.timeSlot} ${t.title} (${t.duration}m)`).join('\n')}`:'Geen planning.';}
-  return `${hp.length?`🔴 ${hp.length} urgent\n`:''}${up.length?`📌 ${up.length} ongepland\n`:''}💡 Typ: "zoek", "tips", "planning", "rapport"`;
-};
-
-// ─── Exports (Apple Calendar + Outlook + Google compatible) ──
-const makeICSEvent = (tk) => {
-  const d=(tk.dueDate||td()).replace(/-/g,'');
-  const st=tk.timeSlot?tk.timeSlot.replace(':','')+'00':'090000';
-  const dm=tk.duration||30;
-  const sh=+st.substr(0,2),sm=+st.substr(2,2),em=sm+dm,eh=sh+Math.floor(em/60);
-  const et=`${p2(eh%24)}${p2(em%60)}00`;
-  const notes=(tk.notes||[]).join('\\n');
-  const cat=CATS.find(c=>c.id===tk.category)?.label||'';
-  const sub=(tk.subtasks||[]).map(s=>`${s.done?'✓':'○'} ${s.title}`).join('\\n');
-  const desc=`Categorie: ${cat}\\nPrioriteit: ${PRI_L[tk.priority]}${notes?'\\nNotities: '+notes:''}${sub?'\\nSubtaken:\\n'+sub:''}`;
-  const euid=`${tk.id}@taskflowpro`;
-  return `BEGIN:VEVENT\r\nUID:${euid}\r\nDTSTAMP:${d}T${st}Z\r\nDTSTART:${d}T${st}\r\nDTEND:${d}T${et}\r\nSUMMARY:${tk.title}\r\nDESCRIPTION:${desc}\r\nCATEGORIES:${cat}\r\nSTATUS:${tk.completed?'COMPLETED':'NEEDS-ACTION'}\r\nBEGIN:VALARM\r\nTRIGGER:-PT15M\r\nACTION:DISPLAY\r\nDESCRIPTION:${tk.title} begint over 15 minuten\r\nEND:VALARM\r\nEND:VEVENT`;
-};
-
-const makeICSFile = (events) => {
-  return `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//TaskFlow Pro//NL\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nX-WR-CALNAME:TaskFlow Pro\r\nX-WR-TIMEZONE:Europe/Amsterdam\r\n${events}\r\nEND:VCALENDAR`;
-};
-
-const expOutlook = tasks => {
-  const ev=tasks.filter(t=>!t.completed).map(makeICSEvent).join('\r\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([makeICSFile(ev)],{type:'text/calendar;charset=utf-8'}));
-  a.download=`taskflow-${td()}.ics`;a.click();
-};
-
-const expAppleCalendar = (tasks) => {
-  // Apple Calendar prefers opening .ics files directly
-  const ev=tasks.filter(t=>!t.completed).map(makeICSEvent).join('\r\n');
-  const blob=new Blob([makeICSFile(ev)],{type:'text/calendar;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  // On iOS/macOS, opening a .ics URL triggers the native calendar import
-  window.open(url, '_blank');
-};
-
-const expSingleICS = (tk) => {
-  const ics=makeICSFile(makeICSEvent(tk));
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([ics],{type:'text/calendar;charset=utf-8'}));
-  a.download=`${tk.title.replace(/[^a-zA-Z0-9 ]/g,'').trim()||'taak'}.ics`;
-  a.click();
-};
-
-const expMail = (tasks,date) => {
-  const dt=tasks.filter(t=>t.dueDate===date),dn=dt.filter(t=>t.completed),op=dt.filter(t=>!t.completed);
-  const r=`DAGRAPPORT — ${fullD(date)}\n\n✅ AFGEROND (${dn.length})\n${dn.map(t=>`  ✓ ${t.timeSlot||'--:--'} ${t.title}`).join('\n')||'  Geen'}\n\n⬜ OPEN (${op.length})\n${op.map(t=>`  ○ ${t.timeSlot||'--:--'} ${t.title} [${PRI_L[t.priority]}]`).join('\n')||'  Alles af!'}\n\n— TaskFlow Pro`;
-  window.open(`mailto:?subject=${encodeURIComponent('TaskFlow Dagrapport — '+fullD(date))}&body=${encodeURIComponent(r)}`,'_self');
-};
-
-// ═══ PERSISTENCE (localStorage) ═════════════════════════
-const LS = {
-  get: (key, fallback) => { try { const v = localStorage.getItem('tf_'+key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
-  set: (key, val) => { try { localStorage.setItem('tf_'+key, JSON.stringify(val)); } catch {} },
-  del: (key) => { try { localStorage.removeItem('tf_'+key); } catch {} },
-};
-
-// ═══ MAIN APP ═══════════════════════════════════════════
-const App = function() {
-  const [dark,setDark]=useState(()=>LS.get('dark',true));
-  const t = dark ? DARK : LIGHT;
-  const [tasks,setTasks]=useState(()=>LS.get('tasks',INIT_TASKS));
-  const [team,setTeam]=useState(()=>LS.get('team',INIT_TEAM));
-  const [view,setView]=useState('planner');
-  const [selDate,setSelDate]=useState(td());
-  const [modal,setModal]=useState(false);
-  const [editT,setEditT]=useState(null);
-  const [prefill,setPrefill]=useState(null);
-  const [filt,setFilt]=useState('all');
-  const [aFilt,setAFilt]=useState('all');
-  const [search,setSearch]=useState('');
-  const [sbOpen,setSbOpen]=useState(false);
-  const [aiOpen,setAiOpen]=useState(false);
-  const [celeb,setCeleb]=useState({s:false,m:''});
-  const [toasts,setToasts]=useState([]);
-  const [teamMgr,setTeamMgr]=useState(false);
-  const [pomoTask,setPomoTask]=useState(null);
-  const [dragTask,setDragTask]=useState(null);
-  const [mergeMode,setMergeMode]=useState(false);
-  const [mergeSelected,setMergeSelected]=useState([]);
-  const [weekDrop,setWeekDrop]=useState(null);
-  const [dbStatus,setDbStatus]=useState('checking'); // 'checking' | 'connected' | 'offline'
-  const [aiMsgs,setAiMsgs]=useState([{id:1,role:'bot',text:'👋 Welkom bij TaskFlow Pro V2!\n\n🤖 Ik ben je AI coach (powered by Claude)\n⏰ Sleep taken naar tijdsloten\n🔄 Stel herhalende taken in\n🍅 Start een Pomodoro timer\n🌓 Wissel dark/light mode\n\nStel me een vraag!',time:ft()}]);
-  const [aiIn,setAiIn]=useState('');
-  const [aiLoading,setAiLoading]=useState(false);
-  const aiEnd=useRef(null);
-  const sRef=useRef(null);
-  const [nowM,setNowM]=useState(new Date().getHours()*60+new Date().getMinutes());
-
-  useEffect(()=>{const i=setInterval(()=>setNowM(new Date().getHours()*60+new Date().getMinutes()),60000);return()=>clearInterval(i);},[]);
-  useEffect(()=>{if(view==='planner'&&sRef.current&&selDate===td()){const r=sRef.current.querySelector('[data-now="1"]');if(r)setTimeout(()=>r.scrollIntoView({behavior:'smooth',block:'center'}),300);}},[view,selDate]);
-
-  // ─── Persist to localStorage on every change ──────
+  useEffect(()=>{LS.set('contacts',contacts);},[contacts]);
+  useEffect(()=>{LS.set('companies',companies);},[companies]);
+  useEffect(()=>{LS.set('opps',opps);},[opps]);
   useEffect(()=>{LS.set('tasks',tasks);},[tasks]);
-  useEffect(()=>{LS.set('team',team);},[team]);
   useEffect(()=>{LS.set('dark',dark);},[dark]);
 
-  // ─── Database connection check ────────────────────
-  const [dbLatency,setDbLatency]=useState(null);
-  const checkDb = useCallback(async () => {
-    try {
-      const r = await fetch('/api/health', { signal: AbortSignal.timeout(8000) });
-      if (r.ok) {
-        const data = await r.json();
-        setDbStatus('connected');
-        setDbLatency(data.latency_ms || null);
-      } else if (r.status === 503) {
-        setDbStatus('offline');
-        setDbLatency(null);
-      } else {
-        // API reachable but DB misconfigured
-        setDbStatus('offline');
-        setDbLatency(null);
-      }
-    } catch {
-      setDbStatus('offline');
-      setDbLatency(null);
+  const toast=(m,ty='ok')=>{const i=uid();setToasts(p=>[...p,{id:i,m,ty}]);setTimeout(()=>setToasts(p=>p.filter(x=>x.id!==i)),3000);};
+  const cName=id=>contacts.find(c=>c.id===id)?.name||'';
+  const compName=id=>companies.find(c=>c.id===id)?.name||'';
+  const cCompany=id=>{const c=contacts.find(x=>x.id===id);return c?compName(c.companyId):'';}
+  const oppName=id=>opps.find(o=>o.id===id)?.title||'';
+  // Resolve display name for opp: contact name or company name
+  const oppWho=o=>{if(o.contactId&&cName(o.contactId))return cName(o.contactId);if(o.companyId)return compName(o.companyId);return '';};
+  const oppOrg=o=>{if(o.companyId)return compName(o.companyId);if(o.contactId)return cCompany(o.contactId);return '';};
+
+  // ─── REMINDER SYSTEM ──────────────────────────────
+  const firedRef=useRef(new Set());
+  useEffect(()=>{
+    // Request notification permission on first load
+    if('Notification' in window && Notification.permission==='default'){
+      Notification.requestPermission();
     }
   },[]);
 
   useEffect(()=>{
-    if (location.hostname.includes('claudeusercontent') || location.protocol === 'file:') {
-      setDbStatus('offline');
-      return;
-    }
-    checkDb();
-    // 5-min interval, only when tab visible and DB not yet connected (saves function invocations)
-    const iv = setInterval(()=>{if(document.visibilityState==='visible')checkDb();}, 300000);
-    return ()=>clearInterval(iv);
-  },[checkDb]);
+    const check=()=>{
+      const now=new Date();
+      const nowStr=td();
+      const nowMin=now.getHours()*60+now.getMinutes();
+      tasks.filter(tk=>tk.reminder&&!tk.done&&tk.dueDate===nowStr&&tk.dueTime).forEach(tk=>{
+        const[h,m]=tk.dueTime.split(':').map(Number);
+        const taskMin=h*60+m;
+        const remMin=tk.reminderMin||15;
+        const triggerMin=taskMin-remMin;
+        if(nowMin>=triggerMin&&nowMin<=taskMin&&!firedRef.current.has(tk.id)){
+          firedRef.current.add(tk.id);
+          toast(`🔔 Herinnering: "${tk.title}" over ${taskMin-nowMin} min`,'info');
+          if('Notification' in window && Notification.permission==='granted'){
+            new Notification('DPM CRM Herinnering',{body:`${tk.title}${tk.dueTime?' om '+tk.dueTime:''}`,icon:'📋'});
+          }
+        }
+      });
+    };
+    check();
+    const iv=setInterval(check,30000); // check every 30s
+    return()=>clearInterval(iv);
+  },[tasks]);
 
-  const toast=(m,ty='success')=>{const i=uid();setToasts(p=>[...p,{id:i,message:m,type:ty}]);setTimeout(()=>setToasts(p=>p.filter(x=>x.id!==i)),3000);};
-  const celebrate=m=>{setCeleb({s:true,m});setTimeout(()=>setCeleb({s:false,m:''}),2000);};
+  // Stats
+  const activeOpps=opps.filter(o=>o.stage!=='won'&&o.stage!=='lost');
+  const wonOpps=opps.filter(o=>o.stage==='won');
+  const totalPipeline=activeOpps.reduce((s,o)=>s+o.value,0);
+  const weightedPipeline=activeOpps.reduce((s,o)=>s+(o.value*o.probability/100),0);
+  const wonRevenue=wonOpps.reduce((s,o)=>s+o.value,0);
+  const todayTasks=tasks.filter(t=>t.dueDate===td()&&!t.done);
+  const overdueTasks=tasks.filter(t=>t.dueDate&&t.dueDate<td()&&!t.done);
 
-  const toggle=id=>{setTasks(p=>p.map(x=>{if(x.id!==id)return x;const d=!x.completed;if(d){celebrate(['Fantastisch! 🎉','Goed gedaan! 💪','Top werk! ⭐','Lekker bezig! 🚀'][Math.floor(Math.random()*4)]);toast(`"${x.title}" afgerond!`);}return{...x,completed:d,completedAt:d?new Date().toISOString():null};}));};
-  const save=x=>{setTasks(p=>{if(p.find(z=>z.id===x.id)){toast(`"${x.title}" bijgewerkt`);return p.map(z=>z.id===x.id?x:z);}toast(`"${x.title}" toegevoegd`);return[...p,x];});setModal(false);setEditT(null);setPrefill(null);};
-  const del=id=>{const x=tasks.find(z=>z.id===id);setTasks(p=>p.filter(z=>z.id!==id));if(x)toast(`"${x.title}" verwijderd`,'info');};
-  const unsched=id=>{setTasks(p=>p.map(x=>x.id===id?{...x,timeSlot:null}:x));toast('Tijdslot verwijderd','info');};
+  // Apple styles
+  const card={background:t.card,backdropFilter:t.blur,WebkitBackdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:14,padding:16,boxShadow:t.shadow};
+  const btn={display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:10,fontFamily:'inherit',fontSize:13,fontWeight:500,cursor:'pointer',border:'none',transition:`all 0.2s ${sp}`};
+  const btnP={...btn,background:t.accent,color:'#fff'};
+  const btnG={...btn,background:t.glass,backdropFilter:t.blur,color:t.dim,border:`0.5px solid ${t.border}`};
+  const btnD={...btn,background:t.redS,color:t.red,fontSize:12};
+  const inp={width:'100%',padding:'10px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'};
+  const lbl={display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:0.8,marginBottom:5,fontWeight:600};
+  const eur=n=>'€'+n.toLocaleString('nl-NL');
 
-  const sendAi=async()=>{
-    if(!aiIn.trim()||aiLoading)return;
-    const msg=aiIn;setAiIn('');
-    setAiMsgs(p=>[...p,{id:uid(),role:'user',text:msg,time:ft()}]);
-    setAiLoading(true);
-    const resp = await aiCall(msg, tasks, selDate, aiMsgs);
-    setAiMsgs(p=>[...p,{id:uid(),role:'bot',text:resp,time:ft()}]);
-    setAiLoading(false);
-  };
-  useEffect(()=>{aiEnd.current?.scrollIntoView({behavior:'smooth'});},[aiMsgs]);
-
-  // Drop handler for drag & drop within planner
-  const [dropTarget, setDropTarget] = useState(null);
-  
-  const handleDrop = (slot) => {
-    setDropTarget(null);
-    if (!dragTask) return;
-    const occ = new Set();
-    tasks.filter(x=>x.id!==dragTask.id&&x.dueDate===selDate&&x.timeSlot).forEach(x=>{const i=sIdx(x.timeSlot),n=sNeed(x.duration||30);for(let j=0;j<n&&i+j<SLOTS.length;j++)occ.add(SLOTS[i+j]);});
-    const idx=sIdx(slot),need=sNeed(dragTask.duration||30);
-    let ok=true;for(let j=0;j<need;j++){if(idx+j>=SLOTS.length||occ.has(SLOTS[idx+j])){ok=false;break;}}
-    if(ok){setTasks(p=>p.map(x=>x.id===dragTask.id?{...x,timeSlot:slot,dueDate:selDate}:x));toast(`"${dragTask.title}" ingepland op ${slot}`);}
-    else toast('Slot bezet — kies een ander tijdstip','info');
-    setDragTask(null);
-  };
-
-  // Drop handler for week view (drag task to different day)
-  const handleDayDrop = (date) => {
-    if (!dragTask) return;
-    setTasks(p=>p.map(x=>x.id===dragTask.id?{...x,dueDate:date}:x));
-    toast(`"${dragTask.title}" verplaatst naar ${fd(date)}`);
-    setDragTask(null);
-  };
-
-  // Generate .ics blob for a single task (for drag-to-Outlook)
-  const makeICS = (tk) => makeICSFile(makeICSEvent(tk));
-
-  // Drag start with ICS data for Outlook compatibility
-  const startDrag = (e, tk) => {
-    setDragTask(tk);
-    try {
-      const ics = makeICS(tk);
-      const blob = new Blob([ics], {type:'text/calendar'});
-      const url = URL.createObjectURL(blob);
-      e.dataTransfer.setData('text/uri-list', url);
-      e.dataTransfer.setData('text/plain', tk.title);
-      e.dataTransfer.setData('DownloadURL', `text/calendar:${tk.title.replace(/[^a-zA-Z0-9 ]/g,'')}.ics:${url}`);
-    } catch(err) {}
-  };
-
-  // Single task ICS download
-  const downloadTaskICS = (tk) => {
-    expSingleICS(tk);
-    toast(`"${tk.title}" als .ics gedownload`);
-  };
-
-  // Toggle task selection for merging
-  const toggleMergeSelect = (id) => {
-    setMergeSelected(p => p.includes(id) ? p.filter(x=>x!==id) : [...p, id]);
-  };
-
-  // Merge selected tasks into one parent with subtasks
-  const mergeTasks = () => {
-    if (mergeSelected.length < 2) { toast('Selecteer minstens 2 taken om samen te voegen','info'); return; }
-    const selected = tasks.filter(x => mergeSelected.includes(x.id));
-    const parent = selected[0]; // first selected becomes parent
-    const children = selected.slice(1);
-    const mergedSubtasks = [
-      ...(parent.subtasks || []),
-      ...children.map(c => ({ id: uid(), title: c.title, done: c.completed })),
-    ];
-    const mergedNotes = [...new Set([...(parent.notes||[]), ...children.flatMap(c=>c.notes||[])])];
-    const mergedLinks = [...new Set([...(parent.links||[]), ...children.flatMap(c=>c.links||[])])];
-    const totalDur = selected.reduce((s,x) => s + (x.duration||30), 0);
-
-    setTasks(p => {
-      const childIds = new Set(children.map(c=>c.id));
-      return p.filter(x => !childIds.has(x.id)).map(x =>
-        x.id === parent.id ? { ...x, subtasks: mergedSubtasks, notes: mergedNotes, links: mergedLinks, duration: Math.min(totalDur, 120) } : x
-      );
-    });
-    toast(`${children.length} taken samengevoegd als subtaken van "${parent.title}"`);
-    setMergeMode(false);
-    setMergeSelected([]);
-  };
-
-  const cancelMerge = () => { setMergeMode(false); setMergeSelected([]); };
-
-  const weekD=useMemo(()=>Array.from({length:7},(_,i)=>addD(selDate,i-3)),[selDate]);
-  const fTasks=useMemo(()=>{let r=tasks;if(filt!=='all')r=r.filter(x=>x.category===filt);if(aFilt!=='all')r=r.filter(x=>x.assignee===aFilt);if(search){const q=search.toLowerCase();r=r.filter(x=>x.title.toLowerCase().includes(q)||x.category.includes(q));}return r;},[tasks,filt,aFilt,search]);
-  const dayT=useMemo(()=>tasks.filter(x=>x.dueDate===selDate),[tasks,selDate]);
-  const planned=useMemo(()=>dayT.filter(x=>x.timeSlot).sort((a,b)=>a.timeSlot.localeCompare(b.timeSlot)),[dayT]);
-  const unplan=useMemo(()=>dayT.filter(x=>!x.timeSlot&&!x.completed),[dayT]);
-  const allOp=tasks.filter(x=>!x.completed),allDn=tasks.filter(x=>x.completed);
-  const prog=tasks.length?Math.round(allDn.length/tasks.length*100):0;
-
-  const insights=useMemo(()=>{const i=[];const hp=allOp.filter(x=>x.priority==='high');if(hp.length)i.push({icon:'🔥',title:'Urgent',text:`${hp.length} urgente taken.`});if(unplan.length)i.push({icon:'📌',title:'Ongepland',text:`${unplan.length} taken zonder tijdslot.`});if(!dayT.some(x=>x.category==='sport'&&!x.completed))i.push({icon:'🏃',title:'Sport',text:'Geen beweging ingepland!'});const rec=tasks.filter(x=>x.recur&&x.recur!=='none');if(rec.length)i.push({icon:'🔄',title:'Herhalend',text:`${rec.length} herhalende taken actief.`});return i;},[tasks,dayT,unplan]);
-
-  const nav=[{id:'planner',icon:'▦',label:'Planner'},{id:'dashboard',icon:'◆',label:'Dashboard'},{id:'tasks',icon:'☰',label:'Taken',badge:allOp.length},{id:'week',icon:'▣',label:'Weekoverzicht'},{id:'team',icon:'◎',label:'Team'},{id:'stats',icon:'◈',label:'Statistieken'},{id:'reports',icon:'▤',label:'Rapportages'}];
-
-  const getAt=s=>planned.filter(x=>x.timeSlot===s);
-
-  // ─── STYLES OBJECT ────────────────────────────────────
-  const btn={display:'inline-flex',alignItems:'center',gap:6,padding:'8px 14px',borderRadius:8,fontFamily:'inherit',fontSize:12,fontWeight:500,cursor:'pointer',border:'none',transition:'all .2s'};
-  const btnP={...btn,background:`linear-gradient(135deg,${t.accent},#8b5cf6)`,color:'#fff'};
-  const btnG={...btn,background:'transparent',color:t.dim,border:`1px solid ${t.border}`};
-
-  // ─── Slot Task Render ─────────────────────────────────
-  const SlotTask = ({task:tk}) => {
-    const subs=tk.subtasks||[];const subsDone=subs.filter(s=>s.done).length;
-    return (
-    <div draggable onDragStart={e=>startDrag(e,tk)} onClick={e=>{e.stopPropagation();setEditT(tk);setModal(true);}} style={{padding:'5px 9px',borderRadius:6,fontSize:11,margin:'1px 0',cursor:'grab',borderLeft:`3px solid ${catColor(tk.category,t)}`,background:catSoft(tk.category,t),color:catColor(tk.category,t),display:'flex',alignItems:'center',gap:6,opacity:tk.completed?.5:1,minHeight:tk.duration>30?(tk.duration/30)*24:undefined}}>
-      <div onClick={e=>{e.stopPropagation();toggle(tk.id);}} style={{width:14,height:14,minWidth:14,border:`2px solid ${tk.completed?t.success:'rgba(150,150,150,.4)'}`,borderRadius:'50%',background:tk.completed?t.success:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:8,fontWeight:700,color:'#fff'}}>{tk.completed&&'✓'}</div>
-      <span style={{flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',textDecoration:tk.completed?'line-through':'none'}}>{tk.title}</span>
-      {subs.length>0&&<span style={{fontSize:9,opacity:.7}}>☐{subsDone}/{subs.length}</span>}
-      <span style={{fontSize:9,opacity:.6}}>{tk.duration}m</span>
-      {tk.recur&&tk.recur!=='none'&&<span style={{fontSize:9}}>🔄</span>}
-      <span onClick={e=>{e.stopPropagation();downloadTaskICS(tk);}} style={{fontSize:10,cursor:'pointer',opacity:.6}} title="Outlook .ics">📅</span>
-      <span onClick={e=>{e.stopPropagation();setPomoTask(tk);}} style={{fontSize:10,cursor:'pointer',opacity:.6}} title="Pomodoro">🍅</span>
-      <span onClick={e=>{e.stopPropagation();del(tk.id);}} style={{fontSize:10,cursor:'pointer',opacity:.7}} title="Taak verwijderen">🗑</span>
-    </div>);
-  };
-
-  // ─── Card ─────────────────────────────────────────────
-  const Card = tk => {
-    const subs = tk.subtasks||[];
-    const subsDone = subs.filter(s=>s.done).length;
-    const isSel = mergeSelected.includes(tk.id);
-    return (
-    <div key={tk.id} draggable={!mergeMode} onDragStart={e=>!mergeMode&&startDrag(e,tk)} onClick={()=>{if(mergeMode){toggleMergeSelect(tk.id);}else{setEditT(tk);setModal(true);}}} style={{background:isSel?t.accentS:t.card,border:`1px solid ${isSel?t.accent:t.border}`,borderRadius:14,padding:'11px 15px',display:'flex',alignItems:'flex-start',gap:10,cursor:mergeMode?'pointer':'grab',position:'relative',overflow:'hidden',opacity:tk.completed?.4:1,transition:'all .15s'}}>
-      <div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:PRI_C(tk.priority,t)}}/>
-      {mergeMode ? (
-        <div style={{width:18,height:18,minWidth:18,border:`2px solid ${isSel?t.accent:t.borderL}`,borderRadius:4,background:isSel?t.accent:'transparent',display:'flex',alignItems:'center',justifyContent:'center',marginTop:1,fontSize:10,fontWeight:700,color:'#fff'}}>{isSel&&'✓'}</div>
-      ) : (
-        <div onClick={e=>{e.stopPropagation();toggle(tk.id);}} style={{width:18,height:18,minWidth:18,border:`2px solid ${tk.completed?t.success:t.borderL}`,borderRadius:'50%',background:tk.completed?t.success:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',marginTop:1,fontSize:10,fontWeight:700,color:'#fff'}}>{tk.completed&&'✓'}</div>
-      )}
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:13,fontWeight:500,marginBottom:2,textDecoration:tk.completed?'line-through':'none'}}>{tk.title}</div>
-        <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
-          <span style={{fontSize:10,padding:'1px 6px',borderRadius:5,background:catSoft(tk.category,t),color:catColor(tk.category,t)}}>{CATS.find(c=>c.id===tk.category)?.label}</span>
-          {tk.timeSlot&&<span style={{fontSize:10,color:t.accent,fontWeight:500}}>⏰ {tk.timeSlot}</span>}
-          <span style={{fontSize:10,color:t.muted}}>📅 {fd(tk.dueDate)}</span>
-          {tk.recur&&tk.recur!=='none'&&<span style={{fontSize:10,color:t.dim}}>🔄 {RECUR.find(r=>r.v===tk.recur)?.l}</span>}
-          {tk.assignee!=='me'&&<span style={{fontSize:10,color:t.dim}}>👤 {team.find(m=>m.id===tk.assignee)?.name}</span>}
-          {subs.length>0&&<span style={{fontSize:10,color:subsDone===subs.length?t.success:t.dim}}>☐ {subsDone}/{subs.length}</span>}
-        </div>
-        {subs.length>0&&<div style={{marginTop:4,height:3,background:t.elev,borderRadius:2,overflow:'hidden',maxWidth:120}}><div style={{height:'100%',background:t.success,width:`${subs.length?Math.round(subsDone/subs.length*100):0}%`,borderRadius:2}}/></div>}
+  // ─── PIPELINE VIEW (Kanban) ───────────────────────
+  const Pipeline=()=>{
+    const active=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost');
+    return <div>
+      <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
+        {[{l:'Pipeline',v:eur(totalPipeline),c:t.accent},{l:'Gewogen',v:eur(Math.round(weightedPipeline)),c:t.purple},{l:'Gewonnen',v:eur(wonRevenue),c:t.green},{l:'Deals',v:activeOpps.length,c:t.text}].map((s,i)=><div key={i} style={{...card,flex:'1 1 140px',minWidth:140}}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
       </div>
-      {!mergeMode&&<div style={{display:'flex',gap:2,alignItems:'center'}}>
-        <button onClick={e=>{e.stopPropagation();downloadTaskICS(tk);}} style={{width:24,height:24,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:5,border:'none',background:'transparent',color:t.muted,cursor:'pointer',fontSize:12}} title="Download .ics (Outlook)">📅</button>
-        <button onClick={e=>{e.stopPropagation();setPomoTask(tk);}} style={{width:24,height:24,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:5,border:'none',background:'transparent',color:t.muted,cursor:'pointer',fontSize:12}} title="Pomodoro">🍅</button>
-        <button onClick={e=>{e.stopPropagation();del(tk.id);}} style={{width:24,height:24,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:5,border:'none',background:'transparent',color:t.muted,cursor:'pointer',fontSize:12}}>🗑</button>
-      </div>}
-    </div>);
-  };
-
-  // ─── PLANNER VIEW ─────────────────────────────────────
-  const Planner = () => {
-    const isToday=selDate===td();
-    return <div className="fin">
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:10}}>
-        <div style={{display:'flex',alignItems:'center',gap:6}}>
-          <button onClick={()=>setSelDate(addD(selDate,-1))} style={{width:30,height:30,borderRadius:8,background:t.elev,border:`1px solid ${t.border}`,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>‹</button>
-          <div style={{fontWeight:600,fontSize:16,minWidth:180,textAlign:'center'}}>{fullD(selDate)}{isToday&&<span style={{fontSize:9,background:t.successS,color:t.success,padding:'2px 7px',borderRadius:10,marginLeft:6,fontWeight:600}}>Vandaag</span>}</div>
-          <button onClick={()=>setSelDate(addD(selDate,1))} style={{width:30,height:30,borderRadius:8,background:t.elev,border:`1px solid ${t.border}`,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>›</button>
-        </div>
-        <div style={{display:'flex',gap:6,alignItems:'center'}}>
-          <input type="date" value={selDate} onChange={e=>setSelDate(e.target.value)} style={{padding:'5px 9px',background:t.elev,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,fontFamily:'inherit',fontSize:12}}/>
-          {!isToday&&<button onClick={()=>setSelDate(td())} style={btnG}>Vandaag</button>}
-        </div>
-      </div>
-      <div style={{display:'flex',gap:3,marginBottom:16,overflowX:'auto'}}>
-        {weekD.map(d=>{const act=d===selDate,tdy=d===td(),cats=[...new Set(tasks.filter(x=>x.dueDate===d).map(x=>x.category))];return(
-          <div key={d} onClick={()=>setSelDate(d)} style={{flex:1,minWidth:56,padding:'7px 3px',textAlign:'center',borderRadius:8,cursor:'pointer',border:`1px solid ${act?t.accent:tdy?t.success:'transparent'}`,background:act?t.accentS:'transparent'}}>
-            <div style={{fontSize:9,color:t.muted,textTransform:'uppercase',letterSpacing:1}}>{dayN(d)}</div>
-            <div style={{fontSize:16,fontWeight:600,margin:'1px 0'}}>{dayNum(d)}</div>
-            <div style={{display:'flex',gap:2,justifyContent:'center',marginTop:3}}>{cats.slice(0,4).map(c=><div key={c} style={{width:4,height:4,borderRadius:'50%',background:catColor(c,t)}}/>)}</div>
-          </div>);})}
-      </div>
-      <div style={{display:'flex',gap:16}}>
-        <div style={{flex:1}} ref={sRef}>
-          {SLOTS.filter((_,i)=>i%2===0).map((hs,hi)=>{
-            const hh=+hs.split(':')[0],isNow=isToday&&nowM>=hh*60&&nowM<(hh+1)*60;
-            const halfs=SLOTS[hi*2+1];const hT=getAt(hs),hfT=halfs?getAt(halfs):[];
-            const empty=hT.length===0&&hfT.length===0;
-            return <div key={hs} data-now={isNow?'1':'0'} style={{display:'grid',gridTemplateColumns:'48px 1fr',minHeight:56,position:'relative',borderBottom:`1px solid ${t.border}22`,background:isNow?t.accentS+'11':'transparent'}}>
-              <div style={{fontSize:10,color:t.muted,padding:'3px 6px 0 0',textAlign:'right',userSelect:'none'}}>{hs}</div>
-              <div onDragOver={e=>{e.preventDefault();setDropTarget(hs);}} onDragLeave={()=>setDropTarget(null)} onDrop={()=>handleDrop(hs)} onClick={()=>{if(empty){setPrefill(hs);setEditT(null);setModal(true);}}} style={{padding:'2px 3px',borderLeft:`1px solid ${t.border}`,minHeight:56,cursor:'pointer',background:dropTarget===hs?`${t.accent}22`:'transparent',transition:'background .15s'}}>
-                {hT.map(tk=><SlotTask key={tk.id} task={tk}/>)}
-                <div style={{height:0,borderBottom:`1px dashed ${t.border}33`,margin:'1px 0'}}/>
-                {hfT.map(tk=><SlotTask key={tk.id} task={tk}/>)}
-                {empty&&<div style={{fontSize:10,color:t.muted,opacity:dropTarget===hs?.8:.3,padding:'2px 0',userSelect:'none'}}>{dropTarget===hs?'⬇ Laat hier los':'+ klik of sleep'}</div>}
+      <div style={{display:'grid',gridTemplateColumns:`repeat(${active.length},1fr)`,gap:10,overflowX:'auto'}}>
+        {active.map(stage=>{
+          const stageOpps=opps.filter(o=>o.stage===stage.id);
+          const stageVal=stageOpps.reduce((s,o)=>s+o.value,0);
+          return <div key={stage.id}
+            onDragOver={e=>e.preventDefault()}
+            onDrop={()=>{if(dragOpp){setOpps(p=>p.map(o=>o.id===dragOpp?{...o,stage:stage.id,updatedAt:new Date().toISOString()}:o));toast(`Verplaatst naar ${stage.l}`);setDragOpp(null);}}}
+            style={{minWidth:200}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'0 4px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:stage.c}}/>
+                <span style={{fontSize:13,fontWeight:700}}>{stage.l}</span>
+                <span style={{fontSize:11,color:t.muted,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',padding:'1px 7px',borderRadius:8}}>{stageOpps.length}</span>
               </div>
-              {isNow&&<div style={{position:'absolute',left:48,right:0,top:`${(nowM-hh*60)/60*100}%`,height:2,background:t.danger,zIndex:10,pointerEvents:'none'}}/>}
-            </div>;
-          })}
-        </div>
-        <div style={{width:240,minWidth:240}} className="unpl-panel">
-          <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:14,position:'sticky',top:0}}>
-            <div style={{fontSize:12,fontWeight:600,marginBottom:10}}>📌 Ongepland ({unplan.length})</div>
-            {unplan.length===0?<div style={{fontSize:11,color:t.muted,textAlign:'center',padding:16}}>Alles ingepland! ✨</div>:
-            <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:460,overflowY:'auto'}}>
-              {unplan.map(tk=><div key={tk.id} draggable onDragStart={e=>startDrag(e,tk)} onClick={()=>{setEditT(tk);setModal(true);}} style={{padding:'8px 10px',background:t.elev,border:`1px solid ${t.border}`,borderRadius:8,fontSize:11,cursor:'grab',display:'flex',alignItems:'center',gap:7}}>
-                <div style={{width:5,height:5,borderRadius:'50%',background:catColor(tk.category,t)}}/>
-                <div style={{flex:1}}><div style={{fontWeight:500}}>{tk.title}</div><div style={{fontSize:9,color:t.muted,marginTop:1}}>{DURS.find(d=>d.v===tk.duration)?.l} · {PRI_L[tk.priority]}</div></div>
-                <span onClick={e=>{e.stopPropagation();downloadTaskICS(tk);}} style={{fontSize:10,cursor:'pointer',color:t.muted}} title="Outlook .ics">📅</span>
-                <span onClick={e=>{e.stopPropagation();del(tk.id);}} style={{fontSize:10,cursor:'pointer',color:t.muted}} title="Verwijderen">🗑</span>
-              </div>)}
-            </div>}
-            <div onClick={()=>{setEditT(null);setPrefill(null);setModal(true);}} style={{marginTop:10,background:t.card,border:`1px dashed ${t.border}`,borderRadius:8,padding:'8px 14px',cursor:'pointer',fontSize:12,color:t.muted,textAlign:'center'}}>＋ Nieuwe taak</div>
-          </div>
-        </div>
-      </div>
-    </div>;
-  };
-
-  // ─── WEEK VIEW ────────────────────────────────────────
-  const WeekView = () => {
-    const days = Array.from({length:7},(_,i)=>addD(selDate,i-3));
-    return <div className="fin">
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-        <button onClick={()=>setSelDate(addD(selDate,-7))} style={btnG}>← Vorige week</button>
-        <div style={{fontWeight:600,fontSize:15}}>Week van {fd(days[0])} — {fd(days[6])}</div>
-        <button onClick={()=>setSelDate(addD(selDate,7))} style={btnG}>Volgende week →</button>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:8}}>
-        {days.map(d=>{const dt=tasks.filter(x=>x.dueDate===d);const dn=dt.filter(x=>x.completed).length;const tdy=d===td();const isDrop=weekDrop===d;
-          return <div key={d}
-            onDragOver={e=>{e.preventDefault();setWeekDrop(d);}}
-            onDragLeave={()=>setWeekDrop(null)}
-            onDrop={()=>{setWeekDrop(null);handleDayDrop(d);}}
-            onClick={()=>{setSelDate(d);setView('planner');}}
-            style={{background:isDrop?`${t.accent}15`:t.card,border:`1px solid ${isDrop?t.accent:tdy?t.success:t.border}`,borderRadius:12,padding:12,cursor:'pointer',minHeight:200,transition:'all .15s'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <div>
-                <div style={{fontSize:10,color:t.muted,textTransform:'uppercase',letterSpacing:1}}>{dayN(d)}</div>
-                <div style={{fontSize:20,fontWeight:700,marginBottom:8}}>{dayNum(d)}</div>
-              </div>
-              {isDrop&&<div style={{fontSize:10,color:t.accent,fontWeight:600}}>⬇ Drop</div>}
+              <span style={{fontSize:11,color:t.dim,fontWeight:500}}>{eur(stageVal)}</span>
             </div>
-            {dt.filter(x=>x.timeSlot).sort((a,b)=>a.timeSlot.localeCompare(b.timeSlot)).slice(0,6).map(tk=>
-              <div key={tk.id} draggable onDragStart={e=>startDrag(e,tk)} style={{fontSize:10,padding:'3px 6px',borderRadius:4,marginBottom:3,background:catSoft(tk.category,t),color:catColor(tk.category,t),borderLeft:`2px solid ${catColor(tk.category,t)}`,opacity:tk.completed?.5:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',cursor:'grab'}}>
-                {tk.timeSlot} {tk.title}
-              </div>
-            )}
-            {dt.filter(x=>!x.timeSlot&&!x.completed).length>0&&<div style={{fontSize:10,color:t.muted,marginTop:4}}>+{dt.filter(x=>!x.timeSlot&&!x.completed).length} ongepland</div>}
-            <div style={{marginTop:8,height:4,background:t.elev,borderRadius:2,overflow:'hidden'}}><div style={{height:'100%',background:`linear-gradient(90deg,${t.accent},${t.success})`,width:`${dt.length?Math.round(dn/dt.length*100):0}%`,borderRadius:2}}/></div>
-          </div>;})}
+            <div style={{display:'flex',flexDirection:'column',gap:6,minHeight:100}}>
+              {stageOpps.map(opp=><div key={opp.id} draggable onDragStart={()=>setDragOpp(opp.id)} onClick={()=>setDetail({type:'opp',id:opp.id})}
+                style={{...card,padding:'12px 14px',cursor:'grab',transition:`all 0.15s ${sp}`,borderLeft:`3px solid ${PRIS.find(p=>p.id===opp.priority)?.c||t.accent}`}}>
+                <div style={{fontSize:13,fontWeight:600,marginBottom:4}}>{opp.title}</div>
+                <div style={{fontSize:11,color:t.dim,marginBottom:6}}>{oppWho(opp)}{oppOrg(opp)&&oppWho(opp)?' · '+oppOrg(opp):oppOrg(opp)}</div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <span style={{fontSize:14,fontWeight:700,color:t.text}}>{eur(opp.value)}</span>
+                  <span style={{fontSize:10,padding:'2px 8px',borderRadius:8,background:`${stage.c}20`,color:stage.c,fontWeight:600}}>{opp.probability}%</span>
+                </div>
+                {opp.nextAction&&<div style={{fontSize:11,color:t.orange,marginTop:6,fontWeight:500}}>→ {opp.nextAction}</div>}
+              </div>)}
+              <div onClick={()=>setModal({type:'opp',data:{stage:stage.id}})} style={{padding:10,borderRadius:10,border:`1.5px dashed ${t.border}`,textAlign:'center',color:t.muted,fontSize:12,cursor:'pointer'}}>+ Deal</div>
+            </div>
+          </div>;
+        })}
       </div>
-      <div style={{marginTop:16,padding:'12px 16px',background:t.card,border:`1px solid ${t.border}`,borderRadius:12,display:'flex',alignItems:'center',gap:10}}>
-        <span style={{fontSize:14}}>💡</span>
-        <span style={{fontSize:12,color:t.dim}}>Sleep taken tussen dagen om ze te verplaatsen. Sleep buiten het venster naar Outlook/Agenda om een .ics bestand toe te voegen.</span>
+      {(wonOpps.length>0||opps.filter(o=>o.stage==='lost').length>0)&&<div style={{marginTop:24}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:10}}>Afgeronde deals</div>
+        <div style={{display:'flex',flexDirection:'column',gap:6}}>
+          {opps.filter(o=>o.stage==='won'||o.stage==='lost').map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',opacity:.7}}>
+            <span style={{fontSize:16}}>{o.stage==='won'?'🏆':'✕'}</span>
+            <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{oppWho(o)}{oppOrg(o)&&oppWho(o)?' · '+oppOrg(o):oppOrg(o)}</div></div>
+            <span style={{fontWeight:700,color:o.stage==='won'?t.green:t.red}}>{eur(o.value)}</span>
+          </div>)}
+        </div>
+      </div>}
+    </div>;
+  };
+
+  // ─── CONTACTS VIEW ────────────────────────────────
+  const Contacts=()=>{
+    const filtered=contacts.filter(c=>{if(!search)return true;const q=search.toLowerCase();return c.name.toLowerCase().includes(q)||compName(c.companyId).toLowerCase().includes(q)||c.email.toLowerCase().includes(q)||(c.tags||[]).some(t=>t.includes(q));});
+    return <div>
+      <div style={{display:'flex',gap:8,marginBottom:16}}><div style={{flex:1,...inp,display:'flex',alignItems:'center',gap:8,padding:'8px 14px'}}><span style={{color:t.muted}}>🔍</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Zoek contacten..." style={{flex:1,background:'none',border:'none',color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/>{search&&<span onClick={()=>setSearch('')} style={{cursor:'pointer',color:t.muted}}>✕</span>}</div><button onClick={()=>setModal({type:'contact'})} style={btnP}>+ Contact</button></div>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        {filtered.map(c=>{const cOpps=opps.filter(o=>o.contactId===c.id&&o.stage!=='lost');const cVal=cOpps.reduce((s,o)=>s+o.value,0);return <div key={c.id} onClick={()=>setDetail({type:'contact',id:c.id})} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer'}}>
+          <div style={{width:42,height:42,borderRadius:'50%',background:`linear-gradient(135deg,${t.accent},${t.purple})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:'#fff',flexShrink:0}}>{c.avatar||c.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:14,fontWeight:600}}>{c.name}</div>
+            <div style={{fontSize:12,color:t.dim}}>{c.role&&c.role+' · '}{compName(c.companyId)}</div>
+            {c.tags?.length>0&&<div style={{display:'flex',gap:4,marginTop:4,flexWrap:'wrap'}}>{c.tags.map(tag=><span key={tag} style={{fontSize:10,padding:'1px 7px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500}}>{tag}</span>)}</div>}
+          </div>
+          <div style={{textAlign:'right',flexShrink:0}}>
+            {cOpps.length>0&&<div style={{fontSize:13,fontWeight:700}}>{eur(cVal)}</div>}
+            <div style={{fontSize:11,color:t.dim}}>{cOpps.length} deal{cOpps.length!==1?'s':''}</div>
+          </div>
+        </div>;})}
       </div>
     </div>;
   };
 
-  // ─── STATS VIEW ───────────────────────────────────────
-  const Stats = () => {
-    const catData = CATS.map(c=>({name:c.label,value:tasks.filter(x=>x.category===c.id).length,color:catColor(c.id,t)})).filter(x=>x.value>0);
-    const maxBar = Math.max(...STATS_HISTORY.map(d=>Math.max(d.afgerond,d.gepland)),1);
-    const total = catData.reduce((s,c)=>s+c.value,0)||1;
-    // Build donut segments
-    let cumAngle = 0;
-    const donutSegs = catData.map(c => {
-      const angle = (c.value/total)*360;
-      const start = cumAngle;
-      cumAngle += angle;
-      const r=60, ir=38, cx=80, cy=80;
-      const toRad = a => (a-90)*Math.PI/180;
-      const x1=cx+r*Math.cos(toRad(start)), y1=cy+r*Math.sin(toRad(start));
-      const x2=cx+r*Math.cos(toRad(start+angle)), y2=cy+r*Math.sin(toRad(start+angle));
-      const x3=cx+ir*Math.cos(toRad(start+angle)), y3=cy+ir*Math.sin(toRad(start+angle));
-      const x4=cx+ir*Math.cos(toRad(start)), y4=cy+ir*Math.sin(toRad(start));
-      const lg = angle>180?1:0;
-      return {...c, path:`M${x1},${y1} A${r},${r} 0 ${lg},1 ${x2},${y2} L${x3},${y3} A${ir},${ir} 0 ${lg},0 ${x4},${y4} Z`};
+  // ─── TASKS VIEW ───────────────────────────────────
+  const Tasks=()=>{
+    const open=tasks.filter(t=>!t.done).sort((a,b)=>{
+      // Sort: overdue first, then by date+time
+      const aOver=a.dueDate&&a.dueDate<td()?0:1;
+      const bOver=b.dueDate&&b.dueDate<td()?0:1;
+      if(aOver!==bOver)return aOver-bOver;
+      return (a.dueDate||'z').localeCompare(b.dueDate||'z')||(a.dueTime||'zz').localeCompare(b.dueTime||'zz');
     });
-    return <div className="fin">
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:20}}>
-        <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase',letterSpacing:1}}>Totaal Taken</div><div style={{fontSize:26,fontWeight:700}}>{tasks.length}</div></div>
-        <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase',letterSpacing:1}}>Afgerond</div><div style={{fontSize:26,fontWeight:700,color:t.success}}>{allDn.length}</div></div>
-        <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase',letterSpacing:1}}>Voortgang</div><div style={{fontSize:26,fontWeight:700}}>{prog}%</div><div style={{height:5,background:t.elev,borderRadius:3,marginTop:5,overflow:'hidden'}}><div style={{height:'100%',background:`linear-gradient(90deg,${t.accent},${t.success})`,width:`${prog}%`,borderRadius:3}}/></div></div>
-        <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase',letterSpacing:1}}>Herhalend</div><div style={{fontSize:26,fontWeight:700,color:t.accent}}>{tasks.filter(x=>x.recur&&x.recur!=='none').length}</div></div>
+    const done=tasks.filter(t=>t.done);
+    return <div>
+      <div style={{display:'flex',gap:8,marginBottom:16,justifyContent:'space-between',flexWrap:'wrap'}}><div style={{display:'flex',gap:10,flexWrap:'wrap'}}>{overdueTasks.length>0&&<div style={{...card,padding:'8px 14px',display:'flex',alignItems:'center',gap:6,borderColor:t.red+'44'}}><span style={{fontSize:13}}>🔴</span><span style={{fontSize:13,fontWeight:600,color:t.red}}>{overdueTasks.length} achterstallig</span></div>}<div style={{...card,padding:'8px 14px',display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:13}}>📋</span><span style={{fontSize:13,fontWeight:600}}>{todayTasks.length} vandaag</span></div>{tasks.filter(t=>t.reminder&&!t.done).length>0&&<div style={{...card,padding:'8px 14px',display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:13}}>🔔</span><span style={{fontSize:13,fontWeight:600}}>{tasks.filter(t=>t.reminder&&!t.done).length} herinneringen</span></div>}</div><button onClick={()=>setModal({type:'task'})} style={btnP}>+ Taak</button></div>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        {open.map(tk=>{const isOverdue=tk.dueDate&&tk.dueDate<td();const oName=oppName(tk.oppId);return <div key={tk.id} style={{...card,padding:'12px 16px',display:'flex',alignItems:'center',gap:12,borderLeft:`3px solid ${isOverdue?t.red:PRIS.find(p=>p.id===tk.priority)?.c||t.accent}`}}>
+          <div onClick={()=>{setTasks(p=>p.map(x=>x.id===tk.id?{...x,done:true}:x));toast(`"${tk.title}" afgerond`);}} style={{width:20,height:20,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:`all 0.2s ${sp}`,flexShrink:0}}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:14,fontWeight:500}}>{tk.title}</div>
+            <div style={{fontSize:11,color:t.dim,display:'flex',gap:8,marginTop:3,flexWrap:'wrap',alignItems:'center'}}>
+              {tk.contactId&&<span>👤 {cName(tk.contactId)}</span>}
+              {oName&&<span onClick={e=>{e.stopPropagation();setDetail({type:'opp',id:tk.oppId});}} style={{color:t.accent,cursor:'pointer',fontWeight:500}}>📊 {oName}</span>}
+              {tk.dueDate&&<span style={{color:isOverdue?t.red:t.dim}}>{fds(tk.dueDate)}{tk.dueTime&&' · '+tk.dueTime}</span>}
+              {tk.reminder&&<span style={{display:'flex',alignItems:'center',gap:2}}>🔔{tk.reminderMin?<span style={{fontSize:10}}>{tk.reminderMin}m</span>:null}</span>}
+            </div>
+          </div>
+          <button onClick={()=>setModal({type:'task',data:tk})} style={{...btnG,padding:'4px 10px',fontSize:11}}>✎</button>
+          <button onClick={()=>{setTasks(p=>p.filter(x=>x.id!==tk.id));toast('Verwijderd','info');}} style={{background:'none',border:'none',color:t.red,cursor:'pointer',fontSize:14}}>✕</button>
+        </div>;})}
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:20}}>
-        <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:20}}>
-          <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>📈 Afgelopen 7 dagen</div>
-          <svg viewBox="0 0 350 160" style={{width:'100%',height:'auto'}}>
-            {STATS_HISTORY.map((d,i)=>{
-              const bw=18, gap=32, x=30+i*gap;
-              const h1=(d.afgerond/maxBar)*120, h2=(d.gepland/maxBar)*120;
-              return <g key={i}>
-                <rect x={x} y={140-h2} width={bw} height={h2} rx={3} fill={t.accent} opacity={.35}/>
-                <rect x={x} y={140-h1} width={bw} height={h1} rx={3} fill={t.success}/>
-                <text x={x+bw/2} y={155} textAnchor="middle" fontSize="9" fill={t.muted}>{d.dag}</text>
-              </g>;
-            })}
-            <line x1="28" y1="140" x2="280" y2="140" stroke={t.border} strokeWidth="1"/>
+      {done.length>0&&<><div style={{fontSize:14,fontWeight:700,margin:'20px 0 8px',color:t.dim}}>Afgerond ({done.length})</div><div style={{display:'flex',flexDirection:'column',gap:4}}>{done.slice(0,10).map(tk=><div key={tk.id} style={{padding:'8px 16px',display:'flex',alignItems:'center',gap:10,opacity:.4}}>
+        <div onClick={()=>setTasks(p=>p.map(x=>x.id===tk.id?{...x,done:false}:x))} style={{width:18,height:18,borderRadius:'50%',background:t.green,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#fff',fontWeight:700,cursor:'pointer'}}>✓</div>
+        <span style={{fontSize:13,textDecoration:'line-through'}}>{tk.title}</span>
+        {tk.oppId&&<span style={{fontSize:10,color:t.dim}}>📊 {oppName(tk.oppId)}</span>}
+      </div>)}</div></>}
+    </div>;
+  };
+
+  // ─── DASHBOARD ────────────────────────────────────
+  const Dash=()=>{
+    const wonMonth=wonOpps.filter(o=>{const d=new Date(o.closedAt||o.updatedAt);const now=new Date();return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
+    const convRate=opps.length?(Math.round(wonOpps.length/opps.length*100)):0;
+    const stageData=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost').map(s=>({...s,count:opps.filter(o=>o.stage===s.id).length,val:opps.filter(o=>o.stage===s.id).reduce((sum,o)=>sum+o.value,0)}));
+    const maxVal=Math.max(...stageData.map(s=>s.val),1);
+    return <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:20}}>
+        {[{l:'Open Pipeline',v:eur(totalPipeline),c:t.accent},{l:'Gewogen Waarde',v:eur(Math.round(weightedPipeline)),c:t.purple},{l:'Gewonnen',v:eur(wonRevenue),c:t.green},{l:'Conversie',v:convRate+'%',c:t.orange},{l:'Actieve Deals',v:activeOpps.length,c:t.text},{l:'Taken Vandaag',v:todayTasks.length+(overdueTasks.length?` (+${overdueTasks.length})`:'')+' ',c:overdueTasks.length?t.red:t.text}].map((s,i)=><div key={i} style={card}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:20}}>
+        <div style={card}>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>Pipeline per Fase</div>
+          <svg viewBox="0 0 300 140" style={{width:'100%'}}>
+            {stageData.map((s,i)=>{const bw=40,gap=60,x=20+i*gap,h=(s.val/maxVal)*100;return <g key={i}>
+              <rect x={x} y={120-h} width={bw} height={h} rx={6} fill={s.c} opacity={.85}/>
+              <text x={x+bw/2} y={135} textAnchor="middle" fontSize="9" fill={t.muted} fontFamily="inherit">{s.l.slice(0,6)}</text>
+              <text x={x+bw/2} y={115-h} textAnchor="middle" fontSize="9" fill={t.dim} fontFamily="inherit">{s.count}</text>
+            </g>;})}
+            <line x1="18" y1="120" x2="280" y2="120" stroke={t.border} strokeWidth=".5"/>
           </svg>
-          <div style={{display:'flex',gap:14,justifyContent:'center',marginTop:8}}>
-            <span style={{fontSize:10,display:'flex',alignItems:'center',gap:4}}><span style={{width:8,height:8,borderRadius:2,background:t.success,display:'inline-block'}}/> Afgerond</span>
-            <span style={{fontSize:10,display:'flex',alignItems:'center',gap:4}}><span style={{width:8,height:8,borderRadius:2,background:t.accent,opacity:.35,display:'inline-block'}}/> Gepland</span>
+        </div>
+        <div style={card}>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>Taken</div>
+          {todayTasks.length===0&&overdueTasks.length===0?<div style={{textAlign:'center',padding:24,color:t.muted}}>Alles bij 👏</div>:
+          <div style={{display:'flex',flexDirection:'column',gap:6}}>
+            {overdueTasks.slice(0,3).map(tk=><div key={tk.id} style={{fontSize:12,padding:'6px 10px',borderRadius:8,background:t.redS,color:t.red,fontWeight:500}}>🔴 {tk.title}</div>)}
+            {todayTasks.slice(0,4).map(tk=><div key={tk.id} style={{fontSize:12,padding:'6px 10px',borderRadius:8,background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)',display:'flex',justifyContent:'space-between'}}><span>{tk.title}</span><span style={{color:t.dim}}>{cName(tk.contactId)}</span></div>)}
+          </div>}
+        </div>
+      </div>
+      {activeOpps.filter(o=>o.priority==='high').length>0&&<div><div style={{fontSize:14,fontWeight:700,marginBottom:8}}>🔥 Hoge Prioriteit</div><div style={{display:'flex',flexDirection:'column',gap:6}}>{activeOpps.filter(o=>o.priority==='high').map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',borderLeft:`3px solid ${t.red}`}}><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{cName(o.contactId)} · {stageC(o.stage).l}</div></div><div style={{fontWeight:700}}>{eur(o.value)}</div></div>)}</div></div>}
+    </div>;
+  };
+
+  // ─── DETAIL PANEL (Contact/Opportunity) ───────────
+  const DetailPanel=()=>{
+    if(!detail)return null;
+    if(detail.type==='contact'){
+      const c=contacts.find(x=>x.id===detail.id);if(!c)return null;
+      const cOpps=opps.filter(o=>o.contactId===c.id);
+      const cTasks=tasks.filter(t=>t.contactId===c.id);
+      return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:500,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
+        <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>← Terug</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'contact',data:c})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={()=>{setContacts(p=>p.filter(x=>x.id!==c.id));setDetail(null);toast('Contact verwijderd','info');}} style={btnD}>🗑</button></div></div>
+          <div style={{display:'flex',alignItems:'center',gap:14}}><div style={{width:56,height:56,borderRadius:'50%',background:`linear-gradient(135deg,${t.accent},${t.purple})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:'#fff'}}>{c.avatar}</div><div><div style={{fontSize:20,fontWeight:700}}>{c.name}</div><div style={{fontSize:13,color:t.dim}}>{c.role}{c.companyId&&<span> · <span onClick={e=>{e.stopPropagation();setDetail({type:'company',id:c.companyId});}} style={{color:t.accent,cursor:'pointer'}}>{compName(c.companyId)}</span></span>}</div></div></div>
+          <div style={{display:'flex',gap:8,marginTop:14,flexWrap:'wrap'}}>
+            {c.email&&<a href={`mailto:${c.email}`} style={{...btnG,padding:'6px 12px',fontSize:12,textDecoration:'none'}}>📧 {c.email}</a>}
+            {c.phone&&<a href={`tel:${c.phone}`} style={{...btnG,padding:'6px 12px',fontSize:12,textDecoration:'none'}}>📱 {c.phone}</a>}
           </div>
         </div>
-        <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:20}}>
-          <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>📊 Categorieën</div>
-          <svg viewBox="0 0 160 160" style={{width:'100%',maxWidth:180,display:'block',margin:'0 auto'}}>
-            {donutSegs.map((s,i) => <path key={i} d={s.path} fill={s.color} style={{transition:'opacity .2s'}}><title>{s.name}: {s.value}</title></path>)}
-            <text x="80" y="76" textAnchor="middle" fontSize="22" fontWeight="700" fill={t.text}>{total}</text>
-            <text x="80" y="92" textAnchor="middle" fontSize="9" fill={t.muted}>taken</text>
-          </svg>
-          <div style={{display:'flex',flexWrap:'wrap',gap:6,justifyContent:'center',marginTop:8}}>{catData.map(d=><span key={d.name} style={{fontSize:10,color:d.color}}>● {d.name} ({d.value})</span>)}</div>
+        <div style={{padding:24}}>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>Deals ({cOpps.length})</div>
+          <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
+            {cOpps.map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:10}}>
+              <div style={{width:8,height:8,borderRadius:'50%',background:stageC(o.stage).c}}/>
+              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{stageC(o.stage).l}</div></div>
+              <span style={{fontWeight:700}}>{eur(o.value)}</span>
+            </div>)}
+            <button onClick={()=>setModal({type:'opp',data:{contactId:c.id}})} style={{...btnG,justifyContent:'center',fontSize:12}}>+ Nieuwe deal</button>
+          </div>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>Taken ({cTasks.length})</div>
+          <div style={{display:'flex',flexDirection:'column',gap:6}}>
+            {cTasks.filter(t=>!t.done).map(tk=><div key={tk.id} style={{fontSize:13,padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)',display:'flex',alignItems:'center',gap:8}}>
+              <div onClick={()=>{setTasks(p=>p.map(x=>x.id===tk.id?{...x,done:true}:x));toast('Klaar!');}} style={{width:16,height:16,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',flexShrink:0}}/>
+              <span style={{flex:1}}>{tk.title}</span>
+              {tk.dueDate&&<span style={{fontSize:11,color:tk.dueDate<td()?t.red:t.dim}}>{fds(tk.dueDate)}</span>}
+            </div>)}
+            <button onClick={()=>setModal({type:'task',data:{contactId:c.id}})} style={{...btnG,justifyContent:'center',fontSize:12}}>+ Taak</button>
+          </div>
         </div>
+      </div></div>;
+    }
+    if(detail.type==='opp'){
+      const o=opps.find(x=>x.id===detail.id);if(!o)return null;
+      const c=contacts.find(x=>x.id===o.contactId);
+      const oTasks=tasks.filter(t=>t.oppId===o.id);
+      return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:540,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
+        <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>← Terug</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'opp',data:o})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={()=>{setOpps(p=>p.filter(x=>x.id!==o.id));setDetail(null);toast('Deal verwijderd','info');}} style={btnD}>🗑</button></div></div>
+          <div style={{fontSize:22,fontWeight:700,marginBottom:6}}>{o.title}</div>
+          {(c||o.companyId)&&<div style={{fontSize:13,color:t.dim,marginBottom:12}}>{c?c.name:''}{c&&o.companyId?' · ':''}{compName(o.companyId)}{!c&&o.companyId&&<span style={{color:t.orange,fontSize:11,marginLeft:6}}>— geen contactpersoon</span>}</div>}
+          <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:16}}>
+            <div style={{...card,padding:'10px 14px',flex:'1 1 100px'}}><div style={lbl}>Waarde</div><div style={{fontSize:20,fontWeight:700}}>{eur(o.value)}</div></div>
+            <div style={{...card,padding:'10px 14px',flex:'1 1 80px'}}><div style={lbl}>Kans</div><div style={{fontSize:20,fontWeight:700}}>{o.probability}%</div></div>
+            <div style={{...card,padding:'10px 14px',flex:'1 1 80px'}}><div style={lbl}>Gewogen</div><div style={{fontSize:20,fontWeight:700,color:t.green}}>{eur(Math.round(o.value*o.probability/100))}</div></div>
+          </div>
+          <div style={{fontSize:12,color:t.muted,marginBottom:8}}>FASE</div>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:16}}>{STAGES.map(s=><button key={s.id} onClick={()=>{setOpps(p=>p.map(x=>x.id===o.id?{...x,stage:s.id,updatedAt:new Date().toISOString(),closedAt:(s.id==='won'||s.id==='lost')?new Date().toISOString():null}:x));if(s.id==='won')toast('🏆 Deal gewonnen!');else if(s.id==='lost')toast('Deal verloren','info');}} style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:600,border:`1.5px solid ${o.stage===s.id?s.c:'transparent'}`,background:o.stage===s.id?`${s.c}20`:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:o.stage===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l}</button>)}</div>
+          {o.nextAction&&<div style={{padding:'10px 14px',borderRadius:10,background:t.orangeS,border:`0.5px solid ${t.orange}44`,marginBottom:12}}><div style={{fontSize:11,color:t.orange,fontWeight:700,marginBottom:2}}>VOLGENDE ACTIE</div><div style={{fontSize:13,fontWeight:500}}>{o.nextAction}</div>{o.nextActionDate&&<div style={{fontSize:11,color:t.dim,marginTop:2}}>{fd(o.nextActionDate)}</div>}</div>}
+        </div>
+        <div style={{padding:24}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>Notities</span><button onClick={()=>{const n=prompt('Notitie:');if(n)setOpps(p=>p.map(x=>x.id===o.id?{...x,notes:[{id:uid(),text:n,at:new Date().toISOString()},...(x.notes||[])]}:x));}} style={{...btnG,padding:'4px 12px',fontSize:11}}>+ Notitie</button></div>
+          <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
+            {(o.notes||[]).map(n=><div key={n.id} style={{padding:'10px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${t.accent}`}}>
+              <div style={{fontSize:13}}>{n.text}</div>
+              <div style={{fontSize:10,color:t.muted,marginTop:4}}>{fd(n.at)} {new Date(n.at).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</div>
+            </div>)}
+            {(!o.notes||o.notes.length===0)&&<div style={{fontSize:12,color:t.muted,fontStyle:'italic'}}>Nog geen notities</div>}
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>Taken</span><button onClick={()=>setModal({type:'task',data:{contactId:o.contactId,oppId:o.id}})} style={{...btnG,padding:'4px 12px',fontSize:11}}>+ Taak</button></div>
+          <div style={{display:'flex',flexDirection:'column',gap:6}}>
+            {oTasks.filter(t=>!t.done).map(tk=><div key={tk.id} style={{fontSize:13,padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',display:'flex',alignItems:'center',gap:8}}>
+              <div onClick={()=>{setTasks(p=>p.map(x=>x.id===tk.id?{...x,done:true}:x));toast('Klaar!');}} style={{width:16,height:16,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',flexShrink:0}}/>
+              <span style={{flex:1}}>{tk.title}</span>
+            </div>)}
+          </div>
+        </div>
+      </div></div>;
+    }
+    if(detail.type==='company'){
+      const co=companies.find(x=>x.id===detail.id);if(!co)return null;
+      const coContacts=contacts.filter(c=>c.companyId===co.id);
+      const coOpps=opps.filter(o=>o.companyId===co.id);
+      const coTasks=tasks.filter(tk=>coContacts.some(c=>c.id===tk.contactId)||coOpps.some(o=>o.id===tk.oppId));
+      const coVal=coOpps.filter(o=>o.stage!=='lost').reduce((s,o)=>s+o.value,0);
+      return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
+        <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>← Terug</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'company',data:co})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={()=>{setCompanies(p=>p.filter(x=>x.id!==co.id));setDetail(null);toast('Bedrijf verwijderd','info');}} style={btnD}>🗑</button></div></div>
+          <div style={{display:'flex',alignItems:'center',gap:14}}>
+            <div style={{width:56,height:56,borderRadius:14,background:`linear-gradient(135deg,${t.teal},${t.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:800,color:'#fff'}}>{co.name.charAt(0)}</div>
+            <div><div style={{fontSize:20,fontWeight:700}}>{co.name}</div><div style={{fontSize:13,color:t.dim}}>{co.industry}{co.size&&' · '+co.size+' medewerkers'}{co.address&&' · '+co.address}</div></div>
+          </div>
+          <div style={{display:'flex',gap:8,marginTop:14,flexWrap:'wrap'}}>
+            {co.website&&<a href={co.website.startsWith('http')?co.website:'https://'+co.website} target="_blank" rel="noopener" style={{...btnG,padding:'6px 12px',fontSize:12,textDecoration:'none'}}>🌐 {co.website}</a>}
+            {co.email&&<a href={`mailto:${co.email}`} style={{...btnG,padding:'6px 12px',fontSize:12,textDecoration:'none'}}>📧 {co.email}</a>}
+            {co.phone&&<a href={`tel:${co.phone}`} style={{...btnG,padding:'6px 12px',fontSize:12,textDecoration:'none'}}>📱 {co.phone}</a>}
+          </div>
+          {co.notes&&<div style={{marginTop:12,padding:'10px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',fontSize:13,color:t.dim,borderLeft:`3px solid ${t.teal}`}}>{co.notes}</div>}
+          {co.tags?.length>0&&<div style={{display:'flex',gap:4,marginTop:10,flexWrap:'wrap'}}>{co.tags.map(tg=><span key={tg} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500}}>{tg}</span>)}</div>}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginTop:16}}>
+            <div style={{...card,padding:'10px 12px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:700}}>{coContacts.length}</div><div style={{fontSize:10,color:t.muted}}>Contacten</div></div>
+            <div style={{...card,padding:'10px 12px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:700}}>{coOpps.length}</div><div style={{fontSize:10,color:t.muted}}>Deals</div></div>
+            <div style={{...card,padding:'10px 12px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:700,color:t.green}}>{eur(coVal)}</div><div style={{fontSize:10,color:t.muted}}>Waarde</div></div>
+          </div>
+        </div>
+        <div style={{padding:24}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>Contactpersonen ({coContacts.length})</span><button onClick={()=>setModal({type:'contact',data:{companyId:co.id}})} style={{...btnG,padding:'4px 12px',fontSize:11}}>+ Contact</button></div>
+          {coContacts.length===0&&<div style={{padding:'14px 16px',borderRadius:10,background:t.orangeS,border:`0.5px solid ${t.orange}44`,marginBottom:12,fontSize:12,color:t.orange,fontWeight:500}}>⚠ Nog geen contactpersonen. Voeg er een toe om effectiever op te volgen.</div>}
+          <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
+            {coContacts.map(c=><div key={c.id} onClick={()=>setDetail({type:'contact',id:c.id})} style={{...card,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:10}}>
+              <div style={{width:32,height:32,borderRadius:'50%',background:`linear-gradient(135deg,${t.accent},${t.purple})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff'}}>{c.avatar}</div>
+              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{c.name}</div><div style={{fontSize:11,color:t.dim}}>{c.role}</div></div>
+            </div>)}
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>Deals ({coOpps.length})</span><button onClick={()=>setModal({type:'opp',data:{companyId:co.id}})} style={{...btnG,padding:'4px 12px',fontSize:11}}>+ Deal</button></div>
+          <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
+            {coOpps.map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:10}}>
+              <div style={{width:8,height:8,borderRadius:'50%',background:stageC(o.stage).c}}/>
+              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{stageC(o.stage).l}{o.contactId?' · '+cName(o.contactId):''}</div></div>
+              <span style={{fontWeight:700}}>{eur(o.value)}</span>
+            </div>)}
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>Taken</span><button onClick={()=>setModal({type:'task',data:{companyId:co.id}})} style={{...btnG,padding:'4px 12px',fontSize:11}}>+ Taak</button></div>
+          <div style={{display:'flex',flexDirection:'column',gap:6}}>
+            {coTasks.filter(tk=>!tk.done).map(tk=><div key={tk.id} style={{fontSize:13,padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',display:'flex',alignItems:'center',gap:8}}>
+              <div onClick={()=>{setTasks(p=>p.map(x=>x.id===tk.id?{...x,done:true}:x));toast('Klaar!');}} style={{width:16,height:16,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',flexShrink:0}}/>
+              <span style={{flex:1}}>{tk.title}</span>
+              {tk.dueDate&&<span style={{fontSize:11,color:tk.dueDate<td()?t.red:t.dim}}>{fds(tk.dueDate)}</span>}
+            </div>)}
+          </div>
+        </div>
+      </div></div>;
+    }
+    return null;
+  };
+
+  // ─── MODALS ───────────────────────────────────────
+  const ContactModal=()=>{const d=modal?.data;const[f,sf]=useState(d?.id?d:{name:'',email:'',phone:'',companyId:d?.companyId||'',role:'',tags:[],...(d||{})});const[tag,setTag]=useState('');
+  return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:460,maxHeight:'90vh',overflowY:'auto'}}>
+      <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?'Contact Bewerken':'Nieuw Contact'}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
+      <div style={{padding:'16px 24px'}}>
+        {[{k:'name',l:'Naam',p:'Volledige naam'},{k:'role',l:'Functie',p:'CEO, CTO...'},{k:'email',l:'E-mail',p:'email@voorbeeld.nl'},{k:'phone',l:'Telefoon',p:'+31...'}].map(x=><div key={x.k} style={{marginBottom:12}}><label style={lbl}>{x.l}</label><input style={inp} value={f[x.k]||''} onChange={e=>sf({...f,[x.k]:e.target.value})} placeholder={x.p}/></div>)}
+        <div style={{marginBottom:12}}><label style={lbl}>Bedrijf</label><select style={{...inp,cursor:'pointer'}} value={f.companyId||''} onChange={e=>sf({...f,companyId:e.target.value})}><option value="">Kies bedrijf...</option>{companies.map(co=><option key={co.id} value={co.id}>{co.name}{co.industry?' — '+co.industry:''}</option>)}</select></div>
+        <div style={{marginBottom:12}}><label style={lbl}>Tags</label><div style={{display:'flex',gap:5}}><input style={inp} value={tag} onChange={e=>setTag(e.target.value)} placeholder="Tag toevoegen..." onKeyDown={e=>{if(e.key==='Enter'&&tag.trim()){sf({...f,tags:[...(f.tags||[]),tag.trim().toLowerCase()]});setTag('');}}}/><button onClick={()=>{if(tag.trim()){sf({...f,tags:[...(f.tags||[]),tag.trim().toLowerCase()]});setTag('');}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
+          {(f.tags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.tags.map((t2,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,display:'flex',alignItems:'center',gap:4}}>{t2}<span onClick={()=>sf({...f,tags:f.tags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}</div>
+      </div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.name?.trim())return;const av=f.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);if(d?.id){setContacts(p=>p.map(x=>x.id===d.id?{...x,...f,avatar:av}:x));toast('Contact bijgewerkt');}else{setContacts(p=>[...p,{...f,id:uid(),avatar:av,createdAt:new Date().toISOString()}]);toast('Contact toegevoegd');}setModal(null);}} style={btnP}>{d?'Opslaan':'Toevoegen'}</button></div>
+    </div>
+  </div>;};
+
+  const OppModal=()=>{const d=modal?.data;const[f,sf]=useState(d?.id?d:{title:'',contactId:d?.contactId||'',companyId:d?.companyId||'',stage:d?.stage||'lead',value:0,probability:20,priority:'medium',nextAction:'',nextActionDate:'',notes:[],...d});
+  return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:500,maxHeight:'90vh',overflowY:'auto'}}>
+      <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?'Deal Bewerken':'Nieuwe Deal'}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
+      <div style={{padding:'16px 24px'}}>
+        <div style={{marginBottom:12}}><label style={lbl}>Titel</label><input style={inp} value={f.title} onChange={e=>sf({...f,title:e.target.value})} placeholder="Website redesign, adviestraject..." autoFocus/></div>
+        <div style={{marginBottom:12}}><label style={lbl}>Bedrijf</label><select style={{...inp,cursor:'pointer'}} value={f.companyId||''} onChange={e=>{sf({...f,companyId:e.target.value,contactId:''});}}><option value="">Kies bedrijf (optioneel)...</option>{companies.map(co=><option key={co.id} value={co.id}>{co.name}</option>)}</select></div>
+        <div style={{marginBottom:12}}><label style={lbl}>Contactpersoon</label><select style={{...inp,cursor:'pointer'}} value={f.contactId||''} onChange={e=>{const ct=contacts.find(c=>c.id===e.target.value);sf({...f,contactId:e.target.value,companyId:ct?.companyId||f.companyId});}}><option value="">Geen contact (alleen bedrijf)...</option>{(f.companyId?contacts.filter(c=>c.companyId===f.companyId):contacts).map(c=><option key={c.id} value={c.id}>{c.name}{compName(c.companyId)?' — '+compName(c.companyId):''}</option>)}</select>{f.companyId&&!contacts.some(c=>c.companyId===f.companyId)&&<div style={{fontSize:11,color:t.orange,marginTop:4}}>⚠ Dit bedrijf heeft nog geen contactpersonen</div>}</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+          <div><label style={lbl}>Waarde (€)</label><input type="number" style={inp} value={f.value} onChange={e=>sf({...f,value:+e.target.value})}/></div>
+          <div><label style={lbl}>Kans (%)</label><input type="number" min="0" max="100" style={inp} value={f.probability} onChange={e=>sf({...f,probability:+e.target.value})}/></div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+          <div><label style={lbl}>Fase</label><select style={{...inp,cursor:'pointer'}} value={f.stage} onChange={e=>sf({...f,stage:e.target.value})}>{STAGES.map(s=><option key={s.id} value={s.id}>{s.l}</option>)}</select></div>
+          <div><label style={lbl}>Prioriteit</label><select style={{...inp,cursor:'pointer'}} value={f.priority} onChange={e=>sf({...f,priority:e.target.value})}>{PRIS.map(p=><option key={p.id} value={p.id}>{p.l}</option>)}</select></div>
+        </div>
+        <div style={{marginBottom:12}}><label style={lbl}>Volgende Actie</label><input style={inp} value={f.nextAction} onChange={e=>sf({...f,nextAction:e.target.value})} placeholder="Voorstel versturen, bellen..."/></div>
+        <div style={{marginBottom:12}}><label style={lbl}>Actie Datum</label><input type="date" style={inp} value={f.nextActionDate} onChange={e=>sf({...f,nextActionDate:e.target.value})}/></div>
+      </div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.title?.trim())return;const now=new Date().toISOString();if(d?.id){setOpps(p=>p.map(x=>x.id===d.id?{...x,...f,updatedAt:now}:x));toast('Deal bijgewerkt');}else{setOpps(p=>[...p,{...f,id:uid(),notes:[],createdAt:now,updatedAt:now,closedAt:null}]);toast('Deal toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
+    </div>
+  </div>;};
+
+  const TaskModal=()=>{const d=modal?.data;const[f,sf]=useState(d?.id?d:{title:'',contactId:d?.contactId||'',oppId:d?.oppId||'',dueDate:td(),dueTime:'',done:false,priority:'medium',reminder:true,reminderMin:15,...d});
+  return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:440,maxHeight:'90vh',overflowY:'auto'}}>
+      <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?'Taak Bewerken':'Nieuwe Taak'}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
+      <div style={{padding:'16px 24px'}}>
+        <div style={{marginBottom:12}}><label style={lbl}>Taak</label><input style={inp} value={f.title} onChange={e=>sf({...f,title:e.target.value})} placeholder="Wat moet er gebeuren?" autoFocus/></div>
+        <div style={{marginBottom:12}}><label style={lbl}>Contact</label><select style={{...inp,cursor:'pointer'}} value={f.contactId} onChange={e=>sf({...f,contactId:e.target.value})}><option value="">Optioneel...</option>{contacts.map(c=><option key={c.id} value={c.id}>{c.name}{compName(c.companyId)?' — '+compName(c.companyId):''}</option>)}</select></div>
+        <div style={{marginBottom:12}}><label style={lbl}>Deal / Opportunity</label><select style={{...inp,cursor:'pointer'}} value={f.oppId} onChange={e=>{const opp=opps.find(o=>o.id===e.target.value);sf({...f,oppId:e.target.value,contactId:opp?.contactId||f.contactId});}}><option value="">Geen deal gekoppeld</option>{opps.filter(o=>o.stage!=='won'&&o.stage!=='lost').map(o=><option key={o.id} value={o.id}>{o.title} — {eur(o.value)} ({stageC(o.stage).l})</option>)}</select></div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:12}}>
+          <div><label style={lbl}>Datum</label><input type="date" style={inp} value={f.dueDate} onChange={e=>sf({...f,dueDate:e.target.value})}/></div>
+          <div><label style={lbl}>Tijd</label><input type="time" style={inp} value={f.dueTime||''} onChange={e=>sf({...f,dueTime:e.target.value})}/></div>
+          <div><label style={lbl}>Prioriteit</label><select style={{...inp,cursor:'pointer'}} value={f.priority} onChange={e=>sf({...f,priority:e.target.value})}>{PRIS.map(p=><option key={p.id} value={p.id}>{p.l}</option>)}</select></div>
+        </div>
+        <div style={{padding:'12px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',marginBottom:8}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:f.reminder?10:0}}>
+            <div onClick={()=>sf({...f,reminder:!f.reminder})} style={{width:22,height:22,borderRadius:6,background:f.reminder?t.accent:t.elev,border:f.reminder?'none':`2px solid ${t.muted}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:12,color:'#fff',fontWeight:700,transition:`all 0.15s ${sp}`}}>{f.reminder&&'✓'}</div>
+            <span style={{fontSize:13,fontWeight:500}}>🔔 Herinnering</span>
+            {f.reminder&&<span style={{fontSize:11,color:t.dim}}>(browser notificatie)</span>}
+          </div>
+          {f.reminder&&<div>
+            <label style={{...lbl,marginBottom:6}}>Herinner mij</label>
+            <div style={{display:'flex',gap:6}}>{[{v:5,l:'5 min'},{v:15,l:'15 min'},{v:30,l:'30 min'},{v:60,l:'1 uur'}].map(r=><button key={r.v} onClick={()=>sf({...f,reminderMin:r.v})} style={{padding:'4px 12px',borderRadius:8,fontSize:11,fontWeight:500,border:`1.5px solid ${f.reminderMin===r.v?t.accent:'transparent'}`,background:f.reminderMin===r.v?t.accentS:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:f.reminderMin===r.v?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit'}}>voor {r.l}</button>)}</div>
+          </div>}
+        </div>
+      </div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.title?.trim())return;if(d?.id){setTasks(p=>p.map(x=>x.id===d.id?{...x,...f}:x));toast('Taak bijgewerkt');}else{setTasks(p=>[...p,{...f,id:uid(),done:false,createdAt:new Date().toISOString()}]);toast('Taak toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
+    </div>
+  </div>;};
+
+  // ─── REPORTS / SALES FUNNEL ────────────────────────
+  const Reports=()=>{
+    const funnelStages=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost');
+    const funnelData=funnelStages.map(s=>{const st=opps.filter(o=>o.stage===s.id);return{...s,count:st.length,val:st.reduce((sum,o)=>sum+o.value,0),weighted:st.reduce((sum,o)=>sum+(o.value*o.probability/100),0)};});
+    const maxCount=Math.max(...funnelData.map(d=>d.count),1);
+    const totalAll=opps.length||1;
+    const convRate=opps.length?Math.round(wonOpps.length/opps.length*100):0;
+    const avgDealSize=activeOpps.length?Math.round(totalPipeline/activeOpps.length):0;
+    const avgWon=wonOpps.length?Math.round(wonRevenue/wonOpps.length):0;
+
+    // Funnel widths (percentage) — widest at top, narrowing down
+    const fW=funnelData.map((d,i)=>{const base=90-i*12;return Math.max(base*(d.count/maxCount),20);});
+
+    return <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:24}}>
+        {[{l:'Totaal Deals',v:opps.length,c:t.text},{l:'Conversie',v:convRate+'%',c:t.green},{l:'Gem. Dealgrootte',v:eur(avgDealSize),c:t.accent},{l:'Gem. Gewonnen',v:eur(avgWon),c:t.green},{l:'Pipeline Waarde',v:eur(totalPipeline),c:t.purple},{l:'Verloren',v:opps.filter(o=>o.stage==='lost').length,c:t.red}].map((s,i)=><div key={i} style={card}><div style={lbl}>{s.l}</div><div style={{fontSize:22,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:24}}>
+        {/* VISUAL FUNNEL */}
+        <div style={card}>
+          <div style={{fontSize:16,fontWeight:700,marginBottom:20}}>Sales Funnel</div>
+          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+            {funnelData.map((d,i)=>{const w=fW[i];return <div key={d.id} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
+              <div style={{width:`${w}%`,background:`linear-gradient(135deg,${d.c}cc,${d.c}88)`,borderRadius:i===0?'12px 12px 4px 4px':i===funnelData.length-1?'4px 4px 12px 12px':'4px',padding:'14px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',minHeight:52,transition:`all 0.4s ${sp}`}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:'#fff'}}>{d.l}</div>
+                  <div style={{fontSize:11,color:'rgba(255,255,255,0.7)'}}>{d.count} deal{d.count!==1?'s':''}</div>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <div style={{fontSize:15,fontWeight:700,color:'#fff'}}>{eur(d.val)}</div>
+                  <div style={{fontSize:10,color:'rgba(255,255,255,0.6)'}}>gewogen {eur(Math.round(d.weighted))}</div>
+                </div>
+              </div>
+              {i<funnelData.length-1&&<div style={{position:'absolute',bottom:-6,fontSize:10,color:t.muted,zIndex:1}}>
+                {funnelData[i+1].count>0&&d.count>0?Math.round(funnelData[i+1].count/d.count*100)+'%':'—'}
+              </div>}
+            </div>;})}
+          </div>
+          <div style={{display:'flex',justifyContent:'center',gap:16,marginTop:20}}>
+            <div style={{textAlign:'center'}}><div style={{fontSize:20,fontWeight:700,color:t.green}}>🏆 {wonOpps.length}</div><div style={{fontSize:11,color:t.dim}}>Gewonnen</div></div>
+            <div style={{textAlign:'center'}}><div style={{fontSize:20,fontWeight:700,color:t.red}}>✕ {opps.filter(o=>o.stage==='lost').length}</div><div style={{fontSize:11,color:t.dim}}>Verloren</div></div>
+          </div>
+        </div>
+
+        {/* CONVERSION TABLE */}
+        <div style={card}>
+          <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>Conversie per Fase</div>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {funnelData.map((d,i)=>{const pct=d.count>0?Math.round(d.count/totalAll*100):0;return <div key={d.id}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:8,height:8,borderRadius:'50%',background:d.c}}/><span style={{fontSize:13,fontWeight:600}}>{d.l}</span></div>
+                <div style={{display:'flex',gap:12,alignItems:'center'}}><span style={{fontSize:12,color:t.dim}}>{d.count} deals</span><span style={{fontSize:13,fontWeight:700}}>{eur(d.val)}</span></div>
+              </div>
+              <div style={{height:6,background:t.elev,borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',background:d.c,width:`${pct}%`,borderRadius:3,transition:`width 0.5s ${sp}`}}/></div>
+              {i<funnelData.length-1&&funnelData[i+1].count>0&&d.count>0&&<div style={{fontSize:10,color:t.muted,textAlign:'right',marginTop:2}}>↓ {Math.round(funnelData[i+1].count/d.count*100)}% conversie</div>}
+            </div>;})}
+          </div>
+          <div style={{marginTop:20,padding:'14px 16px',borderRadius:10,background:t.greenS,border:`0.5px solid ${t.green}33`}}>
+            <div style={{fontSize:13,fontWeight:700,color:t.green,marginBottom:4}}>Lead → Won Conversie</div>
+            <div style={{fontSize:28,fontWeight:800,color:t.green}}>{convRate}%</div>
+            <div style={{fontSize:11,color:t.dim,marginTop:2}}>{wonOpps.length} van {opps.length} deals gewonnen</div>
+          </div>
+        </div>
+      </div>
+
+      {/* PIPELINE VALUE CHART */}
+      <div style={card}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>Pipeline Waarde per Fase</div>
+        <svg viewBox="0 0 500 160" style={{width:'100%'}}>
+          {funnelData.map((d,i)=>{const bw=60,gap=110,x=30+i*gap,maxV=Math.max(...funnelData.map(s=>s.val),1),h=(d.val/maxV)*110;return <g key={i}>
+            <rect x={x} y={130-h} width={bw} height={h} rx={8} fill={d.c} opacity={.8}/>
+            <text x={x+bw/2} y={145} textAnchor="middle" fontSize="10" fill={t.muted} fontFamily="Outfit,system-ui">{d.l.slice(0,8)}</text>
+            <text x={x+bw/2} y={123-h} textAnchor="middle" fontSize="10" fill={t.dim} fontWeight="600" fontFamily="Outfit,system-ui">{eur(d.val)}</text>
+          </g>;})}
+          <line x1="28" y1="130" x2="480" y2="130" stroke={t.border} strokeWidth=".5"/>
+        </svg>
       </div>
     </div>;
   };
 
-  // ─── Dashboard, Tasks, Team, Reports (compact) ────────
-  const Dashboard = () => <div className="fin">
-    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:20}}>
-      <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase'}}>Open</div><div style={{fontSize:26,fontWeight:700,color:t.accent}}>{allOp.length}</div></div>
-      <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase'}}>Afgerond</div><div style={{fontSize:26,fontWeight:700,color:t.success}}>{allDn.length}</div></div>
-      <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase'}}>Gepland</div><div style={{fontSize:26,fontWeight:700}}>{planned.length}</div></div>
-      <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase'}}>Ongepland</div><div style={{fontSize:26,fontWeight:700,color:t.warn}}>{unplan.length}</div></div>
-    </div>
-    {insights.length>0&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12,marginBottom:18}}>{insights.map((x,i)=><div key={i} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16}}><div style={{fontSize:22,marginBottom:6}}>{x.icon}</div><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{x.title}</div><div style={{fontSize:12,color:t.dim}}>{x.text}</div></div>)}</div>}
-    <div style={{fontSize:14,fontWeight:600,marginBottom:10}}>🔴 Urgent</div>
-    <div style={{display:'flex',flexDirection:'column',gap:5}}>{allOp.filter(x=>x.priority==='high').map(Card)}</div>
-  </div>;
+  // ─── COMPANIES VIEW ────────────────────────────────
+  const Companies=()=>{
+    const filtered=companies.filter(c=>{if(!search)return true;const q=search.toLowerCase();return c.name.toLowerCase().includes(q)||(c.industry||'').toLowerCase().includes(q)||(c.address||'').toLowerCase().includes(q)||(c.tags||[]).some(tg=>tg.includes(q));});
+    return <div>
+      <div style={{display:'flex',gap:8,marginBottom:16}}><div style={{flex:1,...inp,display:'flex',alignItems:'center',gap:8,padding:'8px 14px'}}><span style={{color:t.muted}}>🔍</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Zoek bedrijven..." style={{flex:1,background:'none',border:'none',color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/>{search&&<span onClick={()=>setSearch('')} style={{cursor:'pointer',color:t.muted}}>✕</span>}</div><button onClick={()=>setModal({type:'company'})} style={btnP}>+ Bedrijf</button></div>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        {filtered.map(co=>{const coContacts=contacts.filter(c=>c.companyId===co.id);const coOpps=opps.filter(o=>o.companyId===co.id&&o.stage!=='lost');const coVal=coOpps.reduce((s,o)=>s+o.value,0);return <div key={co.id} onClick={()=>setDetail({type:'company',id:co.id})} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer'}}>
+          <div style={{width:42,height:42,borderRadius:10,background:`linear-gradient(135deg,${t.teal},${t.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,color:'#fff',flexShrink:0}}>{co.name.charAt(0)}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:14,fontWeight:600}}>{co.name}</div>
+            <div style={{fontSize:12,color:t.dim}}>{co.industry}{co.address&&' · '+co.address}</div>
+            <div style={{display:'flex',gap:6,marginTop:4,alignItems:'center'}}>
+              {coContacts.length>0?<span style={{fontSize:10,color:t.accent}}>👤 {coContacts.length} contact{coContacts.length!==1?'en':''}</span>:<span style={{fontSize:10,color:t.orange,fontWeight:500}}>Geen contactpersoon</span>}
+              {co.tags?.length>0&&co.tags.map(tg=><span key={tg} style={{fontSize:10,padding:'1px 6px',borderRadius:5,background:t.accentS,color:t.accent}}>{tg}</span>)}
+            </div>
+          </div>
+          <div style={{textAlign:'right',flexShrink:0}}>
+            {coOpps.length>0&&<div style={{fontSize:13,fontWeight:700}}>{eur(coVal)}</div>}
+            <div style={{fontSize:11,color:t.dim}}>{coOpps.length} deal{coOpps.length!==1?'s':''}</div>
+          </div>
+        </div>;})}
+      </div>
+    </div>;
+  };
 
-  const Tasks = () => {const op=fTasks.filter(x=>!x.completed),cp=fTasks.filter(x=>x.completed);return <div className="fin">
-    <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:t.elev,border:`1px solid ${t.border}`,borderRadius:14,marginBottom:14}}><span>🔍</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Zoek..." style={{flex:1,background:'none',border:'none',color:t.text,fontFamily:'inherit',fontSize:13,outline:'none'}}/>{search&&<span style={{cursor:'pointer',color:t.muted}} onClick={()=>setSearch('')}>×</span>}</div>
-    <div style={{display:'flex',gap:5,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
-      <button onClick={()=>setFilt('all')} style={{...btnG,background:filt==='all'?t.accentS:'transparent',borderColor:filt==='all'?t.accent:t.border,color:filt==='all'?t.accent:t.dim,fontSize:11,padding:'4px 11px',borderRadius:20}}>Alles</button>
-      {CATS.map(c=><button key={c.id} onClick={()=>setFilt(f=>f===c.id?'all':c.id)} style={{...btnG,background:filt===c.id?catSoft(c.id,t):'transparent',borderColor:filt===c.id?catColor(c.id,t):t.border,color:filt===c.id?catColor(c.id,t):t.dim,fontSize:11,padding:'4px 11px',borderRadius:20}}>{c.label}</button>)}
-      <div style={{marginLeft:'auto'}}/>
-      {!mergeMode ? (
-        <button onClick={()=>{setMergeMode(true);setMergeSelected([]);}} style={{...btnG,fontSize:11,padding:'4px 11px',borderRadius:20}}>🔗 Samenvoegen</button>
-      ) : (
-        <div style={{display:'flex',gap:5,alignItems:'center'}}>
-          <span style={{fontSize:11,color:t.accent,fontWeight:600}}>{mergeSelected.length} geselecteerd</span>
-          <button onClick={mergeTasks} disabled={mergeSelected.length<2} style={{...btnP,fontSize:11,padding:'4px 12px',borderRadius:20,opacity:mergeSelected.length<2?.4:1}}>✦ Voeg samen</button>
-          <button onClick={cancelMerge} style={{...btnG,fontSize:11,padding:'4px 11px',borderRadius:20}}>Annuleren</button>
-        </div>
-      )}
-    </div>
-    {mergeMode&&<div style={{padding:'10px 14px',background:t.accentS,border:`1px solid ${t.accent}33`,borderRadius:10,marginBottom:14,fontSize:12,color:t.accent,display:'flex',alignItems:'center',gap:8}}>
-      <span style={{fontSize:16}}>🔗</span>
-      <span>Klik op 2 of meer taken om ze samen te voegen. De eerste wordt de hoofdtaak, de rest wordt subtaken.</span>
-    </div>}
-    <div style={{fontSize:14,fontWeight:600,marginBottom:8}}>Open ({op.length})</div>
-    <div style={{display:'flex',flexDirection:'column',gap:5}}>{op.sort((a,b)=>PRIS.indexOf(a.priority)-PRIS.indexOf(b.priority)).map(Card)}<div onClick={()=>{setEditT(null);setModal(true);}} style={{background:t.card,border:`1px dashed ${t.border}`,borderRadius:14,padding:'10px 16px',cursor:'pointer',color:t.muted,fontSize:12,textAlign:'center'}}>＋ Nieuwe taak</div></div>
-    {cp.length>0&&<><div style={{fontSize:14,fontWeight:600,margin:'20px 0 8px'}}>Afgerond ({cp.length})</div><div style={{display:'flex',flexDirection:'column',gap:5}}>{cp.map(Card)}</div></>}
-    <div style={{display:'flex',gap:8,flexWrap:'wrap',padding:'12px 0',borderTop:`1px solid ${t.border}`,marginTop:18}}><button onClick={()=>{expOutlook(tasks);toast('Outlook .ics gedownload!');}} style={btnG}>📅 Outlook</button><button onClick={()=>{expAppleCalendar(tasks);toast('Apple Calendar geopend!');}} style={btnG}>🍎 Apple Agenda</button><button onClick={()=>{expMail(tasks,selDate);toast('Mail!');}} style={btnG}>📧 Rapport</button></div>
-  </div>;};
-
-  const TeamV = () => <div className="fin">
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}><div style={{fontWeight:600}}>Team ({team.length})</div><button onClick={()=>setTeamMgr(true)} style={btnP}>⚙ Beheren</button></div>
-    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:20}}>{team.map(m=>{const mt=tasks.filter(x=>x.assignee===m.id),md=mt.filter(x=>x.completed);return <div key={m.id} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16,cursor:'pointer'}} onClick={()=>{setAFilt(m.id);setView('tasks');}}>
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}><div style={{width:30,height:30,borderRadius:'50%',background:m.c,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,color:'#fff'}}>{m.ini}</div><div><div style={{fontWeight:600,fontSize:13}}>{m.name}</div><div style={{fontSize:10,color:t.muted}}>{mt.length} taken</div></div></div>
-      <div style={{height:5,background:t.elev,borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',background:`linear-gradient(90deg,${t.accent},${t.success})`,width:`${mt.length?Math.round(md.length/mt.length*100):0}%`}}/></div>
-    </div>;})}</div>
-    <div style={{display:'flex',flexDirection:'column',gap:5}}>{tasks.filter(x=>x.assignee!=='me'&&!x.completed).map(Card)}</div>
-  </div>;
-
-  const Reports = () => {const dd=dayT.filter(x=>x.completed),dop=dayT.filter(x=>!x.completed);return <div className="fin">
-    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:20}}>
-      <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase'}}>Afgerond</div><div style={{fontSize:26,fontWeight:700,color:t.success}}>{dd.length}</div></div>
-      <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase'}}>Open</div><div style={{fontSize:26,fontWeight:700}}>{dop.length}</div></div>
-    </div>
-    <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:18}}>
-      <div style={{fontSize:11,fontWeight:600,color:t.accent,marginBottom:5,textTransform:'uppercase',letterSpacing:1}}>✅ Afgerond</div>
-      {dd.length?dd.map(x=><div key={x.id} style={{fontSize:12,color:t.dim,padding:'2px 0',display:'flex',gap:6}}>✓ {x.timeSlot||'--:--'} — {x.title}</div>):<div style={{fontSize:12,color:t.muted,fontStyle:'italic'}}>Nog niets</div>}
-      <div style={{fontSize:11,fontWeight:600,color:t.accent,margin:'12px 0 5px',textTransform:'uppercase',letterSpacing:1}}>⬜ Open</div>
-      {dop.map(x=><div key={x.id} style={{fontSize:12,color:t.dim,padding:'2px 0',display:'flex',gap:6}}>○ {x.timeSlot||'--:--'} — {x.title}</div>)}
-    </div>
-    <div style={{display:'flex',gap:8,flexWrap:'wrap',padding:'12px 0',borderTop:`1px solid ${t.border}`,marginTop:18}}><button onClick={()=>{expMail(tasks,selDate);toast('Mail!');}} style={btnP}>📧 Rapport Mailen</button><button onClick={()=>{expOutlook(tasks);toast('Outlook!');}} style={btnG}>📅 Outlook</button><button onClick={()=>{expAppleCalendar(tasks);toast('Apple Calendar!');}} style={btnG}>🍎 Apple Agenda</button></div>
-  </div>;};
-
-  const views={planner:Planner,dashboard:Dashboard,tasks:Tasks,week:WeekView,team:TeamV,stats:Stats,reports:Reports};
-  const titles={planner:'Planner',dashboard:'Dashboard',tasks:'Taken',week:'Weekoverzicht',team:'Team',stats:'Statistieken',reports:'Rapportages'};
-  const mTask=editT||(prefill?{title:'',category:'werk',priority:'medium',assignee:'me',dueDate:selDate,notes:[],links:[],completed:false,timeSlot:prefill,duration:30,recur:'none'}:null);
+  // Navigation
+  const views={pipeline:Pipeline,contacts:Contacts,companies:Companies,tasks:Tasks,dashboard:Dash,reports:Reports};
+  const titles={pipeline:'Pipeline',contacts:'Contacten',companies:'Bedrijven',tasks:'Taken',dashboard:'Dashboard',reports:'Rapporten'};
+  const nav=[{id:'dashboard',ic:'◆',l:'Dashboard'},{id:'pipeline',ic:'📊',l:'Pipeline'},{id:'companies',ic:'🏢',l:'Bedrijven'},{id:'contacts',ic:'👤',l:'Contacten'},{id:'tasks',ic:'☑',l:'Taken'},{id:'reports',ic:'📈',l:'Rapporten'}];
 
   return <>
-    <style>{S(t)}{`
-      .unpl-panel { } @media(max-width:1200px){.unpl-panel{display:none}} @media(max-width:768px){.sb{transform:translateX(-100%)!important}.sb.open{transform:translateX(0)!important}.ham{display:flex!important}.mc{padding:12px!important}.mh{padding:10px 12px!important}}
-      .sb{position:fixed;left:0;top:0;bottom:0;width:250px;z-index:200;transition:transform .3s} @media(min-width:769px){.sb{position:relative;transform:none!important}}
-      .aip{position:fixed;right:0;top:0;bottom:0;width:340px;z-index:200;transform:translateX(100%);transition:transform .3s}.aip.open{transform:translateX(0)}
-      @media(max-width:768px){.aip{width:100%}}
-      .slot-task:hover .srm{opacity:.6!important}
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+      *{margin:0;padding:0;box-sizing:border-box}body{font-family:Outfit,system-ui,-apple-system,sans-serif;background:${t.bg};color:${t.text}}
+      ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:${t.border};border-radius:3px}
+      @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+      @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+      @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+      @keyframes glow{0%,100%{box-shadow:0 0 12px ${t.accentS}}50%{box-shadow:0 0 28px ${t.accentS}}}
+      .sb{position:fixed;left:0;top:0;bottom:0;width:240px;z-index:200;transition:transform .3s ${sp}}
+      @media(min-width:769px){.sb{position:relative;transform:none!important}}
+      @media(max-width:768px){.sb{transform:translateX(-100%)}.sb.open{transform:translateX(0)}.ham{display:flex!important}.mc{padding:14px!important}}
     `}</style>
-    <div style={{display:'flex',height:'100vh',background:t.bg,color:t.text,fontFamily:"'DM Sans',system-ui,sans-serif"}}>
-      {sbOpen&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:150}} onClick={()=>setSbOpen(false)}/>}
-      <aside className={`sb ${sbOpen?'open':''}`} style={{background:t.card,borderRight:`1px solid ${t.border}`,display:'flex',flexDirection:'column'}}>
-        <div style={{padding:'18px 14px',borderBottom:`1px solid ${t.border}`}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <div style={{width:34,height:34,background:`linear-gradient(135deg,${t.accent},#a855f7)`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,animation:'glow 3s ease infinite'}}>✦</div>
-            <div><div style={{fontSize:18,fontWeight:700,background:`linear-gradient(135deg,${t.text},${t.accentG})`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>TaskFlow Pro</div><div style={{fontSize:9,color:t.muted,letterSpacing:2,textTransform:'uppercase'}}>V2 — AI Powered</div></div>
-          </div>
+    <div style={{display:'flex',height:'100vh'}}>
+      {sb&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',zIndex:150}} onClick={()=>setSb(false)}/>}
+      <aside className={`sb ${sb?'open':''}`} style={{background:t.bg2,borderRight:`0.5px solid ${t.border}`,display:'flex',flexDirection:'column'}}>
+        <div style={{padding:'20px 16px',borderBottom:`0.5px solid ${t.border}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:36,height:36,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,color:'#fff',animation:'glow 3s ease infinite'}}>P</div><div><div style={{fontSize:18,fontWeight:800,letterSpacing:-.3}}>DPM CRM</div><div style={{fontSize:9,color:t.muted,letterSpacing:2,textTransform:'uppercase',fontWeight:600}}>Sales Pipeline</div></div></div>
         </div>
-        <nav style={{flex:1,padding:'10px 8px',overflowY:'auto'}}>
-          <div style={{marginBottom:18}}><div style={{fontSize:9,color:t.muted,textTransform:'uppercase',letterSpacing:2,padding:'0 10px',marginBottom:5}}>Menu</div>
-            {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSbOpen(false);}} style={{display:'flex',alignItems:'center',gap:9,padding:'8px 10px',borderRadius:8,cursor:'pointer',color:view===n.id?t.accentG:t.dim,background:view===n.id?t.accentS:'transparent',fontSize:13,marginBottom:2}}><span style={{width:16,textAlign:'center',fontSize:13}}>{n.icon}</span>{n.label}{n.badge>0&&<span style={{marginLeft:'auto',background:t.accentS,color:t.accentG,fontSize:10,padding:'1px 6px',borderRadius:10,fontWeight:600}}>{n.badge}</span>}</div>)}
-          </div>
-          <div style={{marginBottom:18}}><div style={{fontSize:9,color:t.muted,textTransform:'uppercase',letterSpacing:2,padding:'0 10px',marginBottom:5}}>Team</div>
-            <div style={{display:'flex',padding:'6px 10px',flexWrap:'wrap'}}>{team.map(m=><div key={m.id} onClick={()=>{setAFilt(m.id);setView('team');setSbOpen(false);}} style={{width:28,height:28,borderRadius:'50%',background:m.c,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:600,color:'#fff',border:`2px solid ${t.card}`,marginLeft:m.id==='me'?0:-3,cursor:'pointer'}} title={m.name}>{m.ini}</div>)}<div onClick={()=>setTeamMgr(true)} style={{width:28,height:28,borderRadius:'50%',background:t.elev,border:`2px dashed ${t.borderL}`,display:'flex',alignItems:'center',justifyContent:'center',color:t.muted,marginLeft:-3,cursor:'pointer',fontSize:12}}>+</div></div>
-          </div>
-          <div><div style={{fontSize:9,color:t.muted,textTransform:'uppercase',letterSpacing:2,padding:'0 10px',marginBottom:5}}>Thema</div>
-            <div onClick={()=>setDark(!dark)} style={{display:'flex',alignItems:'center',gap:9,padding:'8px 10px',borderRadius:8,cursor:'pointer',color:t.dim,fontSize:13}}><span>{dark?'🌙':'☀️'}</span>{dark?'Donker':'Licht'} Mode</div>
-          </div>
-          <div style={{marginTop:12}}><div style={{fontSize:9,color:t.muted,textTransform:'uppercase',letterSpacing:2,padding:'0 10px',marginBottom:5}}>Status</div>
-            <div onClick={dbStatus!=='connected'?checkDb:undefined} style={{display:'flex',alignItems:'center',gap:9,padding:'8px 10px',borderRadius:8,cursor:dbStatus!=='connected'?'pointer':'default',color:dbStatus==='connected'?t.success:dbStatus==='checking'?t.accent:t.warn,fontSize:12}}>
-              <div style={{width:7,height:7,borderRadius:'50%',background:dbStatus==='connected'?t.success:dbStatus==='checking'?t.accent:t.warn,animation:dbStatus==='checking'?'pulse 1.5s ease infinite':'none'}}/>
-              {dbStatus==='connected'?`Neon verbonden${dbLatency?' ('+dbLatency+'ms)':''}`:dbStatus==='checking'?'Controleren...':'Lokale opslag'}
-            </div>
+        <nav style={{flex:1,padding:'12px 10px'}}>
+          {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSb(false);}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:view===n.id?t.accent:t.dim,background:view===n.id?t.accentS:'transparent',fontSize:14,fontWeight:view===n.id?600:400,marginBottom:2,transition:`all .15s ${sp}`}}><span style={{fontSize:15}}>{n.ic}</span>{n.l}</div>)}
+          <div style={{borderTop:`0.5px solid ${t.border}`,marginTop:16,paddingTop:12}}>
+            <div onClick={()=>setDark(!dark)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>{dark?'🌙':'☀️'} {dark?'Donker':'Licht'}</div>
           </div>
         </nav>
+        <div style={{padding:'12px 16px',borderTop:`0.5px solid ${t.border}`}}>
+          <div style={{fontSize:11,color:t.muted}}>Pipeline: {eur(totalPipeline)}</div>
+          <div style={{fontSize:11,color:t.green}}>{wonOpps.length} gewonnen · {eur(wonRevenue)}</div>
+        </div>
       </aside>
 
       <main style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-        <header className="mh" style={{padding:'14px 24px',borderBottom:`1px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',background:t.bg}}>
-          <div style={{display:'flex',alignItems:'center',gap:8}}><button className="ham" onClick={()=>setSbOpen(true)} style={{display:'none',width:34,height:34,border:'none',background:t.elev,borderRadius:8,cursor:'pointer',color:t.text,fontSize:16,alignItems:'center',justifyContent:'center'}}>☰</button><h1 style={{fontSize:22,fontWeight:700}}>{titles[view]}</h1></div>
-          <div style={{display:'flex',gap:8,alignItems:'center'}}>
-            <button onClick={()=>{setEditT(null);setPrefill(null);setModal(true);}} style={btnP}>＋ Nieuwe Taak</button>
-            <button onClick={()=>setAiOpen(!aiOpen)} style={{width:34,height:34,padding:0,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:8,background:aiOpen?t.accentS:t.elev,border:`1px solid ${aiOpen?t.accent:t.border}`,color:aiOpen?t.accent:t.dim,cursor:'pointer'}} title="AI Coach">✦</button>
+        <header style={{padding:'14px 24px',borderBottom:`0.5px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',background:t.bg}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}><button className="ham" onClick={()=>setSb(true)} style={{display:'none',width:36,height:36,border:'none',background:t.elev,borderRadius:10,cursor:'pointer',color:t.text,fontSize:18,alignItems:'center',justifyContent:'center'}}>☰</button><h1 style={{fontSize:24,fontWeight:800,letterSpacing:-.5}}>{titles[view]}</h1></div>
+          <div style={{display:'flex',gap:8}}>
+            {view==='pipeline'&&<button onClick={()=>setModal({type:'opp'})} style={btnP}>+ Deal</button>}
+            {view==='contacts'&&<button onClick={()=>setModal({type:'contact'})} style={btnP}>+ Contact</button>}
+            {view==='companies'&&<button onClick={()=>setModal({type:'company'})} style={btnP}>+ Bedrijf</button>}
+            {view==='tasks'&&<button onClick={()=>setModal({type:'task'})} style={btnP}>+ Taak</button>}
+            {view==='dashboard'&&<button onClick={()=>setModal({type:'opp'})} style={btnP}>+ Deal</button>}
           </div>
         </header>
-        <div className="mc" style={{flex:1,overflowY:'auto',padding:'18px 24px'}}>
-          {dbStatus==='offline'&&<div style={{padding:'12px 16px',marginBottom:16,borderRadius:10,background:t.warnS,border:`1px solid ${t.warn}44`,display:'flex',alignItems:'flex-start',gap:10,animation:'fadeIn .3s'}}>
-            <span style={{fontSize:18,marginTop:2}}>⚠️</span>
-            <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:600,color:t.warn}}>Neon database niet verbonden</div>
-              <div style={{fontSize:11,color:t.dim,marginTop:3,lineHeight:1.6}}>Data wordt lokaal opgeslagen. Om cloud sync in te schakelen:<br/>
-                1. Stel <b>DATABASE_URL</b> in als Netlify environment variable<br/>
-                2. Stel <b>JWT_SECRET</b> in als Netlify environment variable<br/>
-                3. Draai <code style={{background:t.elev,padding:'1px 4px',borderRadius:3,fontSize:10}}>npm run db:setup</code> om tabellen aan te maken
-              </div>
-            </div>
-            <button onClick={checkDb} style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${t.warn}66`,background:'transparent',color:t.warn,cursor:'pointer',fontFamily:'inherit',fontSize:11,fontWeight:500,whiteSpace:'nowrap',marginTop:2}}>↻ Check</button>
-          </div>}
-          {dbStatus==='checking'&&<div style={{padding:'8px 16px',marginBottom:16,borderRadius:10,background:t.accentS,border:`1px solid ${t.accent}33`,display:'flex',alignItems:'center',gap:8,fontSize:12,color:t.accent,animation:'pulse 1.5s ease infinite'}}>⏳ Verbinding controleren...</div>}
+        <div className="mc" style={{flex:1,overflowY:'auto',padding:'20px 24px',animation:'fadeIn .3s'}}>
           {views[view]?.()}
         </div>
       </main>
 
-      <aside className={`aip ${aiOpen?'open':''}`} style={{background:t.card,borderLeft:`1px solid ${t.border}`,display:'flex',flexDirection:'column'}}>
-        <div style={{padding:14,borderBottom:`1px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <div style={{display:'flex',alignItems:'center',gap:7,fontWeight:600,fontSize:13}}><div style={{width:6,height:6,borderRadius:'50%',background:t.success,animation:'pulse 2s ease infinite'}}/>AI Coach</div>
-          <button onClick={()=>setAiOpen(false)} style={{width:28,height:28,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
-        </div>
-        <div style={{flex:1,overflowY:'auto',padding:14,display:'flex',flexDirection:'column',gap:10}}>
-          {aiMsgs.map(m=><div key={m.id} style={{maxWidth:'92%',padding:'10px 14px',borderRadius:14,fontSize:12,lineHeight:1.55,animation:'fadeIn .3s',background:m.role==='bot'?t.elev:t.accentS,border:`1px solid ${m.role==='bot'?t.border:'rgba(108,92,231,.3)'}`,alignSelf:m.role==='bot'?'flex-start':'flex-end',whiteSpace:'pre-wrap'}}>{m.text}<div style={{fontSize:9,color:t.muted,marginTop:3}}>{m.time}</div></div>)}
-          {aiLoading&&<div style={{alignSelf:'flex-start',padding:'10px 14px',borderRadius:14,fontSize:12,background:t.elev,border:`1px solid ${t.border}`,color:t.muted,animation:'pulse 1s ease infinite'}}>💭 Denkt na...</div>}
-          <div ref={aiEnd}/>
-        </div>
-        <div style={{padding:'10px 14px',borderTop:`1px solid ${t.border}`,display:'flex',gap:7}}>
-          <input value={aiIn} onChange={e=>setAiIn(e.target.value)} onKeyDown={e=>e.key==='Enter'&&sendAi()} placeholder="Vraag je AI coach..." style={{flex:1,padding:'8px 10px',background:t.elev,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,fontFamily:'inherit',fontSize:12,outline:'none'}}/>
-          <button onClick={sendAi} disabled={aiLoading} style={{width:34,height:34,borderRadius:8,background:`linear-gradient(135deg,${t.accent},#8b5cf6)`,border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,opacity:aiLoading?.5:1}}>→</button>
-        </div>
-      </aside>
-
-      {modal&&<TaskModal task={mTask} isNew={!editT} onSave={save} onClose={()=>{setModal(false);setEditT(null);setPrefill(null);}} tasks={tasks} selDate={selDate} team={team} theme={t}/>}
-      {teamMgr&&<TeamManager team={team} onUpdate={setTeam} onClose={()=>setTeamMgr(false)} theme={t}/>}
-      {pomoTask&&<Pomodoro task={pomoTask} theme={t} onClose={()=>setPomoTask(null)}/>}
-      {celeb.s&&<div style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}>{Array.from({length:10},(_,i)=><div key={i} style={{position:'absolute',width:7,height:7,borderRadius:2,left:`${20+Math.random()*60}%`,top:`${30+Math.random()*40}%`,background:['#6c5ce7','#00d2a0','#ffa64d','#00b4d8','#e77cd2','#ff6b6b'][i%6],animation:`confetti 1.5s ease forwards`,animationDelay:`${Math.random()*0.5}s`}}/>)}<div style={{fontSize:28,fontWeight:700,color:t.success,animation:'fadeIn .3s ease, fadeOut .5s ease 1.5s forwards',textShadow:`0 0 40px ${t.successS}`}}>{celeb.m}</div></div>}
-      <div style={{position:'fixed',bottom:16,right:16,zIndex:9999,display:'flex',flexDirection:'column',gap:5}}>{toasts.map(x=><div key={x.id} style={{padding:'9px 14px',background:t.elev,border:`1px solid ${t.border}`,borderRadius:8,fontSize:12,boxShadow:'0 4px 24px rgba(0,0,0,.3)',animation:'slideUp .3s ease, fadeOut .3s ease 2.7s forwards',borderLeft:`3px solid ${x.type==='success'?t.success:t.accent}`}}>{x.type==='success'?'✓':'ℹ'} {x.message}</div>)}</div>
+      {detail&&<DetailPanel/>}
+      {modal?.type==='contact'&&<ContactModal/>}
+      {modal?.type==='opp'&&<OppModal/>}
+      {modal?.type==='task'&&<TaskModal/>}
+      {modal?.type==='company'&&(()=>{const d=modal?.data;const[f,sf]=useState(d?.id?d:{name:'',website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],...(d||{})});const[tag,stg]=useState('');
+        return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:480,maxHeight:'90vh',overflowY:'auto'}}>
+            <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?'Bedrijf Bewerken':'Nieuw Bedrijf'}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
+            <div style={{padding:'16px 24px'}}>
+              {[{k:'name',l:'Bedrijfsnaam',p:'Voorbeeld BV'},{k:'website',l:'Website',p:'www.voorbeeld.nl'},{k:'industry',l:'Industrie',p:'Technologie, Consultancy...'},{k:'address',l:'Locatie',p:'Amsterdam'},{k:'email',l:'Algemeen E-mail',p:'info@voorbeeld.nl'},{k:'phone',l:'Telefoon',p:'+31...'}].map(x=><div key={x.k} style={{marginBottom:12}}><label style={lbl}>{x.l}</label><input style={inp} value={f[x.k]||''} onChange={e=>sf({...f,[x.k]:e.target.value})} placeholder={x.p} autoFocus={x.k==='name'}/></div>)}
+              <div style={{marginBottom:12}}><label style={lbl}>Grootte</label><select style={{...inp,cursor:'pointer'}} value={f.size||''} onChange={e=>sf({...f,size:e.target.value})}><option value="">Selecteer...</option>{['1-10','10-50','50-200','200-1000','1000+'].map(s=><option key={s} value={s}>{s} medewerkers</option>)}</select></div>
+              <div style={{marginBottom:12}}><label style={lbl}>Notities</label><textarea style={{...inp,minHeight:60,resize:'vertical'}} value={f.notes||''} onChange={e=>sf({...f,notes:e.target.value})} placeholder="Interne notities over dit bedrijf..."/></div>
+              <div style={{marginBottom:12}}><label style={lbl}>Tags</label><div style={{display:'flex',gap:5}}><input style={inp} value={tag} onChange={e=>stg(e.target.value)} placeholder="Tag toevoegen..." onKeyDown={e=>{if(e.key==='Enter'&&tag.trim()){sf({...f,tags:[...(f.tags||[]),tag.trim().toLowerCase()]});stg('');}}}/><button onClick={()=>{if(tag.trim()){sf({...f,tags:[...(f.tags||[]),tag.trim().toLowerCase()]});stg('');}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
+                {(f.tags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.tags.map((tg,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,display:'flex',alignItems:'center',gap:4}}>{tg}<span onClick={()=>sf({...f,tags:f.tags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}</div>
+            </div>
+            <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.name?.trim())return;if(d?.id){setCompanies(p=>p.map(x=>x.id===d.id?{...x,...f}:x));toast('Bedrijf bijgewerkt');}else{setCompanies(p=>[...p,{...f,id:uid(),createdAt:new Date().toISOString()}]);toast('Bedrijf toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
+          </div>
+        </div>;
+      })()}
+      <div style={{position:'fixed',bottom:20,right:20,zIndex:9999,display:'flex',flexDirection:'column',gap:6}}>{toasts.map(x=><div key={x.id} style={{padding:'10px 16px',background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:12,fontSize:13,boxShadow:t.shadow,animation:'fadeIn .3s',borderLeft:`3px solid ${x.ty==='ok'?t.green:t.accent}`}}>{x.ty==='ok'?'✓':'ℹ'} {x.m}</div>)}</div>
     </div>
   </>;
 }
 
-ReactDOM.createRoot(document.getElementById('app')).render(<App/>);
+ReactDOM.createRoot(document.getElementById("app")).render(<App/>);
 </script>
 </body>
 </html>

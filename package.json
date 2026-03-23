@@ -1,17 +1,14 @@
 {
-  "name": "taskflow-pro",
-  "version": "2.0.0",
-  "description": "AI-powered task management & productivity coaching PWA",
+  "name": "dpm-crm",
+  "version": "1.0.0",
+  "description": "DPM CRM — sales pipeline management",
   "private": true,
-  "engines": {
-    "node": ">=18.0.0"
-  },
+  "engines": { "node": ">=18.0.0" },
   "scripts": {
     "dev": "netlify dev",
     "db:setup": "node scripts/setup-db.js",
     "db:reset": "node scripts/reset-db.js",
-    "db:health": "node scripts/health-check.js",
-    "postinstall": "echo '✅ Dependencies installed. Run npm run db:setup to initialize database.'"
+    "db:health": "node scripts/health-check.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.0",

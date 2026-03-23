@@ -1,114 +1,45 @@
-// ═══════════════════════════════════════════════════════
-// /api/tasks — Full CRUD with subtasks + recur
-// ═══════════════════════════════════════════════════════
 const { sql, ok, err, json, requireAuth } = require('./shared/db');
-
-// Helper: build SELECT with joins for notes, links, subtasks
-const taskQuery = (where) => sql`
-  SELECT t.*,
-    COALESCE(json_agg(DISTINCT jsonb_build_object('id',tn.id,'content',tn.content)) FILTER (WHERE tn.id IS NOT NULL),'[]') AS notes,
-    COALESCE(json_agg(DISTINCT jsonb_build_object('id',tl.id,'url',tl.url)) FILTER (WHERE tl.id IS NOT NULL),'[]') AS links,
-    COALESCE(json_agg(DISTINCT jsonb_build_object('id',ts.id,'title',ts.title,'done',ts.done)) FILTER (WHERE ts.id IS NOT NULL),'[]') AS subtasks
-  FROM tasks t
-  LEFT JOIN task_notes tn ON tn.task_id = t.id
-  LEFT JOIN task_links tl ON tl.task_id = t.id
-  LEFT JOIN task_subtasks ts ON ts.task_id = t.id
-  ${where}
-  GROUP BY t.id
-  ORDER BY t.due_date ASC, t.time_slot ASC NULLS LAST, t.priority ASC
-`;
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json(204, '');
-
   try {
     const user = requireAuth(event);
 
-    // ─── GET ──────────────────────────────────────────
     if (event.httpMethod === 'GET') {
       const p = event.queryStringParameters || {};
-      const limit = Math.min(parseInt(p.limit)||200, 500);
-      const cols = `t.id,t.title,t.category,t.priority,t.due_date,t.time_slot,t.duration,t.recur,t.completed,t.completed_at,t.assignee_id,t.created_at`;
       let tasks;
-      if (p.date) {
-        tasks = await sql`
-          SELECT ${sql(cols)}, COALESCE(json_agg(DISTINCT jsonb_build_object('id',tn.id,'content',tn.content)) FILTER (WHERE tn.id IS NOT NULL),'[]') AS notes, COALESCE(json_agg(DISTINCT jsonb_build_object('id',tl.id,'url',tl.url)) FILTER (WHERE tl.id IS NOT NULL),'[]') AS links, COALESCE(json_agg(DISTINCT jsonb_build_object('id',ts.id,'title',ts.title,'done',ts.done)) FILTER (WHERE ts.id IS NOT NULL),'[]') AS subtasks
-          FROM tasks t LEFT JOIN task_notes tn ON tn.task_id=t.id LEFT JOIN task_links tl ON tl.task_id=t.id LEFT JOIN task_subtasks ts ON ts.task_id=t.id
-          WHERE t.user_id=${user.id} AND t.due_date=${p.date} GROUP BY t.id ORDER BY t.time_slot ASC NULLS LAST LIMIT ${limit}`;
-      } else if (p.from && p.to) {
-        tasks = await sql`
-          SELECT ${sql(cols)}, COALESCE(json_agg(DISTINCT jsonb_build_object('id',tn.id,'content',tn.content)) FILTER (WHERE tn.id IS NOT NULL),'[]') AS notes, COALESCE(json_agg(DISTINCT jsonb_build_object('id',tl.id,'url',tl.url)) FILTER (WHERE tl.id IS NOT NULL),'[]') AS links, COALESCE(json_agg(DISTINCT jsonb_build_object('id',ts.id,'title',ts.title,'done',ts.done)) FILTER (WHERE ts.id IS NOT NULL),'[]') AS subtasks
-          FROM tasks t LEFT JOIN task_notes tn ON tn.task_id=t.id LEFT JOIN task_links tl ON tl.task_id=t.id LEFT JOIN task_subtasks ts ON ts.task_id=t.id
-          WHERE t.user_id=${user.id} AND t.due_date BETWEEN ${p.from} AND ${p.to} GROUP BY t.id ORDER BY t.due_date ASC, t.time_slot ASC NULLS LAST LIMIT ${limit}`;
+      if (p.id) {
+        tasks = await sql`SELECT * FROM tasks WHERE id=${p.id} AND user_id=${user.id}`;
+      } else if (p.due_date) {
+        tasks = await sql`SELECT * FROM tasks WHERE user_id=${user.id} AND due_date=${p.due_date} ORDER BY due_time ASC NULLS LAST LIMIT 200`;
+      } else if (p.opp_id) {
+        tasks = await sql`SELECT * FROM tasks WHERE user_id=${user.id} AND opp_id=${p.opp_id} ORDER BY due_date ASC LIMIT 200`;
+      } else if (p.contact_id) {
+        tasks = await sql`SELECT * FROM tasks WHERE user_id=${user.id} AND contact_id=${p.contact_id} ORDER BY due_date ASC LIMIT 200`;
+      } else if (p.overdue === 'true') {
+        tasks = await sql`SELECT * FROM tasks WHERE user_id=${user.id} AND done=false AND due_date < CURRENT_DATE ORDER BY due_date ASC LIMIT 200`;
       } else {
-        tasks = await sql`
-          SELECT ${sql(cols)}, COALESCE(json_agg(DISTINCT jsonb_build_object('id',tn.id,'content',tn.content)) FILTER (WHERE tn.id IS NOT NULL),'[]') AS notes, COALESCE(json_agg(DISTINCT jsonb_build_object('id',tl.id,'url',tl.url)) FILTER (WHERE tl.id IS NOT NULL),'[]') AS links, COALESCE(json_agg(DISTINCT jsonb_build_object('id',ts.id,'title',ts.title,'done',ts.done)) FILTER (WHERE ts.id IS NOT NULL),'[]') AS subtasks
-          FROM tasks t LEFT JOIN task_notes tn ON tn.task_id=t.id LEFT JOIN task_links tl ON tl.task_id=t.id LEFT JOIN task_subtasks ts ON ts.task_id=t.id
-          WHERE t.user_id=${user.id} GROUP BY t.id ORDER BY t.due_date ASC, t.time_slot ASC NULLS LAST LIMIT ${limit}`;
+        tasks = await sql`SELECT * FROM tasks WHERE user_id=${user.id} ORDER BY done ASC, due_date ASC NULLS LAST, due_time ASC NULLS LAST LIMIT 200`;
       }
       return ok({ tasks });
     }
 
-    // ─── POST (Create) ───────────────────────────────
     if (event.httpMethod === 'POST') {
       const b = JSON.parse(event.body);
-      if (!b.title) return err(400, 'Titel is vereist');
-
-      const [task] = await sql`
-        INSERT INTO tasks (title, category, priority, due_date, time_slot, duration, recur, user_id, assignee_id, team_id)
-        VALUES (${b.title}, ${b.category||'werk'}, ${b.priority||'medium'}, ${b.dueDate||new Date().toISOString().split('T')[0]}, ${b.timeSlot||null}, ${b.duration||30}, ${b.recur||'none'}, ${user.id}, ${b.assigneeId||user.id}, ${b.teamId||null})
-        RETURNING *`;
-
-      if (b.notes?.length) await sql`INSERT INTO task_notes (task_id,content) SELECT ${task.id}, unnest(${b.notes}::text[])`;
-      if (b.links?.length) await sql`INSERT INTO task_links (task_id,url) SELECT ${task.id}, unnest(${b.links}::text[])`;
-      if (b.subtasks?.length) for (const s of b.subtasks) await sql`INSERT INTO task_subtasks (task_id,title,done) VALUES (${task.id},${s.title},${s.done||false})`;
-
+      if (!b.title) return err(400, 'Titel vereist');
+      const [task] = await sql`INSERT INTO tasks (title, contact_id, opp_id, due_date, due_time, priority, reminder, reminder_min, user_id) VALUES (${b.title}, ${b.contactId||null}, ${b.oppId||null}, ${b.dueDate||null}, ${b.dueTime||null}, ${b.priority||'medium'}, ${b.reminder||false}, ${b.reminderMin||15}, ${user.id}) RETURNING *`;
       return ok({ task });
     }
 
-    // ─── PUT (Update) ────────────────────────────────
     if (event.httpMethod === 'PUT') {
       const b = JSON.parse(event.body);
-      if (!b.id) return err(400, 'Task ID vereist');
-
-      const [existing] = await sql`SELECT id FROM tasks WHERE id=${b.id} AND user_id=${user.id}`;
-      if (!existing) return err(404, 'Taak niet gevonden');
-
-      const [task] = await sql`
-        UPDATE tasks SET
-          title=COALESCE(${b.title||null},title),
-          category=COALESCE(${b.category||null},category),
-          priority=COALESCE(${b.priority||null},priority),
-          due_date=COALESCE(${b.dueDate||null},due_date),
-          time_slot=${b.timeSlot!==undefined?b.timeSlot:null},
-          duration=COALESCE(${b.duration||null},duration),
-          recur=COALESCE(${b.recur||null},recur),
-          completed=COALESCE(${b.completed!==undefined?b.completed:null},completed),
-          completed_at=${b.completed?'NOW()':null},
-          assignee_id=COALESCE(${b.assigneeId||null},assignee_id),
-          updated_at=NOW()
-        WHERE id=${b.id} RETURNING *`;
-
-      if (b.notes !== undefined) {
-        await sql`DELETE FROM task_notes WHERE task_id=${b.id}`;
-        if ((b.notes||[]).length) await sql`INSERT INTO task_notes (task_id,content) SELECT ${b.id}, unnest(${b.notes}::text[])`;
-      }
-      if (b.links !== undefined) {
-        await sql`DELETE FROM task_links WHERE task_id=${b.id}`;
-        if ((b.links||[]).length) await sql`INSERT INTO task_links (task_id,url) SELECT ${b.id}, unnest(${b.links}::text[])`;
-      }
-      if (b.subtasks !== undefined) {
-        await sql`DELETE FROM task_subtasks WHERE task_id=${b.id}`;
-        for (const s of (b.subtasks||[])) await sql`INSERT INTO task_subtasks (task_id,title,done) VALUES (${b.id},${s.title},${s.done||false})`;
-      }
-
+      if (!b.id) return err(400, 'ID vereist');
+      const [task] = await sql`UPDATE tasks SET title=COALESCE(${b.title||null},title), contact_id=${b.contactId!==undefined?b.contactId||null:null}, opp_id=${b.oppId!==undefined?b.oppId||null:null}, due_date=${b.dueDate||null}, due_time=${b.dueTime||null}, priority=COALESCE(${b.priority||null},priority), reminder=COALESCE(${b.reminder!==undefined?b.reminder:null},reminder), reminder_min=COALESCE(${b.reminderMin||null},reminder_min), done=COALESCE(${b.done!==undefined?b.done:null},done), updated_at=NOW() WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
       return ok({ task });
     }
 
-    // ─── DELETE ───────────────────────────────────────
     if (event.httpMethod === 'DELETE') {
       const b = JSON.parse(event.body);
-      if (!b.id) return err(400, 'Task ID vereist');
       await sql`DELETE FROM tasks WHERE id=${b.id} AND user_id=${user.id}`;
       return ok({ deleted: b.id });
     }

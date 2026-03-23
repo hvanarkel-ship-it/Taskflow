@@ -1,6 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// POST /api/auth  { action: "register"|"login", email, password, name? }
-// ═══════════════════════════════════════════════════════
 const bcrypt = require('bcryptjs');
 const { sql, ok, err, json, signToken } = require('./shared/db');
 
@@ -10,44 +7,22 @@ exports.handler = async (event) => {
 
   try {
     const { action, email, password, name } = JSON.parse(event.body);
-
     if (!email || !password) return err(400, 'Email en wachtwoord vereist');
 
-    // ─── REGISTER ─────────────────────────────────────
     if (action === 'register') {
       if (!name) return err(400, 'Naam is vereist');
-
       const existing = await sql`SELECT id FROM users WHERE email = ${email.toLowerCase()}`;
-      if (existing.length > 0) return err(409, 'Email is al in gebruik');
-
+      if (existing.length > 0) return err(409, 'Email al in gebruik');
       const hash = await bcrypt.hash(password, 12);
-      const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-      const colors = ['#6c5ce7', '#00d2a0', '#00b4d8', '#e77cd2', '#ffa64d'];
-      const color = colors[Math.floor(Math.random() * colors.length)];
-
-      const [user] = await sql`
-        INSERT INTO users (email, password_hash, name, initials, color)
-        VALUES (${email.toLowerCase()}, ${hash}, ${name}, ${initials}, ${color})
-        RETURNING id, email, name, initials, color
-      `;
-
-      const token = signToken(user);
-      return ok({ token, user: { id: user.id, email: user.email, name: user.name, initials: user.initials, color: user.color } });
+      const [user] = await sql`INSERT INTO users (email, password_hash, name) VALUES (${email.toLowerCase()}, ${hash}, ${name}) RETURNING id, email, name`;
+      return ok({ token: signToken(user), user });
     }
 
-    // ─── LOGIN ────────────────────────────────────────
     if (action === 'login') {
-      const [user] = await sql`
-        SELECT id, email, password_hash, name, initials, color
-        FROM users WHERE email = ${email.toLowerCase()}
-      `;
+      const [user] = await sql`SELECT id, email, password_hash, name FROM users WHERE email = ${email.toLowerCase()}`;
       if (!user) return err(401, 'Ongeldige inloggegevens');
-
-      const valid = await bcrypt.compare(password, user.password_hash);
-      if (!valid) return err(401, 'Ongeldige inloggegevens');
-
-      const token = signToken(user);
-      return ok({ token, user: { id: user.id, email: user.email, name: user.name, initials: user.initials, color: user.color } });
+      if (!await bcrypt.compare(password, user.password_hash)) return err(401, 'Ongeldige inloggegevens');
+      return ok({ token: signToken(user), user: { id: user.id, email: user.email, name: user.name } });
     }
 
     return err(400, 'Ongeldige actie');
