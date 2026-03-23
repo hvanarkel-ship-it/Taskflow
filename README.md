@@ -1,51 +1,44 @@
-# DPM CRM — Sales Pipeline
+# DPM CRM — Sales Pipeline Management
 
-Sales pipeline management met contacten, bedrijven, deals, taken en herinneringen.
+Personal CRM met pipeline, bedrijven, contacten, deals, taken, Atos team, AI assistent en Excel import.
 
-## Setup (10 min)
+## Quick Start
 
-### 1. Clone & Install
 ```bash
-git clone https://github.com/YOUR-USERNAME/dpm-crm.git
+git clone https://github.com/YOUR-USER/dpm-crm.git
 cd dpm-crm && npm install
+cp .env.example .env   # Vul DATABASE_URL + JWT_SECRET in
+npm run db:setup        # Maak tabellen aan
+npm run dev             # Start lokaal op :8888
 ```
 
-### 2. Neon Database
-- [console.neon.tech](https://console.neon.tech) → New Project
-- Kopieer pooled connection string
-```bash
-cp .env.example .env
-# Vul DATABASE_URL en JWT_SECRET in
-npm run db:setup
-npm run db:health
-```
+## Deploy (Netlify + Neon)
 
-### 3. Netlify
-- [app.netlify.com](https://app.netlify.com) → Import project → selecteer repo
-- Publish: `public` — Functions: `netlify/functions`
-- Env vars: `DATABASE_URL` + `JWT_SECRET`
+1. **Neon**: [console.neon.tech](https://console.neon.tech) → New Project → kopieer pooled connection string
+2. **GitHub**: Push naar repo
+3. **Netlify**: Import project → env vars instellen:
+   - `DATABASE_URL` = Neon pooled connection string
+   - `JWT_SECRET` = `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"`
+4. `npm run db:setup` (eenmalig)
 
-## Features
+## API Endpoints
 
-**Pipeline** — Kanban board met drag & drop (Lead → Gekwalificeerd → Voorstel → Onderhandeling → Gewonnen/Verloren)
-**Bedrijven** — Bedrijfsprofielen, ook zonder contactpersonen
-**Contacten** — Gekoppeld aan bedrijven, met tags en deals
-**Deals** — Waarde, kans%, prioriteit, volgende actie, notities
-**Taken** — Deadline + tijd, prioriteit, herinnering (browser notificatie), gekoppeld aan deals
-**Rapporten** — Visuele sales funnel, conversie per fase, pipeline waarde chart
-**Dark/Light mode** — Apple design language
+| Method | Endpoint | Beschrijving |
+|--------|----------|-------------|
+| POST | /api/auth | Login / register |
+| CRUD | /api/companies | Bedrijven |
+| CRUD | /api/contacts | Contacten |
+| CRUD | /api/opportunities | Deals (met contactIds, techTags, atos) |
+| CRUD | /api/tasks | Taken |
+| CRUD | /api/atos | Atos team (sales + delivery) |
+| CRUD | /api/interactions | Interacties (call, email, meeting, note) |
+| GET | /api/health | DB status + latency |
 
-## API
+## Database (Neon PostgreSQL)
 
-```
-GET/POST          /api/auth         Login/register
-GET/POST/PUT/DEL  /api/companies    Bedrijven CRUD
-GET/POST/PUT/DEL  /api/contacts     Contacten CRUD
-GET/POST/PUT/DEL  /api/opportunities Deals CRUD + notities
-GET/POST/PUT/DEL  /api/tasks        Taken CRUD
-GET               /api/health       DB status
-```
+8 tabellen: users, companies, contacts, atos_team, opportunities, opp_notes, tasks, interactions
+19 indexes, automatische schema migraties bij `db:setup`
 
 ## Stack
 
-Frontend: React 18 + Babel | Backend: Netlify Functions (esbuild) | DB: Neon PostgreSQL | Auth: JWT + bcrypt | PWA: Service Worker
+Frontend: React 18 + Babel | Backend: Netlify Functions (esbuild) | DB: Neon PostgreSQL | Auth: JWT + bcrypt | PWA: Service Worker + manifest

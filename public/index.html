@@ -148,7 +148,20 @@ const App = function(){
   const[interactions,setInteractions]=useState(()=>LS.get('interactions',[])); // {id,contactId,oppId,type:'call'|'email'|'meeting'|'note',text,at}
   const[view,setView]=useState('pipeline');
   const[sb,setSb]=useState(false);
-  const[modal,setModal]=useState(null); // {type:'contact'|'opp'|'task'|'company', data?:...}
+  const[modal,setModal_]=useState(null);
+  const[modalStack,setModalStack]=useState([]);
+  const setModal=useCallback((m)=>{
+    if(m){
+      // Opening a new modal — push current to stack if one exists
+      setModal_(prev=>{if(prev)setModalStack(s=>[...s,prev]);return m;});
+    }else{
+      // Closing modal — pop from stack if available
+      setModalStack(prev=>{
+        if(prev.length>0){const next=[...prev];const last=next.pop();setModal_(last);return next;}
+        setModal_(null);return prev;
+      });
+    }
+  },[]);
   const[detail,setDetail]=useState(null); // {type:'contact'|'opp'|'company', id:...}
   const[search,setSearch]=useState('');
   const[toasts,setToasts]=useState([]);
@@ -174,6 +187,13 @@ const App = function(){
   const[atQ,setAtQ]=useState('');
   const[atModal,setAtModal]=useState(null);
   useEffect(()=>{LS.set('dark',dark);},[dark]);
+
+  // ─── DATA PROTECTION ──────────────────────────────
+  // Auto-backup every 5 minutes
+  const dataRef=useRef({contacts,companies,opps,tasks,atosTeam,interactions});
+  useEffect(()=>{dataRef.current={contacts,companies,opps,tasks,atosTeam,interactions};},[contacts,companies,opps,tasks,atosTeam,interactions]);
+  useEffect(()=>{const doBackup=()=>{try{localStorage.setItem('pf_backup',JSON.stringify({...dataRef.current,ts:new Date().toISOString()}));}catch{}};doBackup();const iv=setInterval(doBackup,300000);return()=>clearInterval(iv);},[]);
+  const restoreBackup=()=>{try{const raw=localStorage.getItem('pf_backup');if(!raw){toast('Geen backup gevonden','info');return;}const b=JSON.parse(raw);if(confirm(`Backup van ${new Date(b.ts).toLocaleString('nl-NL')} terugzetten? Dit overschrijft je huidige data.`)){setContacts(b.contacts||[]);setCompanies(b.companies||[]);setOpps(b.opps||[]);setTasks(b.tasks||[]);setAtosTeam(b.atosTeam||[]);setInteractions(b.interactions||[]);toast('Backup teruggezet');}}catch{toast('Backup fout','info');}};
 
   // ─── Neon Connection Check ────────────────────────
   const checkDb=useCallback(async()=>{
@@ -372,7 +392,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         <div style={{fontSize:15,fontWeight:700,marginBottom:10}}>Afgeronde deals</div>
         <div style={{display:'flex',flexDirection:'column',gap:6}}>
           {filteredOpps.filter(o=>o.stage==='won'||o.stage==='lost').map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',opacity:.7}}>
-            <span style={{fontSize:16}}>{o.stage==='won'?'\u{1F3C6}':'✕'}</span>
+            <span style={{fontSize:16}}>{o.stage==='won'?'🏆':'✕'}</span>
             <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{oppWho(o)}{(o.techTags||[]).length>0&&' · '+o.techTags.join(', ')}</div></div>
             <span style={{fontWeight:700,color:o.stage==='won'?t.green:t.red}}>{eur(o.value)}</span>
           </div>)}
@@ -582,8 +602,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           <div style={{fontSize:22,fontWeight:700,marginBottom:6}}>{o.title}</div>
           {/* Clickable contact + company links */}
           <div style={{fontSize:13,color:t.dim,marginBottom:8,display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
-            {c?<span onClick={()=>setDetail({type:'contact',id:c.id})} style={{color:t.accent,cursor:'pointer'}}>👤 {c.name}</span>:<button onClick={()=>setModal({type:'contact',data:{companyId:o.companyId}})} style={{...btnG,padding:'3px 10px',fontSize:11}}>+ Contact toevoegen</button>}
-            {co?<span onClick={()=>setDetail({type:'company',id:co.id})} style={{color:t.accent,cursor:'pointer'}}>🏢 {co.name}</span>:!o.companyId&&<button onClick={()=>setModal({type:'company'})} style={{...btnG,padding:'3px 10px',fontSize:11}}>+ Bedrijf toevoegen</button>}
+            {c?<span onClick={()=>setDetail({type:'contact',id:c.id})} style={{color:t.accent,cursor:'pointer'}}>👤 {c.name}</span>:<button onClick={()=>setModal({type:'contact',data:{companyId:o.companyId,_linkToOpp:o.id}})} style={{...btnG,padding:'3px 10px',fontSize:11}}>+ Contact toevoegen</button>}
+            {co?<span onClick={()=>setDetail({type:'company',id:co.id})} style={{color:t.accent,cursor:'pointer'}}>🏢 {co.name}</span>:!o.companyId&&<button onClick={()=>setModal({type:'company',data:{_linkToOpp:o.id}})} style={{...btnG,padding:'3px 10px',fontSize:11}}>+ Bedrijf toevoegen</button>}
           </div>
           {/* Tech tags — inline add/remove */}
           {((o.techTags||[]).length>0||true)&&<div style={{display:'flex',gap:3,flexWrap:'wrap',marginBottom:10,alignItems:'center'}}>
@@ -713,7 +733,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         <div style={{marginBottom:12}}><label style={lbl}>Tags</label><div style={{display:'flex',gap:5}}><input style={inp} value={tag} onChange={e=>setTag(e.target.value)} placeholder="Tag toevoegen..." onKeyDown={e=>{if(e.key==='Enter'&&tag.trim()){sf({...f,tags:[...new Set([...(f.tags||[]),tag.trim().toLowerCase()])]});setTag('');}}}/><button onClick={()=>{if(tag.trim()){sf({...f,tags:[...new Set([...(f.tags||[]),tag.trim().toLowerCase()])]});setTag('');}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
           {(f.tags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.tags.map((t2,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,display:'flex',alignItems:'center',gap:4}}>{t2}<span onClick={()=>sf({...f,tags:f.tags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}</div>
       </div>
-      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.name?.trim())return;const av=f.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);if(d?.id){setContacts(p=>p.map(x=>x.id===d.id?{...x,...f,avatar:av}:x));toast('Contact bijgewerkt');}else{setContacts(p=>[...p,{...f,id:uid(),avatar:av,createdAt:new Date().toISOString()}]);toast('Contact toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.name?.trim())return;const av=f.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const newId=uid();if(d?.id){setContacts(p=>p.map(x=>x.id===d.id?{...x,...f,avatar:av}:x));toast('Contact bijgewerkt');}else{setContacts(p=>[...p,{...f,id:newId,avatar:av,createdAt:new Date().toISOString()}]);if(d?._linkToOpp){setOpps(p=>p.map(o=>o.id===d._linkToOpp?{...o,contactId:newId,contactIds:[...(o.contactIds||[]),newId],companyId:f.companyId||o.companyId}:o));}toast('Contact toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
     </div>
   </div>;};
 
@@ -823,7 +843,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         <div style={{marginBottom:12}}><label style={lbl}>Tags</label><div style={{display:'flex',gap:5}}><input style={inp} value={tag} onChange={e=>stg(e.target.value)} placeholder="Tag toevoegen..." onKeyDown={e=>{if(e.key==='Enter'&&tag.trim()){sf({...f,tags:[...(f.tags||[]),tag.trim().toLowerCase()]});stg('');}}}/><button onClick={()=>{if(tag.trim()){sf({...f,tags:[...(f.tags||[]),tag.trim().toLowerCase()]});stg('');}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
           {(f.tags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.tags.map((tg,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,display:'flex',alignItems:'center',gap:4}}>{tg}<span onClick={()=>sf({...f,tags:f.tags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}</div>
       </div>
-      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.name?.trim())return;if(d?.id){setCompanies(p=>p.map(x=>x.id===d.id?{...x,...f}:x));toast('Bedrijf bijgewerkt');}else{setCompanies(p=>[...p,{...f,id:uid(),createdAt:new Date().toISOString()}]);toast('Bedrijf toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.name?.trim())return;const newId=uid();if(d?.id){setCompanies(p=>p.map(x=>x.id===d.id?{...x,...f}:x));toast('Bedrijf bijgewerkt');}else{setCompanies(p=>[...p,{...f,id:newId,createdAt:new Date().toISOString()}]);if(d?._linkToOpp){setOpps(p=>p.map(o=>o.id===d._linkToOpp?{...o,companyId:newId}:o));}toast('Bedrijf toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
     </div>
   </div>;};
 
@@ -1090,6 +1110,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSb(false);}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:view===n.id?t.accent:t.dim,background:view===n.id?t.accentS:'transparent',fontSize:14,fontWeight:view===n.id?600:400,marginBottom:2,transition:`all .15s ${sp}`}}><span style={{fontSize:15}}>{n.ic}</span>{n.l}</div>)}
           <div style={{borderTop:`0.5px solid ${t.border}`,marginTop:16,paddingTop:12}}>
             <div onClick={()=>setDark(!dark)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>{dark?'🌙':'☀️'} {dark?'Donker':'Licht'}</div>
+            <div onClick={restoreBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>💾 Backup terugzetten</div>
           </div>
         </nav>
         <div style={{padding:'12px 16px',borderTop:`0.5px solid ${t.border}`}}>
