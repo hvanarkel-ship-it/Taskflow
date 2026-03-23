@@ -76,24 +76,28 @@ async function setup() {
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ DEFAULT NOW())`;
 
-  console.log('✅ 8 tables');
+  console.log('✅ 8 tables created');
 
-  // Indexes
-  const idx = [
-    'idx_companies_user ON companies(user_id)',
-    'idx_contacts_user ON contacts(user_id)','idx_contacts_company ON contacts(company_id)',
-    'idx_atos_user ON atos_team(user_id)','idx_atos_role ON atos_team(role)',
-    'idx_opps_user ON opportunities(user_id)','idx_opps_stage ON opportunities(stage)',
-    'idx_opps_company ON opportunities(company_id)','idx_opps_contact ON opportunities(contact_id)',
-    'idx_opps_atos_s ON opportunities(atos_sales_id)','idx_opps_atos_d ON opportunities(atos_delivery_id)',
-    'idx_notes_opp ON opp_notes(opp_id)',
-    'idx_tasks_user ON tasks(user_id)','idx_tasks_date ON tasks(due_date)',
-    'idx_tasks_opp ON tasks(opp_id)','idx_tasks_done ON tasks(done)',
-    'idx_int_user ON interactions(user_id)','idx_int_contact ON interactions(contact_id)',
-    'idx_int_opp ON interactions(opp_id)',
-  ];
-  for (const i of idx) await sql`CREATE INDEX IF NOT EXISTS ${sql(i)}`.catch(()=>{});
-  console.log(`✅ ${idx.length} indexes`);
+  // Indexes — each as its own tagged template (safe for Neon)
+  await sql`CREATE INDEX IF NOT EXISTS idx_companies_user ON companies(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_contacts_user ON contacts(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_contacts_company ON contacts(company_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_atos_user ON atos_team(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_opps_user ON opportunities(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_opps_stage ON opportunities(stage)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_opps_company ON opportunities(company_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_opps_contact ON opportunities(contact_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_opps_atos_s ON opportunities(atos_sales_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_opps_atos_d ON opportunities(atos_delivery_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_notes_opp ON opp_notes(opp_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_tasks_user ON tasks(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_tasks_date ON tasks(due_date)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_tasks_opp ON tasks(opp_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_tasks_done ON tasks(done)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_int_user ON interactions(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_int_contact ON interactions(contact_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_int_opp ON interactions(opp_id)`;
+  console.log('✅ 18 indexes created');
 
   console.log('\n🎉 DPM CRM database ready!');
 }

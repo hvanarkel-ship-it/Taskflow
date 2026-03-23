@@ -150,16 +150,25 @@ const App = function(){
   const[sb,setSb]=useState(false);
   const[modal,setModal_]=useState(null);
   const[modalStack,setModalStack]=useState([]);
+  const modalRef=useRef(null);
+  useEffect(()=>{modalRef.current=modal;},[modal]);
+  const stackRef=useRef([]);
+  useEffect(()=>{stackRef.current=modalStack;},[modalStack]);
   const setModal=useCallback((m)=>{
     if(m){
-      // Opening a new modal — push current to stack if one exists
-      setModal_(prev=>{if(prev)setModalStack(s=>[...s,prev]);return m;});
+      // Opening new modal — push current to stack
+      if(modalRef.current)setModalStack(s=>[...s,modalRef.current]);
+      setModal_(m);
     }else{
-      // Closing modal — pop from stack if available
-      setModalStack(prev=>{
-        if(prev.length>0){const next=[...prev];const last=next.pop();setModal_(last);return next;}
-        setModal_(null);return prev;
-      });
+      // Closing — pop from stack or set null
+      const stk=stackRef.current;
+      if(stk.length>0){
+        const next=[...stk];const last=next.pop();
+        setModalStack(next);
+        setModal_(last);
+      }else{
+        setModal_(null);
+      }
     }
   },[]);
   const[detail,setDetail]=useState(null); // {type:'contact'|'opp'|'company', id:...}
