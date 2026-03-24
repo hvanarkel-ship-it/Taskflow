@@ -44,15 +44,54 @@ const fds=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'shor
 const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
-const APP_VERSION='2.0';
+const APP_VERSION='3.0';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
   has:(k)=>{try{return localStorage.getItem('pf_'+k)!==null;}catch{return false;}},
 };
-// Only use demo data on first-ever launch. After that, always use saved data (even if empty).
+
+// ─── DATA PROTECTION: versioned migration ────────────
 const isFirstLaunch=!LS.has('_initialized');
+const storedVersion=LS.get('_initialized','0');
+
+// Schema migration function — runs on every load, safe for existing data
+const migrateData=()=>{
+  // Migrate opps: ensure new fields exist
+  if(LS.has('opps')){
+    const opps=LS.get('opps',[]);
+    const migrated=opps.map(o=>({contactIds:[],techTags:[],atosSalesId:'',atosDeliveryId:'',...o}));
+    LS.set('opps',migrated);
+  }
+  // Migrate contacts: ensure tags array
+  if(LS.has('contacts')){
+    const cts=LS.get('contacts',[]);
+    LS.set('contacts',cts.map(c=>({tags:[],companyId:c.companyId||c.company||'',...c})));
+  }
+  // Migrate companies: ensure tags
+  if(LS.has('companies')){
+    LS.set('companies',LS.get('companies',[]).map(c=>({tags:[],...c})));
+  }
+  // Store current version
+  LS.set('_initialized',APP_VERSION);
+};
+
+// Run migration on every load (idempotent — safe to re-run)
+if(!isFirstLaunch)migrateData();
 if(isFirstLaunch)LS.set('_initialized',APP_VERSION);
+
+// Auto-backup BEFORE any migration or load (preserve raw data)
+if(!isFirstLaunch){
+  try{
+    const preLoad={};
+    for(const k of['contacts','companies','opps','tasks','atos','interactions']){
+      if(LS.has(k))preLoad[k]=LS.get(k,[]);
+    }
+    if(Object.keys(preLoad).length>0){
+      localStorage.setItem('pf_backup_pre_update',JSON.stringify({...preLoad,ts:new Date().toISOString(),version:storedVersion}));
+    }
+  }catch{}
+}
 
 // Pipeline stages
 const STAGES=[
@@ -120,11 +159,11 @@ const SearchSelect=({value,onChange,options,placeholder,style:sx,t:theme})=>{
   const selected=options.find(o=>o.value===value);
   const dark=theme.bg==='#000';
   const inpS={width:'100%',padding:'10px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:theme.text,fontFamily:'inherit',fontSize:14,outline:'none'};
-  useEffect(()=>{const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[]);
+  useEffect(()=>{if(!open)return;const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[open]);
   return <div ref={ref} style={{position:'relative',...(sx||{})}}>
-    <div onClick={()=>{setOpen(!open);setQ('');}} style={{...inpS,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',fontSize:13}}><span style={{color:selected?theme.text:theme.muted}}>{selected?selected.label:placeholder||'Selecteer...'}</span><span style={{color:theme.muted,fontSize:10}}>▼</span></div>
-    {open&&<div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,background:theme.solid,border:`0.5px solid ${theme.border}`,borderRadius:10,marginTop:4,boxShadow:theme.shadow,maxHeight:220,overflowY:'auto'}}>
-      <div style={{padding:'6px 8px',borderBottom:`0.5px solid ${theme.border}`}}><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Zoeken..." style={{...inpS,padding:'6px 10px',fontSize:12}}/></div>
+    <div onClick={()=>{setOpen(!open);setQ('');}} style={{...inpS,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',fontSize:13}}><span style={{color:selected?theme.text:theme.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{selected?selected.label:placeholder||'Selecteer...'}</span><span style={{color:theme.muted,fontSize:10}}>▼</span></div>
+    {open&&<div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:9999,background:theme.solid,border:`0.5px solid ${theme.border}`,borderRadius:10,marginTop:4,boxShadow:theme.shadow,maxHeight:220,overflowY:'auto'}}>
+      <div style={{padding:'6px 8px',borderBottom:`0.5px solid ${theme.border}`}}><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Zoeken..." style={{...inpS,padding:'6px 10px',fontSize:12}} onClick={e=>e.stopPropagation()}/></div>
       <div onClick={()=>{onChange('');setOpen(false);}} style={{padding:'8px 12px',fontSize:12,cursor:'pointer',color:theme.muted,borderBottom:`0.5px solid ${theme.border}`}}>— Geen selectie —</div>
       {filtered.map(o=><div key={o.value} onClick={()=>{onChange(o.value);setOpen(false);}} style={{padding:'8px 12px',fontSize:12,cursor:'pointer',color:value===o.value?theme.accent:theme.text,background:value===o.value?theme.accentS:'transparent',display:'flex',justifyContent:'space-between',alignItems:'center'}}><span>{o.label}</span>{o.sub&&<span style={{fontSize:10,color:theme.muted}}>{o.sub}</span>}</div>)}
       {filtered.length===0&&<div style={{padding:'12px',fontSize:12,color:theme.muted,textAlign:'center'}}>Geen resultaten</div>}
@@ -138,11 +177,7 @@ const App = function(){
   const t=dark?DARK:LIGHT;
   const[contacts,setContacts]=useState(()=>LS.has('contacts')?LS.get('contacts',[]):isFirstLaunch?DEMO_CONTACTS:[]);
   const[companies,setCompanies]=useState(()=>LS.has('companies')?LS.get('companies',[]):isFirstLaunch?DEMO_COMPANIES:[]);
-  const[opps,setOpps]=useState(()=>{
-    let raw=LS.has('opps')?LS.get('opps',[]):isFirstLaunch?DEMO_OPPS:[];
-    // Schema migration: ensure contactIds exists on all opps
-    return raw.map(o=>({...o,contactIds:o.contactIds||[],techTags:o.techTags||[],atosSalesId:o.atosSalesId||'',atosDeliveryId:o.atosDeliveryId||''}));
-  });
+  const[opps,setOpps]=useState(()=>LS.has('opps')?LS.get('opps',[]):isFirstLaunch?DEMO_OPPS:[]);
   const[tasks,setTasks]=useState(()=>LS.has('tasks')?LS.get('tasks',[]):isFirstLaunch?DEMO_TASKS:[]);
   const[atosTeam,setAtosTeam]=useState(()=>LS.has('atos')?LS.get('atos',[]):isFirstLaunch?DEMO_ATOS:[]);
   const[interactions,setInteractions]=useState(()=>LS.get('interactions',[])); // {id,contactId,oppId,type:'call'|'email'|'meeting'|'note',text,at}
@@ -201,8 +236,60 @@ const App = function(){
   // Auto-backup every 5 minutes
   const dataRef=useRef({contacts,companies,opps,tasks,atosTeam,interactions});
   useEffect(()=>{dataRef.current={contacts,companies,opps,tasks,atosTeam,interactions};},[contacts,companies,opps,tasks,atosTeam,interactions]);
-  useEffect(()=>{const doBackup=()=>{try{localStorage.setItem('pf_backup',JSON.stringify({...dataRef.current,ts:new Date().toISOString()}));}catch{}};doBackup();const iv=setInterval(doBackup,300000);return()=>clearInterval(iv);},[]);
-  const restoreBackup=()=>{try{const raw=localStorage.getItem('pf_backup');if(!raw){toast('Geen backup gevonden','info');return;}const b=JSON.parse(raw);if(confirm(`Backup van ${new Date(b.ts).toLocaleString('nl-NL')} terugzetten? Dit overschrijft je huidige data.`)){setContacts(b.contacts||[]);setCompanies(b.companies||[]);setOpps(b.opps||[]);setTasks(b.tasks||[]);setAtosTeam(b.atosTeam||[]);setInteractions(b.interactions||[]);toast('Backup teruggezet');}}catch{toast('Backup fout','info');}};
+
+  // Backup on every data change (debounced 2s) + every 5 min
+  const backupTimer=useRef(null);
+  useEffect(()=>{
+    if(backupTimer.current)clearTimeout(backupTimer.current);
+    backupTimer.current=setTimeout(()=>{
+      try{localStorage.setItem('pf_backup',JSON.stringify({...dataRef.current,ts:new Date().toISOString(),v:APP_VERSION}));}catch{}
+    },2000);
+  },[contacts,companies,opps,tasks,atosTeam,interactions]);
+
+  // Export all data as downloadable JSON file
+  const exportData=()=>{
+    const data={contacts,companies,opps,tasks,atosTeam,interactions,exportedAt:new Date().toISOString(),version:APP_VERSION};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=`dpm-crm-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();
+    URL.revokeObjectURL(url);
+    toast('Data geëxporteerd');
+  };
+
+  // Import data from JSON file
+  const importData=()=>{
+    const input=document.createElement('input');input.type='file';input.accept='.json';
+    input.onchange=async(e)=>{
+      const file=e.target.files?.[0];if(!file)return;
+      try{
+        const text=await file.text();const d=JSON.parse(text);
+        if(!d.contacts&&!d.companies&&!d.opps){toast('Ongeldig bestand','info');return;}
+        if(!confirm(`Data importeren van ${d.exportedAt?new Date(d.exportedAt).toLocaleString('nl-NL'):'onbekend'}?\n\n${(d.contacts||[]).length} contacten, ${(d.companies||[]).length} bedrijven, ${(d.opps||[]).length} deals, ${(d.tasks||[]).length} taken\n\nDit overschrijft je huidige data.`))return;
+        if(d.contacts)setContacts(d.contacts);
+        if(d.companies)setCompanies(d.companies);
+        if(d.opps)setOpps(d.opps);
+        if(d.tasks)setTasks(d.tasks);
+        if(d.atosTeam)setAtosTeam(d.atosTeam);
+        if(d.interactions)setInteractions(d.interactions);
+        toast('Data geïmporteerd');
+      }catch{toast('Import fout','info');}
+    };input.click();
+  };
+
+  const restoreBackup=()=>{try{
+    // Check both backup slots
+    const regular=localStorage.getItem('pf_backup');
+    const preUpdate=localStorage.getItem('pf_backup_pre_update');
+    const options=[];
+    if(regular){const b=JSON.parse(regular);options.push({label:`Laatste backup: ${new Date(b.ts).toLocaleString('nl-NL')}`,data:b});}
+    if(preUpdate){const b=JSON.parse(preUpdate);options.push({label:`Pre-update backup: ${new Date(b.ts).toLocaleString('nl-NL')} (v${b.version||'?'})`,data:b});}
+    if(!options.length){toast('Geen backups gevonden','info');return;}
+    const choice=options.length===1?0:confirm(`Twee backups beschikbaar:\n\n1. ${options[0].label}\n${options[1]?'2. '+options[1].label:''}\n\nKlik OK voor de eerste, Annuleren voor de tweede.`)?0:1;
+    const b=options[choice].data;
+    if(confirm(`${options[choice].label}\n\nDit overschrijft je huidige data. Doorgaan?`)){
+      setContacts(b.contacts||[]);setCompanies(b.companies||[]);setOpps(b.opps||[]);setTasks(b.tasks||[]);setAtosTeam(b.atosTeam||b.atos||[]);setInteractions(b.interactions||[]);toast('Backup teruggezet');
+    }
+  }catch{toast('Backup fout','info');}};
 
   // ─── Neon Connection Check ────────────────────────
   const checkDb=useCallback(async()=>{
@@ -573,7 +660,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
               <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{stageC(o.stage).l}</div></div>
               <span style={{fontWeight:700}}>{eur(o.value)}</span>
             </div>)}
-            <button onClick={()=>setModal({type:'opp',data:{contactId:c.id}})} style={{...btnG,justifyContent:'center',fontSize:12}}>+ Nieuwe deal</button>
+            <button onClick={()=>setModal({type:'opp',data:{contactId:c.id,contactIds:[c.id],companyId:c.companyId||''}})} style={{...btnG,justifyContent:'center',fontSize:12}}>+ Nieuwe deal</button>
           </div>
           <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>Taken ({cTasks.length})</div>
           <div style={{display:'flex',flexDirection:'column',gap:6}}>
@@ -642,7 +729,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             </div>)}
             {(!o.notes||o.notes.length===0)&&<div style={{fontSize:12,color:t.muted,fontStyle:'italic'}}>Nog geen notities</div>}
           </div>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>Taken ({oTasks.filter(tk=>!tk.done).length})</span><button onClick={()=>setModal({type:'task',data:{contactId:o.contactId,oppId:o.id}})} style={{...btnG,padding:'4px 12px',fontSize:11}}>+ Taak</button></div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>Taken ({oTasks.filter(tk=>!tk.done).length})</span><button onClick={()=>setModal({type:'task',data:{contactId:o.contactId||(o.contactIds||[])[0]||'',oppId:o.id}})} style={{...btnG,padding:'4px 12px',fontSize:11}}>+ Taak</button></div>
           <div style={{display:'flex',flexDirection:'column',gap:6}}>
             {oTasks.filter(t=>!t.done).map(tk=><div key={tk.id} style={{fontSize:13,padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',display:'flex',alignItems:'center',gap:8}}>
               <div onClick={()=>{setTasks(p=>p.map(x=>x.id===tk.id?{...x,done:true}:x));toast('Klaar!');}} style={{width:16,height:16,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',flexShrink:0}}/>
@@ -742,12 +829,18 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         <div style={{marginBottom:12}}><label style={lbl}>Tags</label><div style={{display:'flex',gap:5}}><input style={inp} value={tag} onChange={e=>setTag(e.target.value)} placeholder="Tag toevoegen..." onKeyDown={e=>{if(e.key==='Enter'&&tag.trim()){sf({...f,tags:[...new Set([...(f.tags||[]),tag.trim().toLowerCase()])]});setTag('');}}}/><button onClick={()=>{if(tag.trim()){sf({...f,tags:[...new Set([...(f.tags||[]),tag.trim().toLowerCase()])]});setTag('');}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
           {(f.tags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.tags.map((t2,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,display:'flex',alignItems:'center',gap:4}}>{t2}<span onClick={()=>sf({...f,tags:f.tags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}</div>
       </div>
-      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.name?.trim())return;const av=f.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const newId=uid();if(d?.id){setContacts(p=>p.map(x=>x.id===d.id?{...x,...f,avatar:av}:x));toast('Contact bijgewerkt');}else{setContacts(p=>[...p,{...f,id:newId,avatar:av,createdAt:new Date().toISOString()}]);if(d?._linkToOpp){setOpps(p=>p.map(o=>o.id===d._linkToOpp?{...o,contactId:newId,contactIds:[...(o.contactIds||[]),newId],companyId:f.companyId||o.companyId}:o));}toast('Contact toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.name?.trim()){toast('Vul een naam in','info');return;}const av=f.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const newId=uid();if(d?.id){setContacts(p=>p.map(x=>x.id===d.id?{...x,...f,avatar:av}:x));toast('Contact bijgewerkt');}else{setContacts(p=>[...p,{...f,id:newId,avatar:av,createdAt:new Date().toISOString()}]);if(d?._linkToOpp){setOpps(p=>p.map(o=>o.id===d._linkToOpp?{...o,contactId:newId,contactIds:[...(o.contactIds||[]),newId],companyId:f.companyId||o.companyId}:o));}toast('Contact toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
     </div>
   </div>;};
 
   const OppModal=()=>{const d=modal?.data;
-    const[f,sf]=useState(d?.id?d:{title:'',contactId:d?.contactId||'',companyId:d?.companyId||'',stage:d?.stage||'lead',value:0,probability:20,priority:'medium',nextAction:'',nextActionDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',notes:[],...d});
+    const[f,sf]=useState(()=>{
+      if(d?.id)return d;
+      const base={title:'',contactId:'',contactIds:[],companyId:'',stage:'lead',value:0,probability:20,priority:'medium',nextAction:'',nextActionDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',notes:[],...(d||{})};
+      // Ensure contactIds includes contactId if passed
+      if(base.contactId&&!base.contactIds.includes(base.contactId))base.contactIds=[...base.contactIds,base.contactId];
+      return base;
+    });
     const[newCoName,setNewCoName]=useState('');const[newCtName,setNewCtName]=useState('');const[techIn,setTechIn]=useState('');
     const[showNewCo,setShowNewCo]=useState(false);const[showNewCt,setShowNewCt]=useState(false);
     const[showAtosAdd,setShowAtosAdd]=useState(false);const[newAtosName,setNewAtosName]=useState('');const[newAtosRole,setNewAtosRole]=useState('sales');
@@ -806,7 +899,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         <div style={{marginBottom:12}}><label style={lbl}>Volgende Actie</label><input style={inp} value={f.nextAction} onChange={e=>sf({...f,nextAction:e.target.value})} placeholder="Voorstel versturen, demo plannen..."/></div>
         <div style={{marginBottom:12}}><label style={lbl}>Actie Datum</label><input type="date" style={inp} value={f.nextActionDate} onChange={e=>sf({...f,nextActionDate:e.target.value})}/></div>
       </div>
-      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.title?.trim())return;const now=new Date().toISOString();if(d?.id){setOpps(p=>p.map(x=>x.id===d.id?{...x,...f,updatedAt:now}:x));toast('Deal bijgewerkt');}else{setOpps(p=>[...p,{...f,id:uid(),notes:[],createdAt:now,updatedAt:now,closedAt:null}]);toast('Deal toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.title?.trim()){toast('Vul een titel in','info');return;}const now=new Date().toISOString();if(d?.id){setOpps(p=>p.map(x=>x.id===d.id?{...x,...f,updatedAt:now}:x));toast('Deal bijgewerkt');}else{setOpps(p=>[...p,{...f,id:uid(),notes:[],createdAt:now,updatedAt:now,closedAt:null}]);toast('Deal toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
     </div>
   </div>;};
 
@@ -836,7 +929,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </div>}
         </div>
       </div>
-      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.title?.trim())return;if(d?.id){setTasks(p=>p.map(x=>x.id===d.id?{...x,...f}:x));toast('Taak bijgewerkt');}else{setTasks(p=>[...p,{...f,id:uid(),done:false,createdAt:new Date().toISOString()}]);toast('Taak toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.title?.trim()){toast('Vul een taak in','info');return;}if(d?.id){setTasks(p=>p.map(x=>x.id===d.id?{...x,...f}:x));toast('Taak bijgewerkt');}else{setTasks(p=>[...p,{...f,id:uid(),done:false,createdAt:new Date().toISOString()}]);toast('Taak toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
     </div>
   </div>;};
 
@@ -852,7 +945,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         <div style={{marginBottom:12}}><label style={lbl}>Tags</label><div style={{display:'flex',gap:5}}><input style={inp} value={tag} onChange={e=>stg(e.target.value)} placeholder="Tag toevoegen..." onKeyDown={e=>{if(e.key==='Enter'&&tag.trim()){sf({...f,tags:[...(f.tags||[]),tag.trim().toLowerCase()]});stg('');}}}/><button onClick={()=>{if(tag.trim()){sf({...f,tags:[...(f.tags||[]),tag.trim().toLowerCase()]});stg('');}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
           {(f.tags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.tags.map((tg,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,display:'flex',alignItems:'center',gap:4}}>{tg}<span onClick={()=>sf({...f,tags:f.tags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}</div>
       </div>
-      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.name?.trim())return;const newId=uid();if(d?.id){setCompanies(p=>p.map(x=>x.id===d.id?{...x,...f}:x));toast('Bedrijf bijgewerkt');}else{setCompanies(p=>[...p,{...f,id:newId,createdAt:new Date().toISOString()}]);if(d?._linkToOpp){setOpps(p=>p.map(o=>o.id===d._linkToOpp?{...o,companyId:newId}:o));}toast('Bedrijf toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.name?.trim()){toast('Vul een bedrijfsnaam in','info');return;}const newId=uid();if(d?.id){setCompanies(p=>p.map(x=>x.id===d.id?{...x,...f}:x));toast('Bedrijf bijgewerkt');}else{setCompanies(p=>[...p,{...f,id:newId,createdAt:new Date().toISOString()}]);if(d?._linkToOpp){setOpps(p=>p.map(o=>o.id===d._linkToOpp?{...o,companyId:newId}:o));}toast('Bedrijf toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
     </div>
   </div>;};
 
@@ -1050,17 +1143,6 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </div>
         </div>;})}
       </div>
-      {/* Atos modal */}
-      {atModal&&<div onClick={()=>setAtModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-        <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:400}}>
-          <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{atModal.id?'Bewerken':'Nieuw Teamlid'}</span><button onClick={()=>setAtModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
-          <div style={{padding:'16px 24px'}}>
-            {[{k:'name',l:'Naam',p:'Volledige naam'},{k:'email',l:'E-mail',p:'naam@atos.net'},{k:'phone',l:'Telefoon',p:'+31...'}].map(x=><div key={x.k} style={{marginBottom:12}}><label style={lbl}>{x.l}</label><input style={inp} value={atModal[x.k]||''} onChange={e=>setAtModal({...atModal,[x.k]:e.target.value})} placeholder={x.p}/></div>)}
-            <div style={{marginBottom:12}}><label style={lbl}>Rol</label><div style={{display:'flex',gap:6}}>{['sales','delivery'].map(r=><button key={r} onClick={()=>setAtModal({...atModal,role:r})} style={{flex:1,padding:'8px',borderRadius:8,fontSize:13,fontWeight:600,border:`1.5px solid ${atModal.role===r?(r==='sales'?t.accent:t.green):'transparent'}`,background:atModal.role===r?(r==='sales'?t.accentS:t.greenS):(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:atModal.role===r?(r==='sales'?t.accent:t.green):t.dim,cursor:'pointer',fontFamily:'inherit'}}>{r==='sales'?'🔵 Sales':'🟢 Delivery'}</button>)}</div></div>
-          </div>
-          <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setAtModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!atModal.name?.trim())return;if(atModal.id){setAtosTeam(p=>p.map(x=>x.id===atModal.id?{...atModal}:x));toast('Bijgewerkt');}else{setAtosTeam(p=>[...p,{...atModal,id:uid()}]);toast('Teamlid toegevoegd');}setAtModal(null);}} style={btnP}>{atModal.id?'Opslaan':'Toevoegen'}</button></div>
-        </div>
-      </div>}
     </div>;
   };
 
@@ -1119,6 +1201,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSb(false);}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:view===n.id?t.accent:t.dim,background:view===n.id?t.accentS:'transparent',fontSize:14,fontWeight:view===n.id?600:400,marginBottom:2,transition:`all .15s ${sp}`}}><span style={{fontSize:15}}>{n.ic}</span>{n.l}</div>)}
           <div style={{borderTop:`0.5px solid ${t.border}`,marginTop:16,paddingTop:12}}>
             <div onClick={()=>setDark(!dark)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>{dark?'🌙':'☀️'} {dark?'Donker':'Licht'}</div>
+            <div onClick={exportData} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📤 Data exporteren</div>
+            <div onClick={importData} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📥 Data importeren</div>
             <div onClick={restoreBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>💾 Backup terugzetten</div>
           </div>
         </nav>
@@ -1154,7 +1238,13 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             <button onClick={checkDb} style={{...btnG,padding:'4px 10px',fontSize:11,color:t.orange,borderColor:`${t.orange}44`,whiteSpace:'nowrap'}}>↻ Check</button>
           </div>}
           {dbStatus==='checking'&&!location.hostname.includes('claudeusercontent')&&<div style={{padding:'8px 16px',marginBottom:16,borderRadius:12,background:t.accentS,fontSize:12,color:t.accent,animation:'pulse 1.5s infinite'}}>⏳ Verbinding controleren...</div>}
-          {React.createElement(views[view]||'div')}
+          {view==='dashboard'&&<Dash/>}
+          {view==='pipeline'&&<Pipeline/>}
+          {view==='companies'&&<Companies/>}
+          {view==='contacts'&&<Contacts/>}
+          {view==='atos'&&<AtosView/>}
+          {view==='tasks'&&<Tasks/>}
+          {view==='reports'&&<Reports/>}
         </div>
       </main>
 
@@ -1171,6 +1261,16 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       {modal?.type==='task'&&<TaskModal/>}
       {modal?.type==='company'&&<CompanyModal/>}
       {modal?.type==='import'&&<ImportModal/>}
+      {atModal&&<div onClick={()=>setAtModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:400}}>
+          <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{atModal.id?'Bewerken':'Nieuw Teamlid'}</span><button onClick={()=>setAtModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
+          <div style={{padding:'16px 24px'}}>
+            {[{k:'name',l:'Naam',p:'Volledige naam'},{k:'email',l:'E-mail',p:'naam@atos.net'},{k:'phone',l:'Telefoon',p:'+31...'}].map(x=><div key={x.k} style={{marginBottom:12}}><label style={lbl}>{x.l}</label><input style={inp} value={atModal[x.k]||''} onChange={e=>setAtModal({...atModal,[x.k]:e.target.value})} placeholder={x.p}/></div>)}
+            <div style={{marginBottom:12}}><label style={lbl}>Rol</label><div style={{display:'flex',gap:6}}>{['sales','delivery'].map(r=><button key={r} onClick={()=>setAtModal({...atModal,role:r})} style={{flex:1,padding:'8px',borderRadius:8,fontSize:13,fontWeight:600,border:`1.5px solid ${atModal.role===r?(r==='sales'?t.accent:t.green):'transparent'}`,background:atModal.role===r?(r==='sales'?t.accentS:t.greenS):(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:atModal.role===r?(r==='sales'?t.accent:t.green):t.dim,cursor:'pointer',fontFamily:'inherit'}}>{r==='sales'?'🔵 Sales':'🟢 Delivery'}</button>)}</div></div>
+          </div>
+          <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setAtModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!atModal.name?.trim()){toast('Vul een naam in','info');return;}if(atModal.id){setAtosTeam(p=>p.map(x=>x.id===atModal.id?{...atModal}:x));toast('Bijgewerkt');}else{setAtosTeam(p=>[...p,{...atModal,id:uid()}]);toast('Teamlid toegevoegd');}setAtModal(null);}} style={btnP}>{atModal.id?'Opslaan':'Toevoegen'}</button></div>
+        </div>
+      </div>}
       <div style={{position:'fixed',bottom:20,right:20,zIndex:9999,display:'flex',flexDirection:'column',gap:6}}>{toasts.map(x=><div key={x.id} style={{padding:'10px 16px',background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:12,fontSize:13,boxShadow:t.shadow,animation:'fadeIn .3s',borderLeft:`3px solid ${x.ty==='ok'?t.green:t.accent}`}}>{x.ty==='ok'?'✓':'ℹ'} {x.m}</div>)}</div>
     </div>
   </>;
