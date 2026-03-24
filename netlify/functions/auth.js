@@ -1,8 +1,9 @@
 const bcrypt = require('bcryptjs');
-const { sql, ok, err, json, signToken } = require('./shared/db');
+const { sql, ok, err, json, signToken, checkRate, parseBody, safeErr } = require('./shared/db');
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json(204, '');
+    if (!checkRate(event)) return err(429, 'Te veel verzoeken');
   if (event.httpMethod !== 'POST') return err(405, 'Method not allowed');
 
   try {
@@ -29,6 +30,6 @@ exports.handler = async (event) => {
   } catch (e) {
     if (e.status) return err(e.status, e.message);
     console.error('Auth error:', e);
-    return err(500, 'Server error');
+    return safeErr(e);
   }
 };

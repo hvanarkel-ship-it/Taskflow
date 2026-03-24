@@ -3,11 +3,26 @@ const { sql, ok, err, json } = require('./shared/db');
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json(204, '');
   try {
+    const checks = { database: 'unknown', jwt: 'unknown', timestamp: new Date().toISOString() };
+
+    // Check JWT_SECRET
+    checks.jwt = process.env.JWT_SECRET ? 'configured' : 'MISSING';
+
+    // Check database
+    if (!sql) {
+      checks.database = 'MISSING — DATABASE_URL not set';
+      return json(503, { status: 'degraded', ...checks });
+    }
+
     const start = Date.now();
     await sql`SELECT 1 AS ok`;
-    return ok({ status: 'connected', database: 'neon', latency_ms: Date.now() - start, timestamp: new Date().toISOString() });
+    checks.database = 'connected';
+    checks.latency_ms = Date.now() - start;
+
+    const healthy = checks.database === 'connected' && checks.jwt === 'configured';
+    return json(healthy ? 200 : 503, { status: healthy ? 'healthy' : 'degraded', ...checks });
   } catch (e) {
     console.error('Health check failed:', e.message);
-    return err(503, 'Database niet bereikbaar');
+    return json(503, { status: 'unhealthy', error: 'Database niet bereikbaar', timestamp: new Date().toISOString() });
   }
 };

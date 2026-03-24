@@ -1,7 +1,8 @@
-const { sql, ok, err, json, requireAuth } = require('./shared/db');
+const { sql, ok, err, json, requireAuth, checkRate, parseBody, safeErr } = require('./shared/db');
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json(204, '');
+    if (!checkRate(event)) return err(429, 'Te veel verzoeken');
   try {
     const user = requireAuth(event);
 
@@ -23,7 +24,7 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'POST') {
-      const b = JSON.parse(event.body);
+      const b = parseBody(event);
       if (!b.title) return err(400, 'Titel vereist');
       const [opp] = await sql`INSERT INTO opportunities (title, contact_id, contact_ids, company_id, stage, value, probability, priority, next_action, next_action_date, tech_tags, atos_sales_id, atos_delivery_id, user_id) VALUES (${b.title}, ${b.contactId||null}, ${JSON.stringify(b.contactIds||[])}, ${b.companyId||null}, ${b.stage||'lead'}, ${b.value||0}, ${b.probability||20}, ${b.priority||'medium'}, ${b.nextAction||''}, ${b.nextActionDate||null}, ${JSON.stringify(b.techTags||[])}, ${b.atosSalesId||null}, ${b.atosDeliveryId||null}, ${user.id}) RETURNING *`;
       if (b.notes?.length) for (const n of b.notes) await sql`INSERT INTO opp_notes (opp_id,text) VALUES (${opp.id},${n.text||n})`;
@@ -31,7 +32,7 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'PUT') {
-      const b = JSON.parse(event.body);
+      const b = parseBody(event);
       if (!b.id) return err(400, 'ID vereist');
       const [opp] = await sql`UPDATE opportunities SET
         title=COALESCE(${b.title||null},title),
@@ -55,15 +56,15 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'DELETE') {
-      const b = JSON.parse(event.body);
+      const b = parseBody(event);
       await sql`DELETE FROM opportunities WHERE id=${b.id} AND user_id=${user.id}`;
       return ok({ deleted: b.id });
     }
 
     return err(405, 'Method not allowed');
   } catch (e) {
-    if (e.status) return err(e.status, e.message);
+    
     console.error('Opps error:', e);
-    return err(500, 'Server error');
+    return safeErr(e);
   }
 };

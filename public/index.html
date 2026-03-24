@@ -112,47 +112,7 @@ const TECH_TAGS=['Elastic','Dynatrace','Splunk','ServiceNow','AWS','Azure','GCP'
 const CONTACT_CATS=['Beslisser','Technisch','Inkoop','Gebruiker','Partner','Consultant','Management','Sponsor'];
 const INT_TYPES=[{id:'call',l:'Gesprek',ic:'📞'},{id:'email',l:'E-mail',ic:'📧'},{id:'meeting',l:'Meeting',ic:'📅'},{id:'note',l:'Notitie',ic:'📝'}];
 
-// Atos team (internal sales & delivery contacts)
-const DEMO_ATOS=[
-  {id:uid(),name:'Peter Smit',role:'sales',email:'peter.smit@atos.net',phone:'+31611111111'},
-  {id:uid(),name:'Karen de Groot',role:'sales',email:'karen.degroot@atos.net',phone:'+31622222222'},
-  {id:uid(),name:'Jan Willem Vos',role:'delivery',email:'jw.vos@atos.net',phone:'+31633333333'},
-  {id:uid(),name:'Michelle Bakker',role:'delivery',email:'m.bakker@atos.net',phone:'+31644444444'},
-];
-
-// Demo data
-const DEMO_COMPANIES=[
-  {id:uid(),name:'TechVentures BV',website:'techventures.nl',industry:'Technologie',address:'Amsterdam',size:'10-50',phone:'+31201234567',email:'info@techventures.nl',notes:'Innovatief bedrijf, groeit snel',tags:['tech','enterprise'],createdAt:new Date().toISOString()},
-  {id:uid(),name:'Design Studio',website:'designstudio.nl',industry:'Creatief',address:'Rotterdam',size:'1-10',phone:'',email:'hello@designstudio.nl',notes:'',tags:['design'],createdAt:new Date().toISOString()},
-  {id:uid(),name:'Berg Consultancy',website:'bergconsultancy.nl',industry:'Consultancy',address:'Utrecht',size:'10-50',phone:'',email:'info@bergconsultancy.nl',notes:'',tags:['consultancy'],createdAt:new Date().toISOString()},
-  {id:uid(),name:'GreenTech Startup',website:'greentech.io',industry:'Duurzaamheid',address:'Eindhoven',size:'1-10',phone:'',email:'hi@greentech.io',notes:'Seed-fase, zoekt partners',tags:['startup','duurzaam'],createdAt:new Date().toISOString()},
-  {id:uid(),name:'Nexus Finance',website:'nexusfinance.nl',industry:'Financieel',address:'Den Haag',size:'50-200',phone:'+31703456789',email:'contact@nexusfinance.nl',notes:'Nog geen contactpersoon',tags:['finance','prospect'],createdAt:new Date().toISOString()},
-];
-
-const DEMO_CONTACTS=[
-  {id:uid(),name:'Sarah de Vries',email:'sarah@example.nl',phone:'+31612345678',companyId:DEMO_COMPANIES[0].id,role:'CEO',tags:['beslisser','tech'],createdAt:new Date().toISOString(),avatar:'SV'},
-  {id:uid(),name:'Mark Jansen',email:'mark@designstudio.nl',phone:'+31698765432',companyId:DEMO_COMPANIES[1].id,role:'Creative Director',tags:['design','partner'],createdAt:new Date().toISOString(),avatar:'MJ'},
-  {id:uid(),name:'Lisa van den Berg',email:'lisa@consultancy.nl',phone:'',companyId:DEMO_COMPANIES[2].id,role:'Managing Partner',tags:['consultancy'],createdAt:new Date().toISOString(),avatar:'LB'},
-  {id:uid(),name:'Tom Bakker',email:'tom@startup.io',phone:'+31655551234',companyId:DEMO_COMPANIES[3].id,role:'CTO',tags:['startup','tech'],createdAt:new Date().toISOString(),avatar:'TB'},
-];
-
-const mkOpp=(title,contactId,stage,value,prob)=>({id:uid(),title,contactId,contactIds:[],companyId:'',stage,value,probability:prob,priority:'medium',nextAction:'',nextActionDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',notes:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),closedAt:null});
-
-const DEMO_OPPS=[
-  {...mkOpp('Elastic Observability','','proposal',15000,60),contactId:DEMO_CONTACTS[0].id,companyId:DEMO_COMPANIES[0].id,nextAction:'Voorstel versturen',nextActionDate:td(),priority:'high',techTags:['Elastic','Kubernetes'],atosSalesId:DEMO_ATOS[0].id,atosDeliveryId:DEMO_ATOS[2].id,notes:[{id:uid(),text:'Sarah wil Q3 live gaan',at:new Date().toISOString()}]},
-  {...mkOpp('Dynatrace APM Implementatie','','qualified',8500,40),contactId:DEMO_CONTACTS[1].id,companyId:DEMO_COMPANIES[1].id,nextAction:'Demo plannen',nextActionDate:td(),techTags:['Dynatrace'],atosSalesId:DEMO_ATOS[1].id,notes:[]},
-  {...mkOpp('Cloud Monitoring Stack','','negotiation',12000,75),contactId:DEMO_CONTACTS[2].id,companyId:DEMO_COMPANIES[2].id,nextAction:'Contract reviewen',nextActionDate:td(),priority:'high',techTags:['Elastic','Dynatrace','Grafana'],atosSalesId:DEMO_ATOS[0].id,atosDeliveryId:DEMO_ATOS[3].id,notes:[{id:uid(),text:'Akkoord op scope, prijs nog open',at:new Date().toISOString()}]},
-  {...mkOpp('Kubernetes Platform','','lead',25000,20),contactId:DEMO_CONTACTS[3].id,companyId:DEMO_COMPANIES[3].id,nextAction:'Discovery call plannen',nextActionDate:'',techTags:['Kubernetes','Terraform','AWS'],notes:[]},
-  {...mkOpp('Elastic SIEM','','won',4800,100),contactId:DEMO_CONTACTS[0].id,companyId:DEMO_COMPANIES[0].id,closedAt:new Date().toISOString(),techTags:['Elastic'],atosSalesId:DEMO_ATOS[0].id,atosDeliveryId:DEMO_ATOS[2].id,notes:[]},
-  {...mkOpp('Dynatrace Licentie Advies','','lead',35000,15),contactId:'',companyId:DEMO_COMPANIES[4].id,nextAction:'Contactpersoon vinden',nextActionDate:td(),techTags:['Dynatrace'],notes:[{id:uid(),text:'Nog geen contactpersoon, via LinkedIn benaderen',at:new Date().toISOString()}]},
-];
-
-const DEMO_TASKS=[
-  {id:uid(),title:'Voorstel Sarah versturen',contactId:DEMO_CONTACTS[0].id,oppId:DEMO_OPPS[0].id,dueDate:td(),dueTime:'10:00',done:false,priority:'high',reminder:true,reminderMin:15,createdAt:new Date().toISOString()},
-  {id:uid(),title:'Follow-up Mark bellen',contactId:DEMO_CONTACTS[1].id,oppId:DEMO_OPPS[1].id,dueDate:td(),dueTime:'14:00',done:false,priority:'medium',reminder:true,reminderMin:30,createdAt:new Date().toISOString()},
-  {id:uid(),title:'Contract Lisa opstellen',contactId:DEMO_CONTACTS[2].id,oppId:DEMO_OPPS[2].id,dueDate:td(),dueTime:'',done:false,priority:'high',reminder:false,reminderMin:0,createdAt:new Date().toISOString()},
-  {id:uid(),title:'Tom terugbellen over app specs',contactId:DEMO_CONTACTS[3].id,oppId:DEMO_OPPS[3].id,dueDate:td(),dueTime:'16:30',done:false,priority:'low',reminder:true,reminderMin:15,createdAt:new Date().toISOString()},
-];
+// No demo data — application starts with empty state, user-generated data only.
 
 // ═══ SEARCHABLE SELECT ═════════════════════════════════
 const SearchSelect=({value,onChange,options,placeholder,style:sx,t:theme})=>{
@@ -177,11 +137,11 @@ const SearchSelect=({value,onChange,options,placeholder,style:sx,t:theme})=>{
 const App = function(){
   const[dark,setDark]=useState(()=>LS.get('dark',true));
   const t=dark?DARK:LIGHT;
-  const[contacts,setContacts]=useState(()=>LS.has('contacts')?LS.get('contacts',[]):isFirstLaunch?DEMO_CONTACTS:[]);
-  const[companies,setCompanies]=useState(()=>LS.has('companies')?LS.get('companies',[]):isFirstLaunch?DEMO_COMPANIES:[]);
-  const[opps,setOpps]=useState(()=>LS.has('opps')?LS.get('opps',[]):isFirstLaunch?DEMO_OPPS:[]);
-  const[tasks,setTasks]=useState(()=>LS.has('tasks')?LS.get('tasks',[]):isFirstLaunch?DEMO_TASKS:[]);
-  const[atosTeam,setAtosTeam]=useState(()=>LS.has('atos')?LS.get('atos',[]):isFirstLaunch?DEMO_ATOS:[]);
+  const[contacts,setContacts]=useState(()=>LS.has('contacts')?LS.get('contacts',[]):[]);
+  const[companies,setCompanies]=useState(()=>LS.has('companies')?LS.get('companies',[]):[]);
+  const[opps,setOpps]=useState(()=>LS.has('opps')?LS.get('opps',[]):[]);
+  const[tasks,setTasks]=useState(()=>LS.has('tasks')?LS.get('tasks',[]):[]);
+  const[atosTeam,setAtosTeam]=useState(()=>LS.has('atos')?LS.get('atos',[]):[]);
   const[interactions,setInteractions]=useState(()=>LS.get('interactions',[])); // {id,contactId,oppId,type:'call'|'email'|'meeting'|'note',text,at}
   const[view,setView]=useState('pipeline');
   const[sb,setSb]=useState(false);
@@ -1221,15 +1181,29 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
   return <>
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
-      *{margin:0;padding:0;box-sizing:border-box}body{font-family:Outfit,system-ui,-apple-system,sans-serif;background:${t.bg};color:${t.text}}
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:Outfit,system-ui,-apple-system,sans-serif;background:${t.bg};color:${t.text};
+        padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);
+        padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
       ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:${t.border};border-radius:3px}
       @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
       @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
       @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
       @keyframes glow{0%,100%{box-shadow:0 0 12px ${t.accentS}}50%{box-shadow:0 0 28px ${t.accentS}}}
+      button,a,[role="button"]{min-height:44px;min-width:44px}
+      button.sm,span[onClick]{min-height:32px;min-width:32px}
+      input,select,textarea{min-height:44px;font-size:16px}
       .sb{position:fixed;left:0;top:0;bottom:0;width:240px;z-index:200;transition:transform .3s ${sp}}
       @media(min-width:769px){.sb{position:relative;transform:none!important}}
-      @media(max-width:768px){.sb{transform:translateX(-100%)}.sb.open{transform:translateX(0)}.ham{display:flex!important}.mc{padding:14px!important}}
+      @media(max-width:768px){
+        .sb{transform:translateX(-100%)}.sb.open{transform:translateX(0)}
+        .ham{display:flex!important}
+        .mc{padding:14px 12px!important}
+        input,select,textarea{font-size:16px!important}
+      }
+      @media(max-width:480px){
+        .mc{padding:10px 8px!important}
+      }
       .aip{position:fixed;right:0;top:0;bottom:0;width:360px;z-index:200;transform:translateX(100%);transition:transform .3s ${sp}}.aip.open{transform:translateX(0)}
       @media(max-width:768px){.aip{width:100%}}
     `}</style>
