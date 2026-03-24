@@ -60,7 +60,7 @@ const migrateData=()=>{
   // Migrate opps: ensure new fields exist
   if(LS.has('opps')){
     const opps=LS.get('opps',[]);
-    const migrated=opps.map(o=>({contactIds:[],techTags:[],atosSalesId:'',atosDeliveryId:'',...o}));
+    const migrated=opps.map(o=>({contactIds:[],techTags:[],atosSalesId:'',atosDeliveryId:'',expectedCloseDate:'',...o}));
     LS.set('opps',migrated);
   }
   // Migrate contacts: ensure tags array + category
@@ -93,19 +93,68 @@ if(!isFirstLaunch){
   }catch{}
 }
 
-// Pipeline stages
+// Pipeline stages (including dropped)
 const STAGES=[
-  {id:'lead',l:'Lead',ic:'🎯',c:'#5AC8FA'},
-  {id:'qualified',l:'Gekwalificeerd',ic:'✓',c:'#007AFF'},
-  {id:'proposal',l:'Voorstel',ic:'📄',c:'#BF5AF2'},
-  {id:'negotiation',l:'Onderhandeling',ic:'🤝',c:'#FF9F0A'},
-  {id:'won',l:'Gewonnen',ic:'🏆',c:'#30D158'},
-  {id:'lost',l:'Verloren',ic:'✕',c:'#FF453A'},
+  {id:'lead',l:{nl:'Lead',en:'Lead'},ic:'🎯',c:'#5AC8FA'},
+  {id:'qualified',l:{nl:'Gekwalificeerd',en:'Qualified'},ic:'✓',c:'#007AFF'},
+  {id:'proposal',l:{nl:'Voorstel',en:'Proposal'},ic:'📄',c:'#BF5AF2'},
+  {id:'negotiation',l:{nl:'Onderhandeling',en:'Negotiation'},ic:'🤝',c:'#FF9F0A'},
+  {id:'won',l:{nl:'Gewonnen',en:'Won'},ic:'🏆',c:'#30D158'},
+  {id:'lost',l:{nl:'Verloren',en:'Lost'},ic:'✕',c:'#FF453A'},
+  {id:'dropped',l:{nl:'Afgevallen',en:'Dropped'},ic:'⏸',c:'#8E8E93'},
 ];
-const stageC=id=>STAGES.find(s=>s.id===id)||STAGES[0];
+const stageC=(id,lang='nl')=>{const s=STAGES.find(s=>s.id===id)||STAGES[0];return{...s,l:s.l[lang]||s.l.nl};};
 
 // Priority
-const PRIS=[{id:'high',l:'Hoog',c:'#FF453A'},{id:'medium',l:'Midden',c:'#FF9F0A'},{id:'low',l:'Laag',c:'#30D158'}];
+const PRIS=[{id:'high',l:{nl:'Hoog',en:'High'},c:'#FF453A'},{id:'medium',l:{nl:'Midden',en:'Medium'},c:'#FF9F0A'},{id:'low',l:{nl:'Laag',en:'Low'},c:'#30D158'}];
+
+// i18n
+const TX={
+  nl:{
+    pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacten',companies:'Bedrijven',atos:'Atos Team',tasks:'Taken',reports:'Rapporten',
+    save:'Opslaan',add:'Toevoegen',cancel:'Annuleren',delete:'Verwijderen',edit:'Bewerken',back:'← Terug',search:'Zoeken...',
+    newDeal:'Nieuwe Deal',editDeal:'Deal Bewerken',newContact:'Nieuw Contact',editContact:'Contact Bewerken',newTask:'Nieuwe Taak',editTask:'Taak Bewerken',newCompany:'Nieuw Bedrijf',editCompany:'Bedrijf Bewerken',newTeam:'Nieuw Teamlid',
+    title:'Titel',company:'Bedrijf',contactPersons:'Contactpersonen',value:'Waarde',chance:'Kans',phase:'Fase',priority:'Prioriteit',technology:'Technologie',nextAction:'Volgende Actie',actionDate:'Actie Datum',closeDate:'Verwachte Sluiting',
+    notes:'Notities',tasks2:'Taken',interactions:'Interacties',noData:'Geen data',
+    dealAdded:'Deal toegevoegd',dealUpdated:'Deal bijgewerkt',dealDeleted:'Deal verwijderd',
+    contactAdded:'Contact toegevoegd',contactUpdated:'Contact bijgewerkt',
+    taskAdded:'Taak toegevoegd',taskDone:'Klaar!',
+    companyAdded:'Bedrijf toegevoegd',teamAdded:'Teamlid toegevoegd',
+    fillTitle:'Vul een titel in',fillName:'Vul een naam in',fillTask:'Vul een taak in',fillCompanyName:'Vul een bedrijfsnaam in',
+    won:'Deal gewonnen!',lost:'Deal verloren',dropped:'Deal geparkeerd',
+    export:'Data exporteren',import:'Data importeren',restore:'Backup terugzetten',dark:'Donker',light:'Licht',
+    overdue:'Achterstallig',today:'Vandaag',upcoming:'Komend',all:'Alle',done:'Afgerond',
+    weighted:'Gewogen',deals:'Deals',closedDeals:'Afgeronde deals',
+    aiWelcome:'👋 Ik ben je AI sales assistent.\n\nIk analyseer je pipeline en help met:\n• Pipeline status & bottlenecks\n• Deal prioritering & volgende stappen\n• Contactstrategie & opvolging\n\nStel een vraag of typ "analyse".',
+    filterAll:'Alle',filterPhase:'Fase',filterClose:'Sluiting',thisWeek:'Deze week',thisMonth:'Deze maand',thisQuarter:'Dit kwartaal',
+    dailyScan:'🔍 Dagelijkse Scan',noInteractions:'Nog geen interacties',addContact:'+ Contact koppelen...',
+    toTask:'→ Taak',taskCreated:'Taak aangemaakt vanuit actie',
+    selectCompany:'Kies bedrijf...',selectContact:'Contact toevoegen...',
+    installed:'App geïnstalleerd!',installPrompt:'📲 Installeer als app',
+  },
+  en:{
+    pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',atos:'Atos Team',tasks:'Tasks',reports:'Reports',
+    save:'Save',add:'Add',cancel:'Cancel',delete:'Delete',edit:'Edit',back:'← Back',search:'Search...',
+    newDeal:'New Deal',editDeal:'Edit Deal',newContact:'New Contact',editContact:'Edit Contact',newTask:'New Task',editTask:'Edit Task',newCompany:'New Company',editCompany:'Edit Company',newTeam:'New Team Member',
+    title:'Title',company:'Company',contactPersons:'Contacts',value:'Value',chance:'Probability',phase:'Phase',priority:'Priority',technology:'Technology',nextAction:'Next Action',actionDate:'Action Date',closeDate:'Expected Close',
+    notes:'Notes',tasks2:'Tasks',interactions:'Interactions',noData:'No data',
+    dealAdded:'Deal added',dealUpdated:'Deal updated',dealDeleted:'Deal deleted',
+    contactAdded:'Contact added',contactUpdated:'Contact updated',
+    taskAdded:'Task added',taskDone:'Done!',
+    companyAdded:'Company added',teamAdded:'Team member added',
+    fillTitle:'Please enter a title',fillName:'Please enter a name',fillTask:'Please enter a task',fillCompanyName:'Please enter a company name',
+    won:'Deal won!',lost:'Deal lost',dropped:'Deal parked',
+    export:'Export data',import:'Import data',restore:'Restore backup',dark:'Dark',light:'Light',
+    overdue:'Overdue',today:'Today',upcoming:'Upcoming',all:'All',done:'Completed',
+    weighted:'Weighted',deals:'Deals',closedDeals:'Closed deals',
+    aiWelcome:'👋 I\'m your AI sales assistant.\n\nI analyze your pipeline and help with:\n• Pipeline status & bottlenecks\n• Deal prioritization & next steps\n• Contact strategy & follow-up\n\nAsk a question or type "analyze".',
+    filterAll:'All',filterPhase:'Phase',filterClose:'Close date',thisWeek:'This week',thisMonth:'This month',thisQuarter:'This quarter',
+    dailyScan:'🔍 Daily Scan',noInteractions:'No interactions yet',addContact:'+ Link contact...',
+    toTask:'→ Task',taskCreated:'Task created from action',
+    selectCompany:'Select company...',selectContact:'Add contact...',
+    installed:'App installed!',installPrompt:'📲 Install as app',
+  }
+};
 
 // Technology tags
 const TECH_TAGS=['Elastic','Dynatrace','Splunk','ServiceNow','AWS','Azure','GCP','Kubernetes','Terraform','Datadog','Grafana','Confluent','MongoDB','PostgreSQL','Snowflake'];
@@ -136,6 +185,13 @@ const SearchSelect=({value,onChange,options,placeholder,style:sx,t:theme})=>{
 // ═══ APP ════════════════════════════════════════════════
 const App = function(){
   const[dark,setDark]=useState(()=>LS.get('dark',true));
+  const[lang,setLang]=useState(()=>LS.get('lang','nl'));
+  const tx=TX[lang]||TX.nl;
+  const sl=(id)=>stageC(id,lang);
+  const pl=(p)=>(PRIS.find(x=>x.id===p)||PRIS[1]).l[lang]||PRIS[1].l.nl;
+  const[pipeFilter,setPipeFilter]=useState('all'); // all|thisWeek|thisMonth|thisQuarter|phase
+  const[pipePhase,setPipePhase]=useState('');
+  const[installPrompt,setInstallPrompt]=useState(null);
   const t=dark?DARK:LIGHT;
   const[contacts,setContacts]=useState(()=>LS.has('contacts')?LS.get('contacts',[]):[]);
   const[companies,setCompanies]=useState(()=>LS.has('companies')?LS.get('companies',[]):[]);
@@ -189,6 +245,8 @@ const App = function(){
   const[filtCompany,setFiltCompany]=useState('');
   const[filtContact,setFiltContact]=useState('');
   const[filtTech,setFiltTech]=useState('');
+  const[filtPhase,setFiltPhase]=useState('');
+  const[filtCloseP,setFiltCloseP]=useState(''); // close period: thisWeek, thisMonth, thisQuarter, overdue
   const[taskTab,setTaskTab]=useState('today');
   const[atQ,setAtQ]=useState('');
   const[atModal,setAtModal]=useState(null);
@@ -221,8 +279,8 @@ const App = function(){
       setMfNewAtosName('');setMfNewAtosRole('sales');
       if(mt==='import'){setImpData([]);setImpCols([]);setImpMapping({title:'',company:'',contact:'',value:'',stage:'',probability:'',tech:'',nextAction:''});setImpStep(1);setImpResult(null);}
       if(mt==='opp'){
-        if(md?.id){setMf(md);}
-        else{const base={title:'',contactId:'',contactIds:[],companyId:'',stage:'lead',value:0,probability:20,priority:'medium',nextAction:'',nextActionDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',notes:[],...(md||{})};if(base.contactId&&!base.contactIds.includes(base.contactId))base.contactIds=[...base.contactIds,base.contactId];setMf(base);}
+        if(md?.id){setMf({expectedCloseDate:'',...md});}
+        else{const base={title:'',contactId:'',contactIds:[],companyId:'',stage:'lead',value:0,probability:20,priority:'medium',nextAction:'',nextActionDate:'',expectedCloseDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',notes:[],...(md||{})};if(base.contactId&&!base.contactIds.includes(base.contactId))base.contactIds=[...base.contactIds,base.contactId];setMf(base);}
       }else if(mt==='contact'){
         setMf(md?.id?md:{name:'',email:'',phone:'',companyId:md?.companyId||'',role:'',category:'',tags:[],...(md||{})});
       }else if(mt==='task'){
@@ -234,6 +292,9 @@ const App = function(){
     if(!mt)prevModalType.current=null;
   },[modal]);
   useEffect(()=>{LS.set('dark',dark);},[dark]);
+  useEffect(()=>{LS.set('lang',lang);},[lang]);
+  useEffect(()=>{const h=e=>{e.preventDefault();setInstallPrompt(e);};window.addEventListener('beforeinstallprompt',h);return()=>window.removeEventListener('beforeinstallprompt',h);},[]);
+  const installApp=async()=>{if(!installPrompt)return;installPrompt.prompt();const r=await installPrompt.userChoice;if(r.outcome==='accepted')toast(tx.installed);setInstallPrompt(null);};
 
   // ─── DATA PROTECTION ──────────────────────────────
   // Auto-backup every 5 minutes
@@ -368,6 +429,26 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
     }
     setAiMsgs(p=>[...p,{id:uid(),r:'bot',t:resp,time:ft()}]);setAiLoad(false);
   };
+
+  // Daily AI Scan — builds comprehensive action list
+  const runDailyScan=()=>{
+    const stale=activeOpps.filter(o=>(new Date()-new Date(o.updatedAt))>7*86400000);
+    const noClose=activeOpps.filter(o=>!o.expectedCloseDate);
+    const closeSoon=activeOpps.filter(o=>o.expectedCloseDate&&o.expectedCloseDate<=new Date(Date.now()+7*86400000).toISOString().slice(0,10)&&o.expectedCloseDate>=td());
+    const overClose=activeOpps.filter(o=>o.expectedCloseDate&&o.expectedCloseDate<td());
+    const noContact=activeOpps.filter(o=>!(o.contactIds||[]).length&&!o.contactId);
+    const highVal=activeOpps.filter(o=>o.value>=10000).sort((a,b)=>b.value-a.value);
+    const sections=[];
+    if(overdueTasks.length)sections.push(`⚠️ **${lang==='nl'?'Achterstallige taken':'Overdue tasks'}** (${overdueTasks.length})\n${overdueTasks.slice(0,5).map(tk=>`  → ${tk.title} (${cName(tk.contactId)||'?'}, ${Math.round((new Date()-new Date(tk.dueDate))/86400000)}d)`).join('\n')}`);
+    if(overClose.length)sections.push(`🔴 **${lang==='nl'?'Sluitdatum verstreken':'Close date passed'}** (${overClose.length})\n${overClose.map(o=>`  → ${o.title} — ${fd(o.expectedCloseDate)} (€${o.value})`).join('\n')}\n  💡 ${lang==='nl'?'Herplan of markeer als verloren/afgevallen':'Reschedule or mark as lost/dropped'}`);
+    if(closeSoon.length)sections.push(`🟠 **${lang==='nl'?'Sluit deze week':'Closing this week'}** (${closeSoon.length})\n${closeSoon.map(o=>`  → ${o.title} — ${fd(o.expectedCloseDate)} (€${o.value}, ${o.probability}%)`).join('\n')}\n  💡 ${lang==='nl'?'Plan afrondende acties':'Schedule closing activities'}`);
+    if(stale.length)sections.push(`😴 **${lang==='nl'?'Geen activiteit >7 dagen':'Inactive >7 days'}** (${stale.length})\n${stale.slice(0,5).map(o=>`  → ${o.title} (${compName(o.companyId)||'?'}) — ${Math.round((new Date()-new Date(o.updatedAt))/86400000)}d`).join('\n')}\n  💡 ${lang==='nl'?'Neem contact op of heroverweeg':'Reach out or reconsider'}`);
+    if(noContact.length)sections.push(`👤 **${lang==='nl'?'Deals zonder contactpersoon':'Deals without contact'}** (${noContact.length})\n${noContact.map(o=>`  → ${o.title}`).join('\n')}`);
+    if(noClose.length)sections.push(`📅 **${lang==='nl'?'Geen sluitdatum':'No close date'}** (${noClose.length})\n${noClose.slice(0,5).map(o=>`  → ${o.title} (${stageC(o.stage,lang).l})`).join('\n')}`);
+    if(highVal.length)sections.push(`💎 **${lang==='nl'?'Grote deals':'High value deals'}** (${highVal.length})\n${highVal.slice(0,5).map(o=>`  → ${o.title} — €${o.value.toLocaleString()} (${o.probability}%, ${stageC(o.stage,lang).l})`).join('\n')}`);
+    const summary=`${tx.dailyScan}\n${new Date().toLocaleDateString(lang==='nl'?'nl-NL':'en-US',{weekday:'long',day:'numeric',month:'long'})}\n\n📊 ${activeOpps.length} ${lang==='nl'?'actieve deals':'active deals'} — €${Math.round(totalPipeline).toLocaleString()} pipeline\n🏆 ${wonOpps.length} ${lang==='nl'?'gewonnen':'won'} — €${wonRevenue.toLocaleString()}\n📋 ${todayTasks.length} ${lang==='nl'?'taken vandaag':'tasks today'}${overdueTasks.length?` + ${overdueTasks.length} ${tx.overdue.toLowerCase()}`:''}\n\n${sections.length?sections.join('\n\n'):lang==='nl'?'✅ Alles op orde! Geen urgente acties.':'✅ All clear! No urgent actions.'}`;
+    setAiOpen(true);setAiMsgs(p=>[...p,{id:uid(),r:'bot',t:summary,time:ft()}]);
+  };
   useEffect(()=>{aiEnd.current?.scrollIntoView({behavior:'smooth'});},[aiMsgs]);
   // Resolve display name for opp: contact name or company name
   const oppWho=o=>{const ids=[...(o.contactIds||[])];if(!ids.length&&o.contactId)ids.push(o.contactId);const names=ids.map(id=>cName(id)).filter(Boolean);if(names.length)return names.join(', ');if(o.companyId)return compName(o.companyId);return '';};
@@ -446,29 +527,40 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
 
   // ─── PIPELINE VIEW (Kanban) ───────────────────────
   const renderPipeline=()=>{
-    const active=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost');
-    const filteredOpps=opps.filter(o=>{if(filtCompany&&o.companyId!==filtCompany)return false;if(filtContact&&o.contactId!==filtContact)return false;if(filtTech&&!(o.techTags||[]).includes(filtTech))return false;if(!periodFilter(o.createdAt))return false;return true;});
-    const fActive=filteredOpps.filter(o=>o.stage!=='won'&&o.stage!=='lost');
+    const activeStages=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost'&&s.id!=='dropped');
+    const now=new Date();const weekEnd=new Date(now);weekEnd.setDate(weekEnd.getDate()+7);const monthEnd=new Date(now.getFullYear(),now.getMonth()+1,0);const qMonth=Math.floor(now.getMonth()/3)*3+3;const qEnd=new Date(now.getFullYear(),qMonth,0);
+    const matchCloseP=(o)=>{if(!filtCloseP)return true;const d=o.expectedCloseDate;if(!d)return filtCloseP==='none';if(filtCloseP==='overdue')return d<td();if(filtCloseP==='thisWeek')return d>=td()&&d<=weekEnd.toISOString().slice(0,10);if(filtCloseP==='thisMonth')return d>=td()&&d<=monthEnd.toISOString().slice(0,10);if(filtCloseP==='thisQuarter')return d>=td()&&d<=qEnd.toISOString().slice(0,10);return true;};
+    const filteredOpps=opps.filter(o=>{if(filtCompany&&o.companyId!==filtCompany)return false;if(filtContact&&o.contactId!==filtContact&&!(o.contactIds||[]).includes(filtContact))return false;if(filtTech&&!(o.techTags||[]).includes(filtTech))return false;if(filtPhase&&o.stage!==filtPhase)return false;if(!matchCloseP(o))return false;if(!periodFilter(o.createdAt))return false;return true;});
+    const fActive=filteredOpps.filter(o=>activeStages.some(s=>s.id===o.stage));
     const fWon=filteredOpps.filter(o=>o.stage==='won');
     const fTotal=fActive.reduce((s,o)=>s+o.value,0);
-    const hasFilter=filtCompany||filtContact||filtTech;
+    const hasFilter=filtCompany||filtContact||filtTech||filtPhase||filtCloseP;
     return <div>
       {renderPeriodBar()}
-      <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap',alignItems:'flex-start'}}>
-        <SearchSelect t={t} value={filtCompany} onChange={setFiltCompany} placeholder="Alle bedrijven" options={companies.map(co=>({value:co.id,label:co.name,sub:co.industry}))} style={{minWidth:160}}/>
-        <SearchSelect t={t} value={filtContact} onChange={setFiltContact} placeholder="Alle contacten" options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)}))} style={{minWidth:160}}/>
-        <SearchSelect t={t} value={filtTech} onChange={setFiltTech} placeholder="Alle technologie" options={TECH_TAGS.map(tt=>({value:tt,label:tt}))} style={{minWidth:150}}/>
-        {hasFilter&&<button onClick={()=>{setFiltCompany('');setFiltContact('');setFiltTech('');}} style={{...btnG,padding:'6px 12px',fontSize:11,color:t.red}}>✕ Reset</button>}
+      <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap',alignItems:'flex-start'}}>
+        <SearchSelect t={t} value={filtCompany} onChange={setFiltCompany} placeholder={tx.filterAll+' '+tx.companies.toLowerCase()} options={companies.map(co=>({value:co.id,label:co.name,sub:co.industry}))} style={{minWidth:140}}/>
+        <SearchSelect t={t} value={filtContact} onChange={setFiltContact} placeholder={tx.filterAll+' '+tx.contacts.toLowerCase()} options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)}))} style={{minWidth:140}}/>
+        <SearchSelect t={t} value={filtTech} onChange={setFiltTech} placeholder={tx.filterAll+' tech'} options={TECH_TAGS.map(tt=>({value:tt,label:tt}))} style={{minWidth:120}}/>
+      </div>
+      {/* Quick filters: Phase + Close period */}
+      <div style={{display:'flex',gap:4,marginBottom:10,flexWrap:'wrap',alignItems:'center'}}>
+        <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:4}}>{tx.filterPhase}:</span>
+        {activeStages.map(s=><button key={s.id} onClick={()=>setFiltPhase(filtPhase===s.id?'':s.id)} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtPhase===s.id?s.c:'transparent'}`,background:filtPhase===s.id?`${s.c}20`:'transparent',color:filtPhase===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}
+      </div>
+      <div style={{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
+        <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:4}}>{tx.filterClose}:</span>
+        {[{id:'overdue',l:tx.overdue,c:t.red},{id:'thisWeek',l:tx.thisWeek,c:t.orange},{id:'thisMonth',l:tx.thisMonth,c:t.accent},{id:'thisQuarter',l:tx.thisQuarter,c:t.purple},{id:'none',l:'—',c:t.muted}].map(cp=><button key={cp.id} onClick={()=>setFiltCloseP(filtCloseP===cp.id?'':cp.id)} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtCloseP===cp.id?cp.c:'transparent'}`,background:filtCloseP===cp.id?`${cp.c}20`:'transparent',color:filtCloseP===cp.id?cp.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{cp.l}</button>)}
+        {hasFilter&&<button onClick={()=>{setFiltCompany('');setFiltContact('');setFiltTech('');setFiltPhase('');setFiltCloseP('');}} style={{padding:'3px 10px',borderRadius:20,fontSize:10,color:t.red,border:`1px solid ${t.red}33`,cursor:'pointer',fontFamily:'inherit',background:'transparent'}}>✕ Reset</button>}
       </div>
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
         {[{l:'Pipeline',v:eur(fTotal),c:t.accent},{l:'Gewogen',v:eur(Math.round(fActive.reduce((s,o)=>s+(o.value*o.probability/100),0))),c:t.purple},{l:'Gewonnen',v:eur(fWon.reduce((s,o)=>s+o.value,0)),c:t.green},{l:'Deals',v:fActive.length,c:t.text}].map((s,i)=><div key={i} style={{...card,flex:'1 1 140px',minWidth:140}}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
       </div>
-      <div style={{display:'grid',gridTemplateColumns:`repeat(${active.length},1fr)`,gap:10,overflowX:'auto'}}>
-        {active.map(stage=>{
+      <div style={{display:'grid',gridTemplateColumns:`repeat(${activeStages.length},1fr)`,gap:10,overflowX:'auto'}}>
+        {activeStages.map(stage=>{
           const stOps=filteredOpps.filter(o=>o.stage===stage.id);const stVal=stOps.reduce((s,o)=>s+o.value,0);
-          return <div key={stage.id} onDragOver={e=>e.preventDefault()} onDrop={()=>{if(dragOpp){setOpps(p=>p.map(o=>o.id===dragOpp?{...o,stage:stage.id,updatedAt:new Date().toISOString()}:o));toast(`Verplaatst naar ${stage.l}`);setDragOpp(null);}}} style={{minWidth:200}}>
+          return <div key={stage.id} onDragOver={e=>e.preventDefault()} onDrop={()=>{if(dragOpp){setOpps(p=>p.map(o=>o.id===dragOpp?{...o,stage:stage.id,updatedAt:new Date().toISOString()}:o));toast(`Verplaatst naar ${stage.l[lang]}`);setDragOpp(null);}}} style={{minWidth:200}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'0 4px'}}>
-              <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:8,height:8,borderRadius:'50%',background:stage.c}}/><span style={{fontSize:13,fontWeight:700}}>{stage.l}</span><span style={{fontSize:11,color:t.muted,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',padding:'1px 7px',borderRadius:8}}>{stOps.length}</span></div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:8,height:8,borderRadius:'50%',background:stage.c}}/><span style={{fontSize:13,fontWeight:700}}>{stage.l[lang]}</span><span style={{fontSize:11,color:t.muted,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',padding:'1px 7px',borderRadius:8}}>{stOps.length}</span></div>
               <span style={{fontSize:11,color:t.dim,fontWeight:500}}>{eur(stVal)}</span>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:6,minHeight:100}}>
@@ -734,8 +826,9 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             <div style={{...card,padding:'10px 14px',flex:'1 1 80px'}}><div style={lbl}>Kans</div><div style={{fontSize:20,fontWeight:700}}>{o.probability}%</div></div>
             <div style={{...card,padding:'10px 14px',flex:'1 1 80px'}}><div style={lbl}>Gewogen</div><div style={{fontSize:20,fontWeight:700,color:t.green}}>{eur(Math.round(o.value*o.probability/100))}</div></div>
           </div>
-          <div style={{fontSize:12,color:t.muted,marginBottom:8}}>FASE</div>
-          <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:16}}>{STAGES.map(s=><button key={s.id} onClick={()=>{setOpps(p=>p.map(x=>x.id===o.id?{...x,stage:s.id,updatedAt:new Date().toISOString(),closedAt:(s.id==='won'||s.id==='lost')?new Date().toISOString():null}:x));if(s.id==='won')toast('🏆 Deal gewonnen!');else if(s.id==='lost')toast('Deal verloren','info');}} style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:600,border:`1.5px solid ${o.stage===s.id?s.c:'transparent'}`,background:o.stage===s.id?`${s.c}20`:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:o.stage===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l}</button>)}</div>
+          {o.expectedCloseDate&&<div style={{fontSize:12,color:t.dim,marginBottom:8}}>📅 {tx.closeDate}: <strong>{fd(o.expectedCloseDate)}</strong></div>}
+          <div style={{fontSize:12,color:t.muted,marginBottom:8}}>{tx.phase.toUpperCase()}</div>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:16}}>{STAGES.map(s=><button key={s.id} onClick={()=>{setOpps(p=>p.map(x=>x.id===o.id?{...x,stage:s.id,updatedAt:new Date().toISOString(),closedAt:(s.id==='won'||s.id==='lost'||s.id==='dropped')?new Date().toISOString():null}:x));if(s.id==='won')toast('🏆 '+tx.won);else if(s.id==='lost')toast(tx.lost,'info');else if(s.id==='dropped')toast(tx.dropped,'info');}} style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:600,border:`1.5px solid ${o.stage===s.id?s.c:'transparent'}`,background:o.stage===s.id?`${s.c}20`:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:o.stage===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}</div>
           {/* Next action → convert to task */}
           {o.nextAction&&<div style={{padding:'10px 14px',borderRadius:10,background:t.orangeS,border:`0.5px solid ${t.orange}44`,marginBottom:12,display:'flex',alignItems:'flex-start',gap:10}}>
             <div style={{flex:1}}><div style={{fontSize:11,color:t.orange,fontWeight:700,marginBottom:2}}>VOLGENDE ACTIE</div><div style={{fontSize:13,fontWeight:500}}>{o.nextAction}</div>{o.nextActionDate&&<div style={{fontSize:11,color:t.dim,marginTop:2}}>{fd(o.nextActionDate)}</div>}</div>
@@ -743,15 +836,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </div>}
         </div>
         <div style={{padding:24}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>Notities</span><button onClick={()=>{const n=prompt('Notitie:');if(n)setOpps(p=>p.map(x=>x.id===o.id?{...x,notes:[{id:uid(),text:n,at:new Date().toISOString()},...(x.notes||[])]}:x));}} style={{...btnG,padding:'4px 12px',fontSize:11}}>+ Notitie</button></div>
-          <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
-            {(o.notes||[]).map(n=><div key={n.id} style={{padding:'10px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${t.accent}`}}>
-              <div style={{fontSize:13}}>{n.text}</div>
-              <div style={{fontSize:10,color:t.muted,marginTop:4}}>{fd(n.at)} {new Date(n.at).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</div>
-            </div>)}
-            {(!o.notes||o.notes.length===0)&&<div style={{fontSize:12,color:t.muted,fontStyle:'italic'}}>Nog geen notities</div>}
-          </div>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>Taken ({oTasks.filter(tk=>!tk.done).length})</span><button onClick={()=>setModal({type:'task',data:{contactId:o.contactId||(o.contactIds||[])[0]||'',oppId:o.id}})} style={{...btnG,padding:'4px 12px',fontSize:11}}>+ Taak</button></div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>{tx.tasks2} ({oTasks.filter(tk=>!tk.done).length})</span><button onClick={()=>setModal({type:'task',data:{contactId:o.contactId||(o.contactIds||[])[0]||'',oppId:o.id}})} style={{...btnG,padding:'4px 12px',fontSize:11}}>+ Taak</button></div>
           <div style={{display:'flex',flexDirection:'column',gap:6}}>
             {oTasks.filter(t=>!t.done).map(tk=><div key={tk.id} style={{fontSize:13,padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',display:'flex',alignItems:'center',gap:8}}>
               <div onClick={()=>{setTasks(p=>p.map(x=>x.id===tk.id?{...x,done:true}:x));toast('Klaar!');}} style={{width:16,height:16,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',flexShrink:0}}/>
@@ -901,8 +986,11 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           <button onClick={()=>setMfShowAtosAdd(!mfShowAtosAdd)} style={{...btnG,padding:'4px 10px',fontSize:11,marginTop:6}}>{mfShowAtosAdd?'✕ Annuleren':'+ Atos contact toevoegen'}</button>
           {mfShowAtosAdd&&<div style={{display:'flex',gap:5,marginTop:6,alignItems:'center'}}><input style={{...inp,flex:1}} value={mfNewAtosName} onChange={e=>setMfNewAtosName(e.target.value)} placeholder="Naam..." onKeyDown={e=>e.key==='Enter'&&inlineAddAtos()}/><select style={{...inp,width:'auto'}} value={mfNewAtosRole} onChange={e=>setMfNewAtosRole(e.target.value)}><option value="sales">Sales</option><option value="delivery">Delivery</option></select><button onClick={inlineAddAtos} style={{...btnP,padding:'6px 12px',fontSize:11}}>+</button></div>}
         </div>
-        <div style={{marginBottom:12}}><label style={lbl}>Volgende Actie</label><input style={inp} value={f.nextAction||''} onChange={e=>sf({...f,nextAction:e.target.value})} placeholder="Voorstel versturen, demo plannen..."/></div>
-        <div style={{marginBottom:12}}><label style={lbl}>Actie Datum</label><input type="date" style={inp} value={f.nextActionDate||''} onChange={e=>sf({...f,nextActionDate:e.target.value})}/></div>
+        <div style={{marginBottom:12}}><label style={lbl}>{tx.nextAction}</label><input style={inp} value={f.nextAction||''} onChange={e=>sf({...f,nextAction:e.target.value})} placeholder={lang==='nl'?"Voorstel versturen, demo plannen...":"Send proposal, schedule demo..."}/></div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+          <div><label style={lbl}>{tx.actionDate}</label><input type="date" style={inp} value={f.nextActionDate||''} onChange={e=>sf({...f,nextActionDate:e.target.value})}/></div>
+          <div><label style={lbl}>{tx.closeDate}</label><input type="date" style={inp} value={f.expectedCloseDate||''} onChange={e=>sf({...f,expectedCloseDate:e.target.value})}/></div>
+        </div>
       </div>
       <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>Annuleren</button><button onClick={()=>{if(!f.title?.trim()){toast('Vul een titel in','info');return;}const now=new Date().toISOString();if(d?.id){setOpps(p=>p.map(x=>x.id===d.id?{...x,...f,updatedAt:now}:x));toast('Deal bijgewerkt');}else{setOpps(p=>[...p,{...f,id:uid(),notes:[],createdAt:now,updatedAt:now,closedAt:null}]);toast('Deal toegevoegd');}setModal(null);}} style={btnP}>{d?.id?'Opslaan':'Toevoegen'}</button></div>
     </div>
@@ -1216,10 +1304,12 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         <nav style={{flex:1,padding:'12px 10px'}}>
           {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSb(false);}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:view===n.id?t.accent:t.dim,background:view===n.id?t.accentS:'transparent',fontSize:14,fontWeight:view===n.id?600:400,marginBottom:2,transition:`all .15s ${sp}`}}><span style={{fontSize:15}}>{n.ic}</span>{n.l}</div>)}
           <div style={{borderTop:`0.5px solid ${t.border}`,marginTop:16,paddingTop:12}}>
-            <div onClick={()=>setDark(!dark)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>{dark?'🌙':'☀️'} {dark?'Donker':'Licht'}</div>
-            <div onClick={exportData} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📤 Data exporteren</div>
-            <div onClick={importData} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📥 Data importeren</div>
-            <div onClick={restoreBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>💾 Backup terugzetten</div>
+            <div onClick={()=>setDark(!dark)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>{dark?'🌙':'☀️'} {tx.dark}/{tx.light}</div>
+            <div onClick={()=>{const nl=lang==='nl'?'en':'nl';setLang(nl);LS.set('lang',nl);}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🌐 {lang==='nl'?'English':'Nederlands'}</div>
+            <div onClick={exportData} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📤 {tx.export}</div>
+            <div onClick={importData} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📥 {tx.import}</div>
+            <div onClick={restoreBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>💾 {tx.restore}</div>
+            {installPrompt&&<div onClick={installApp} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.accent,fontSize:13,fontWeight:600}}>{tx.installPrompt}</div>}
           </div>
         </nav>
         <div style={{padding:'12px 16px',borderTop:`0.5px solid ${t.border}`}}>
@@ -1241,6 +1331,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             {view==='companies'&&<button onClick={()=>setModal({type:'company'})} style={btnP}>+ Bedrijf</button>}
             {view==='tasks'&&<button onClick={()=>setModal({type:'task'})} style={btnP}>+ Taak</button>}
             {view==='dashboard'&&<button onClick={()=>setModal({type:'opp'})} style={btnP}>+ Deal</button>}
+            <button onClick={runDailyScan} style={{height:36,padding:'0 12px',borderRadius:10,background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,fontFamily:'inherit',gap:4}} title="Daily Scan">🔍 Scan</button>
             <button onClick={()=>setAiOpen(!aiOpen)} style={{width:36,height:36,borderRadius:10,background:aiOpen?t.accentS:t.glass,backdropFilter:t.blur,border:`0.5px solid ${aiOpen?t.accent:t.border}`,color:aiOpen?t.accent:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}} title="AI Sales Assistent">✦</button>
           </div>
         </header>
