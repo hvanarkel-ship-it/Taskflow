@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#007AFF"/><stop offset="100%" stop-color="#5856D6"/></linearGradient></defs>
+  <rect width="512" height="512" rx="108" fill="url(#g)"/>
+  <text x="256" y="320" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-weight="800" font-size="260" fill="white">P</text>
+</svg>
