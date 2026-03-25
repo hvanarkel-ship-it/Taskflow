@@ -1,11 +1,11 @@
 const { sql, ok, err, json, requireAuth, checkRate, parseBody, safeErr } = require('./shared/db');
-
+ 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json(204, '');
     if (!checkRate(event)) return err(429, 'Te veel verzoeken');
   try {
     const user = requireAuth(event);
-
+ 
     if (event.httpMethod === 'GET') {
       const p = event.queryStringParameters || {};
       let opps;
@@ -22,7 +22,7 @@ exports.handler = async (event) => {
       }
       return ok({ opportunities: opps });
     }
-
+ 
     if (event.httpMethod === 'POST') {
       const b = parseBody(event);
       if (!b.title) return err(400, 'Titel vereist');
@@ -30,7 +30,7 @@ exports.handler = async (event) => {
       if (b.notes?.length) for (const n of b.notes) await sql`INSERT INTO opp_notes (opp_id,text) VALUES (${opp.id},${n.text||n})`;
       return ok({ opportunity: opp });
     }
-
+ 
     if (event.httpMethod === 'PUT') {
       const b = parseBody(event);
       if (!b.id) return err(400, 'ID vereist');
@@ -55,17 +55,19 @@ exports.handler = async (event) => {
       if (b.addNote) await sql`INSERT INTO opp_notes (opp_id,text) VALUES (${b.id},${b.addNote})`;
       return ok({ opportunity: opp });
     }
-
+ 
     if (event.httpMethod === 'DELETE') {
       const b = parseBody(event);
+      if (!b.id) return err(400, 'ID vereist');
       await sql`DELETE FROM opportunities WHERE id=${b.id} AND user_id=${user.id}`;
       return ok({ deleted: b.id });
     }
-
     return err(405, 'Method not allowed');
   } catch (e) {
     
     console.error('Opps error:', e);
     return safeErr(e);
   }
+};
+ 
 };
