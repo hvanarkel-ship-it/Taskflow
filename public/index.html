@@ -364,10 +364,10 @@ const App = function(){
 
   const buildCRMContext=()=>{
     const ac=activeOpps.length,wv=Math.round(weightedPipeline),wr=wonRevenue;
-    const byStage=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost').map(s=>({stage:s.l,count:opps.filter(o=>o.stage===s.id).length,value:opps.filter(o=>o.stage===s.id).reduce((sum,o)=>sum+o.value,0)}));
+    const byStage=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost'&&s.id!=='dropped').map(s=>({stage:s.l[lang]||s.l.nl,count:opps.filter(o=>o.stage===s.id).length,value:opps.filter(o=>o.stage===s.id).reduce((sum,o)=>sum+(o.value||0),0)}));
     const overdue=overdueTasks.map(tk=>({task:tk.title,contact:cName(tk.contactId),days:Math.round((new Date()-new Date(tk.dueDate))/(86400000))}));
-    const staleDeals=activeOpps.filter(o=>{const d=new Date(o.updatedAt);return(new Date()-d)>7*86400000;}).map(o=>({deal:o.title,company:compName(o.companyId)||oppWho(o),stage:stageC(o.stage).l,daysSinceUpdate:Math.round((new Date()-new Date(o.updatedAt))/86400000),value:o.value}));
-    const topDeals=activeOpps.sort((a,b)=>b.value-a.value).slice(0,5).map(o=>({title:o.title,value:o.value,stage:stageC(o.stage).l,probability:o.probability,company:compName(o.companyId),contact:cName(o.contactId),nextAction:o.nextAction,techTags:o.techTags}));
+    const staleDeals=activeOpps.filter(o=>{const d=new Date(o.updatedAt);return(new Date()-d)>7*86400000;}).map(o=>({deal:o.title,company:compName(o.companyId)||oppWho(o),stage:stageC(o.stage,lang).l,daysSinceUpdate:Math.round((new Date()-new Date(o.updatedAt))/86400000),value:o.value}));
+    const topDeals=[...activeOpps].sort((a,b)=>b.value-a.value).slice(0,5).map(o=>({title:o.title,value:o.value,stage:stageC(o.stage,lang).l,probability:o.probability,company:compName(o.companyId),contact:cName(o.contactId),nextAction:o.nextAction,techTags:o.techTags}));
     const recentInt=interactions.slice(0,10).map(i=>({type:i.type,contact:cName(i.contactId),text:i.text,date:fds(i.at)}));
     return `CRM Status:
 - ${ac} actieve deals, gewogen waarde €${wv}, gewonnen omzet €${wr}
@@ -391,8 +391,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         const stale=activeOpps.filter(o=>(new Date()-new Date(o.updatedAt))>7*86400000);
         resp=`📊 Pipeline Analyse\n\n💰 ${activeOpps.length} actieve deals — €${Math.round(totalPipeline).toLocaleString('nl-NL')} pipeline\n📈 Gewogen: €${Math.round(weightedPipeline).toLocaleString('nl-NL')}\n🏆 ${wonOpps.length} gewonnen — €${wonRevenue.toLocaleString('nl-NL')}\n\n${overdueTasks.length?`⚠️ ${overdueTasks.length} achterstallige taken!\n${overdueTasks.slice(0,3).map(tk=>`  • ${tk.title} (${cName(tk.contactId)})`).join('\n')}\n\n`:''}${stale.length?`🔴 ${stale.length} deals zonder recente activiteit:\n${stale.map(o=>`  • ${o.title} (${compName(o.companyId)||'?'}) — ${Math.round((new Date()-new Date(o.updatedAt))/86400000)}d stil`).join('\n')}\n\n`:''}💡 Tip: Focus op deals in Onderhandeling — daar zit de snelste omzet.`;
       }else if(m.includes('deal')||m.includes('priorit')){
-        const top=activeOpps.sort((a,b)=>(b.value*b.probability)-(a.value*a.probability)).slice(0,5);
-        resp=`🎯 Top deals op gewogen waarde:\n\n${top.map((o,i)=>`${i+1}. ${o.title} — €${o.value} (${o.probability}%) = €${Math.round(o.value*o.probability/100)}\n   ${compName(o.companyId)} · ${stageC(o.stage).l}${o.nextAction?' · →'+o.nextAction:''}`).join('\n\n')}`;
+        const top=[...activeOpps].sort((a,b)=>(b.value*b.probability)-(a.value*a.probability)).slice(0,5);
+        resp=`🎯 Top deals op gewogen waarde:\n\n${top.map((o,i)=>`${i+1}. ${o.title} — €${o.value} (${o.probability}%) = €${Math.round(o.value*o.probability/100)}\n   ${compName(o.companyId)} · ${stageC(o.stage,lang).l}${o.nextAction?' · →'+o.nextAction:''}`).join('\n\n')}`;
       }else if(m.includes('contact')||m.includes('opvolg')){
         resp=`👥 Opvolgadvies:\n\n${overdueTasks.length?overdueTasks.slice(0,5).map(tk=>`⚠️ ${tk.title} — ${cName(tk.contactId)} (${Math.round((new Date()-new Date(tk.dueDate))/86400000)}d te laat)`).join('\n'):'✅ Geen achterstallige taken!'}\n\n💡 Typ "analyse" voor volledig overzicht.`;
       }else{
@@ -408,7 +408,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
     const closeSoon=activeOpps.filter(o=>o.expectedCloseDate&&o.expectedCloseDate<=new Date(Date.now()+7*86400000).toISOString().slice(0,10)&&o.expectedCloseDate>=td());
     const overClose=activeOpps.filter(o=>o.expectedCloseDate&&o.expectedCloseDate<td());
     const noContact=activeOpps.filter(o=>!(o.contactIds||[]).length&&!o.contactId);
-    const highVal=activeOpps.filter(o=>o.value>=10000).sort((a,b)=>b.value-a.value);
+    const highVal=[...activeOpps.filter(o=>o.value>=10000)].sort((a,b)=>b.value-a.value);
     const sections=[];
     if(overdueTasks.length)sections.push(`⚠️ **${lang==='nl'?'Achterstallige taken':'Overdue tasks'}** (${overdueTasks.length})\n${overdueTasks.slice(0,5).map(tk=>`  → ${tk.title} (${cName(tk.contactId)||'?'}, ${Math.round((new Date()-new Date(tk.dueDate))/86400000)}d)`).join('\n')}`);
     if(overClose.length)sections.push(`🔴 **${lang==='nl'?'Sluitdatum verstreken':'Close date passed'}** (${overClose.length})\n${overClose.map(o=>`  → ${o.title} — ${fd(o.expectedCloseDate)} (€${o.value})`).join('\n')}\n  💡 ${lang==='nl'?'Herplan of markeer als verloren/afgevallen':'Reschedule or mark as lost/dropped'}`);
@@ -455,11 +455,11 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
     return()=>clearInterval(iv);
   },[tasks]);
 
-  const activeOpps=opps.filter(o=>o.stage!=='won'&&o.stage!=='lost');
+  const activeOpps=opps.filter(o=>o.stage!=='won'&&o.stage!=='lost'&&o.stage!=='dropped');
   const wonOpps=opps.filter(o=>o.stage==='won');
-  const totalPipeline=activeOpps.reduce((s,o)=>s+o.value,0);
-  const weightedPipeline=activeOpps.reduce((s,o)=>s+(o.value*o.probability/100),0);
-  const wonRevenue=wonOpps.reduce((s,o)=>s+o.value,0);
+  const totalPipeline=activeOpps.reduce((s,o)=>s+(o.value||0),0);
+  const weightedPipeline=activeOpps.reduce((s,o)=>s+((o.value||0)*(o.probability||0)/100),0);
+  const wonRevenue=wonOpps.reduce((s,o)=>s+(o.value||0),0);
   const todayTasks=tasks.filter(t=>t.dueDate===td()&&!t.done);
   const overdueTasks=tasks.filter(t=>t.dueDate&&t.dueDate<td()&&!t.done);
 
@@ -470,7 +470,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
   const btnD={...btn,background:t.redS,color:t.red,fontSize:12};
   const inp={width:'100%',padding:'10px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'};
   const lbl={display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:0.8,marginBottom:5,fontWeight:600};
-  const eur=n=>'€'+n.toLocaleString('nl-NL');
+  const eur=n=>'€'+(typeof n==='number'&&!isNaN(n)?n:0).toLocaleString('nl-NL');
 
   const[period,setPeriod]=useState('all');
   const[customFrom,setCustomFrom]=useState('');
@@ -497,7 +497,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
     const filteredOpps=opps.filter(o=>{if(filtCompany&&o.companyId!==filtCompany)return false;if(filtContact&&o.contactId!==filtContact&&!(o.contactIds||[]).includes(filtContact))return false;if(filtTech&&!(o.techTags||[]).includes(filtTech))return false;if(filtPhase&&o.stage!==filtPhase)return false;if(!matchCloseP(o))return false;if(!periodFilter(o.createdAt))return false;return true;});
     const fActive=filteredOpps.filter(o=>activeStages.some(s=>s.id===o.stage));
     const fWon=filteredOpps.filter(o=>o.stage==='won');
-    const fTotal=fActive.reduce((s,o)=>s+o.value,0);
+    const fTotal=fActive.reduce((s,o)=>s+(o.value||0),0);
     const hasFilter=filtCompany||filtContact||filtTech||filtPhase||filtCloseP;
     return <div>
       {renderPeriodBar()}
@@ -516,11 +516,11 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         {hasFilter&&<button onClick={()=>{setFiltCompany('');setFiltContact('');setFiltTech('');setFiltPhase('');setFiltCloseP('');}} style={{padding:'3px 10px',borderRadius:20,fontSize:10,color:t.red,border:`1px solid ${t.red}33`,cursor:'pointer',fontFamily:'inherit',background:'transparent'}}>✕ Reset</button>}
       </div>
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
-        {[{l:'Pipeline',v:eur(fTotal),c:t.accent},{l:'Gewogen',v:eur(Math.round(fActive.reduce((s,o)=>s+(o.value*o.probability/100),0))),c:t.purple},{l:'Gewonnen',v:eur(fWon.reduce((s,o)=>s+o.value,0)),c:t.green},{l:'Deals',v:fActive.length,c:t.text}].map((s,i)=><div key={i} style={{...card,flex:'1 1 140px',minWidth:140}}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
+        {[{l:'Pipeline',v:eur(fTotal),c:t.accent},{l:'Gewogen',v:eur(Math.round(fActive.reduce((s,o)=>s+((o.value||0)*(o.probability||0)/100),0))),c:t.purple},{l:'Gewonnen',v:eur(fWon.reduce((s,o)=>s+(o.value||0),0)),c:t.green},{l:'Deals',v:fActive.length,c:t.text}].map((s,i)=><div key={i} style={{...card,flex:'1 1 140px',minWidth:140}}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
       </div>
       <div style={{display:'grid',gridTemplateColumns:`repeat(${activeStages.length},1fr)`,gap:10,overflowX:'auto'}}>
         {activeStages.map(stage=>{
-          const stOps=filteredOpps.filter(o=>o.stage===stage.id);const stVal=stOps.reduce((s,o)=>s+o.value,0);
+          const stOps=filteredOpps.filter(o=>o.stage===stage.id);const stVal=stOps.reduce((s,o)=>s+(o.value||0),0);
           return <div key={stage.id} onDragOver={e=>e.preventDefault()} onDrop={()=>{if(dragOpp){setOpps(p=>p.map(o=>o.id===dragOpp?{...o,stage:stage.id,updatedAt:new Date().toISOString()}:o));toast(`Verplaatst naar ${stage.l[lang]}`);setDragOpp(null);}}} style={{minWidth:200}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'0 4px'}}>
               <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:8,height:8,borderRadius:'50%',background:stage.c}}/><span style={{fontSize:13,fontWeight:700}}>{stage.l[lang]}</span><span style={{fontSize:11,color:t.muted,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',padding:'1px 7px',borderRadius:8}}>{stOps.length}</span></div>
@@ -532,7 +532,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
                 <div style={{fontSize:11,color:t.dim,marginBottom:3}}>{oppWho(opp)}{oppOrg(opp)&&oppWho(opp)?' · '+oppOrg(opp):oppOrg(opp)}</div>
                 {(opp.techTags||[]).length>0&&<div style={{display:'flex',gap:3,flexWrap:'wrap',marginBottom:4}}>{opp.techTags.map(tt=><span key={tt} style={{fontSize:9,padding:'1px 6px',borderRadius:5,background:t.purpleS,color:t.purple,fontWeight:600}}>{tt}</span>)}</div>}
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                  <span style={{fontSize:14,fontWeight:700}}>{eur(opp.value)}</span>
+                  <span style={{fontSize:14,fontWeight:700}}>{eur(opp.value||0)}</span>
                   <span style={{fontSize:10,padding:'2px 8px',borderRadius:8,background:`${stage.c}20`,color:stage.c,fontWeight:600}}>{opp.probability}%</span>
                 </div>
                 {(opp.atosSalesId||opp.atosDeliveryId)&&<div style={{fontSize:10,color:t.dim,marginTop:4,display:'flex',gap:8}}>{opp.atosSalesId&&<span>🔵{atosName(opp.atosSalesId)}</span>}{opp.atosDeliveryId&&<span>🟢{atosName(opp.atosDeliveryId)}</span>}</div>}
@@ -542,13 +542,13 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             </div>
           </div>;})}
       </div>
-      {(fWon.length>0||filteredOpps.filter(o=>o.stage==='lost').length>0)&&<div style={{marginTop:24}}>
+      {(fWon.length>0||filteredOpps.filter(o=>o.stage==='lost'||o.stage==='dropped').length>0)&&<div style={{marginTop:24}}>
         <div style={{fontSize:15,fontWeight:700,marginBottom:10}}>Afgeronde deals</div>
         <div style={{display:'flex',flexDirection:'column',gap:6}}>
-          {filteredOpps.filter(o=>o.stage==='won'||o.stage==='lost').map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',opacity:.7}}>
-            <span style={{fontSize:16}}>{o.stage==='won'?'🏆':'✕'}</span>
+          {filteredOpps.filter(o=>o.stage==='won'||o.stage==='lost'||o.stage==='dropped').map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',opacity:.7}}>
+            <span style={{fontSize:16}}>{o.stage==='won'?'🏆':o.stage==='dropped'?'⏸':'✕'}</span>
             <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{oppWho(o)}{(o.techTags||[]).length>0&&' · '+o.techTags.join(', ')}</div></div>
-            <span style={{fontWeight:700,color:o.stage==='won'?t.green:t.red}}>{eur(o.value)}</span>
+            <span style={{fontWeight:700,color:o.stage==='won'?t.green:o.stage==='dropped'?t.muted:t.red}}>{eur(o.value||0)}</span>
           </div>)}
         </div>
       </div>}
@@ -560,7 +560,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
     return <div>
       <div style={{display:'flex',gap:8,marginBottom:16}}><div style={{flex:1,...inp,display:'flex',alignItems:'center',gap:8,padding:'8px 14px'}}><span style={{color:t.muted}}>🔍</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Zoek contacten..." style={{flex:1,background:'none',border:'none',color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/>{search&&<span onClick={()=>setSearch('')} style={{cursor:'pointer',color:t.muted}}>✕</span>}</div><button onClick={()=>setModal({type:'contact'})} style={btnP}>+ Contact</button></div>
       <div style={{display:'flex',flexDirection:'column',gap:6}}>
-        {filtered.map(c=>{const cOpps=opps.filter(o=>o.contactId===c.id&&o.stage!=='lost');const cVal=cOpps.reduce((s,o)=>s+o.value,0);return <div key={c.id} onClick={()=>setDetail({type:'contact',id:c.id})} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer'}}>
+        {filtered.map(c=>{const cOpps=opps.filter(o=>o.contactId===c.id&&o.stage!=='lost');const cVal=cOpps.reduce((s,o)=>s+(o.value||0),0);return <div key={c.id} onClick={()=>setDetail({type:'contact',id:c.id})} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer'}}>
           <div style={{width:42,height:42,borderRadius:'50%',background:`linear-gradient(135deg,${t.accent},${t.purple})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:'#fff',flexShrink:0}}>{c.avatar||c.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:14,fontWeight:600}}>{c.name}</div>
@@ -638,13 +638,13 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
 
   const renderDash=()=>{
     const pOpps=opps.filter(o=>periodFilter(o.createdAt));
-    const pActive=pOpps.filter(o=>o.stage!=='won'&&o.stage!=='lost');
+    const pActive=pOpps.filter(o=>o.stage!=='won'&&o.stage!=='lost'&&o.stage!=='dropped');
     const pWon=pOpps.filter(o=>o.stage==='won');
-    const pPipeline=pActive.reduce((s,o)=>s+o.value,0);
-    const pWeighted=pActive.reduce((s,o)=>s+(o.value*o.probability/100),0);
-    const pWonRev=pWon.reduce((s,o)=>s+o.value,0);
+    const pPipeline=pActive.reduce((s,o)=>s+(o.value||0),0);
+    const pWeighted=pActive.reduce((s,o)=>s+((o.value||0)*(o.probability||0)/100),0);
+    const pWonRev=pWon.reduce((s,o)=>s+(o.value||0),0);
     const convRate=pOpps.length?(Math.round(pWon.length/pOpps.length*100)):0;
-    const stageData=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost').map(s=>({...s,count:pOpps.filter(o=>o.stage===s.id).length,val:pOpps.filter(o=>o.stage===s.id).reduce((sum,o)=>sum+o.value,0)}));
+    const stageData=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost'&&s.id!=='dropped').map(s=>({...s,count:pOpps.filter(o=>o.stage===s.id).length,val:pOpps.filter(o=>o.stage===s.id).reduce((sum,o)=>sum+(o.value||0),0)}));
     const maxVal=Math.max(...stageData.map(s=>s.val),1);
     return <div>
       {renderPeriodBar()}
@@ -657,7 +657,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           <svg viewBox="0 0 300 140" style={{width:'100%'}}>
             {stageData.map((s,i)=>{const bw=40,gap=60,x=20+i*gap,h=(s.val/maxVal)*100;return <g key={i}>
               <rect x={x} y={120-h} width={bw} height={h} rx={6} fill={s.c} opacity={.85}/>
-              <text x={x+bw/2} y={135} textAnchor="middle" fontSize="9" fill={t.muted} fontFamily="inherit">{s.l.nl.slice(0,6)}</text>
+              <text x={x+bw/2} y={135} textAnchor="middle" fontSize="9" fill={t.muted} fontFamily="inherit">{(s.l[lang]||s.l.nl).slice(0,6)}</text>
               <text x={x+bw/2} y={115-h} textAnchor="middle" fontSize="9" fill={t.dim} fontFamily="inherit">{s.count}</text>
             </g>;})}
             <line x1="18" y1="120" x2="280" y2="120" stroke={t.border} strokeWidth=".5"/>
@@ -672,7 +672,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </div>}
         </div>
       </div>
-      {activeOpps.filter(o=>o.priority==='high').length>0&&<div><div style={{fontSize:14,fontWeight:700,marginBottom:8}}>🔥 Hoge Prioriteit</div><div style={{display:'flex',flexDirection:'column',gap:6}}>{activeOpps.filter(o=>o.priority==='high').map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',borderLeft:`3px solid ${t.red}`}}><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{cName(o.contactId)} · {stageC(o.stage).l}</div></div><div style={{fontWeight:700}}>{eur(o.value)}</div></div>)}</div></div>}
+      {activeOpps.filter(o=>o.priority==='high').length>0&&<div><div style={{fontSize:14,fontWeight:700,marginBottom:8}}>🔥 Hoge Prioriteit</div><div style={{display:'flex',flexDirection:'column',gap:6}}>{activeOpps.filter(o=>o.priority==='high').map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',borderLeft:`3px solid ${t.red}`}}><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{cName(o.contactId)} · {stageC(o.stage,lang).l}</div></div><div style={{fontWeight:700}}>{eur(o.value||0)}</div></div>)}</div></div>}
     </div>;
   };
 
@@ -700,7 +700,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
             {cOpps.map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:10}}>
               <div style={{width:8,height:8,borderRadius:'50%',background:stageC(o.stage).c}}/>
-              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{stageC(o.stage).l}</div></div>
+              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{stageC(o.stage,lang).l}</div></div>
               <span style={{fontWeight:700}}>{eur(o.value)}</span>
             </div>)}
             <button onClick={()=>setModal({type:'opp',data:{contactId:c.id,contactIds:[c.id],companyId:c.companyId||''}})} style={{...btnG,justifyContent:'center',fontSize:12}}>+ Nieuwe deal</button>
@@ -769,7 +769,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:16}}>
             <div style={{...card,padding:'10px 14px',flex:'1 1 100px'}}><div style={lbl}>Waarde</div><div style={{fontSize:20,fontWeight:700}}>{eur(o.value)}</div></div>
             <div style={{...card,padding:'10px 14px',flex:'1 1 80px'}}><div style={lbl}>Kans</div><div style={{fontSize:20,fontWeight:700}}>{o.probability}%</div></div>
-            <div style={{...card,padding:'10px 14px',flex:'1 1 80px'}}><div style={lbl}>Gewogen</div><div style={{fontSize:20,fontWeight:700,color:t.green}}>{eur(Math.round(o.value*o.probability/100))}</div></div>
+            <div style={{...card,padding:'10px 14px',flex:'1 1 80px'}}><div style={lbl}>Gewogen</div><div style={{fontSize:20,fontWeight:700,color:t.green}}>{eur(Math.round((o.value||0)*(o.probability||0)/100))}</div></div>
           </div>
           {o.expectedCloseDate&&<div style={{fontSize:12,color:t.dim,marginBottom:8}}>📅 {tx.closeDate}: <strong>{fd(o.expectedCloseDate)}</strong></div>}
           <div style={{fontSize:12,color:t.muted,marginBottom:8}}>{tx.phase.toUpperCase()}</div>
@@ -808,7 +808,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       const coContacts=contacts.filter(c=>c.companyId===co.id);
       const coOpps=opps.filter(o=>o.companyId===co.id);
       const coTasks=tasks.filter(tk=>coContacts.some(c=>c.id===tk.contactId)||coOpps.some(o=>o.id===tk.oppId));
-      const coVal=coOpps.filter(o=>o.stage!=='lost').reduce((s,o)=>s+o.value,0);
+      const coVal=coOpps.filter(o=>o.stage!=='lost').reduce((s,o)=>s+(o.value||0),0);
       return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
         <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
           <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>← Terug</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'company',data:co})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={()=>{setCompanies(p=>p.filter(x=>x.id!==co.id));setDetail(null);toast('Bedrijf verwijderd','info');}} style={btnD}>🗑</button></div></div>
@@ -845,7 +845,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
             {coOpps.map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:10}}>
               <div style={{width:8,height:8,borderRadius:'50%',background:stageC(o.stage).c}}/>
-              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{stageC(o.stage).l}{o.contactId?' · '+cName(o.contactId):''}</div></div>
+              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{stageC(o.stage,lang).l}{o.contactId?' · '+cName(o.contactId):''}</div></div>
               <span style={{fontWeight:700}}>{eur(o.value)}</span>
             </div>)}
           </div>
@@ -946,7 +946,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       <div style={{padding:'16px 24px'}}>
         <div style={{marginBottom:12}}><label style={lbl}>Taak</label><input style={inp} value={f.title||''} onChange={e=>sf({...f,title:e.target.value})} placeholder="Wat moet er gebeuren?"/></div>
         <div style={{marginBottom:12}}><label style={lbl}>Contact</label><select style={{...inp,cursor:'pointer'}} value={f.contactId||''} onChange={e=>sf({...f,contactId:e.target.value})}><option value="">Optioneel...</option>{contacts.map(c=><option key={c.id} value={c.id}>{c.name}{compName(c.companyId)?' — '+compName(c.companyId):''}</option>)}</select></div>
-        <div style={{marginBottom:12}}><label style={lbl}>Deal / Opportunity</label><select style={{...inp,cursor:'pointer'}} value={f.oppId||''} onChange={e=>{const opp=opps.find(o=>o.id===e.target.value);sf({...f,oppId:e.target.value,contactId:opp?.contactId||f.contactId});}}><option value="">Geen deal gekoppeld</option>{opps.filter(o=>o.stage!=='won'&&o.stage!=='lost').map(o=><option key={o.id} value={o.id}>{o.title} — {eur(o.value)} ({stageC(o.stage).l})</option>)}</select></div>
+        <div style={{marginBottom:12}}><label style={lbl}>Deal / Opportunity</label><select style={{...inp,cursor:'pointer'}} value={f.oppId||''} onChange={e=>{const opp=opps.find(o=>o.id===e.target.value);sf({...f,oppId:e.target.value,contactId:opp?.contactId||f.contactId});}}><option value="">Geen deal gekoppeld</option>{opps.filter(o=>o.stage!=='won'&&o.stage!=='lost').map(o=><option key={o.id} value={o.id}>{o.title} — {eur(o.value)} ({stageC(o.stage,lang).l})</option>)}</select></div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:12}}>
           <div><label style={lbl}>Datum</label><input type="date" style={inp} value={f.dueDate||''} onChange={e=>sf({...f,dueDate:e.target.value})}/></div>
           <div><label style={lbl}>Tijd</label><input type="time" style={inp} value={f.dueTime||''} onChange={e=>sf({...f,dueTime:e.target.value})}/></div>
@@ -1062,8 +1062,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
   };
 
   const renderReports=()=>{
-    const funnelStages=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost');
-    const funnelData=funnelStages.map(s=>{const st=opps.filter(o=>o.stage===s.id);return{...s,count:st.length,val:st.reduce((sum,o)=>sum+o.value,0),weighted:st.reduce((sum,o)=>sum+(o.value*o.probability/100),0)};});
+    const funnelStages=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost'&&s.id!=='dropped');
+    const funnelData=funnelStages.map(s=>{const st=opps.filter(o=>o.stage===s.id);return{...s,count:st.length,val:st.reduce((sum,o)=>sum+(o.value||0),0),weighted:st.reduce((sum,o)=>sum+((o.value||0)*(o.probability||0)/100),0)};});
     const maxCount=Math.max(...funnelData.map(d=>d.count),1);
     const totalAll=opps.length||1;
     const convRate=opps.length?Math.round(wonOpps.length/opps.length*100):0;
@@ -1120,13 +1120,13 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       </div>
       <div style={card}>
         <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>Pipeline Waarde per Fase</div>
-        <svg viewBox="0 0 500 160" style={{width:'100%'}}>
+        <svg viewBox={`0 0 ${Math.max(30+funnelData.length*110,300)} 160`} style={{width:'100%'}}>
           {funnelData.map((d,i)=>{const bw=60,gap=110,x=30+i*gap,maxV=Math.max(...funnelData.map(s=>s.val),1),h=(d.val/maxV)*110;return <g key={i}>
             <rect x={x} y={130-h} width={bw} height={h} rx={8} fill={d.c} opacity={.8}/>
             <text x={x+bw/2} y={145} textAnchor="middle" fontSize="10" fill={t.muted} fontFamily="Outfit,system-ui">{(d.l[lang]||d.l.nl).slice(0,8)}</text>
             <text x={x+bw/2} y={123-h} textAnchor="middle" fontSize="10" fill={t.dim} fontWeight="600" fontFamily="Outfit,system-ui">{eur(d.val)}</text>
           </g>;})}
-          <line x1="28" y1="130" x2="480" y2="130" stroke={t.border} strokeWidth=".5"/>
+          <line x1="28" y1="130" x2={Math.max(30+funnelData.length*110-20,280)} y2="130" stroke={t.border} strokeWidth=".5"/>
         </svg>
       </div>
     </div>;
@@ -1145,7 +1145,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         {[{l:'Sales',v:sales.length,c:t.accent},{l:'Delivery',v:delivery.length,c:t.green},{l:'Totaal',v:atosTeam.length,c:t.text}].map((s,i)=><div key={i} style={{...card,padding:'8px 14px',flex:1}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase',fontWeight:600}}>{s.l}</div><div style={{fontSize:20,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:6}}>
-        {filtered.map(a=>{const deals=atosDeals(a.id);const dealVal=deals.filter(o=>o.stage!=='lost').reduce((s,o)=>s+o.value,0);return <div key={a.id} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14}}>
+        {filtered.map(a=>{const deals=atosDeals(a.id);const dealVal=deals.filter(o=>o.stage!=='lost').reduce((s,o)=>s+(o.value||0),0);return <div key={a.id} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14}}>
           <div style={{width:42,height:42,borderRadius:10,background:a.role==='sales'?`linear-gradient(135deg,${t.accent},${t.purple})`:`linear-gradient(135deg,${t.green},${t.teal})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:'#fff',flexShrink:0}}>{a.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:14,fontWeight:600}}>{a.name}</div>
@@ -1166,7 +1166,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
     return <div>
       <div style={{display:'flex',gap:8,marginBottom:16}}><div style={{flex:1,...inp,display:'flex',alignItems:'center',gap:8,padding:'8px 14px'}}><span style={{color:t.muted}}>🔍</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Zoek bedrijven..." style={{flex:1,background:'none',border:'none',color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/>{search&&<span onClick={()=>setSearch('')} style={{cursor:'pointer',color:t.muted}}>✕</span>}</div><button onClick={()=>setModal({type:'company'})} style={btnP}>+ Bedrijf</button></div>
       <div style={{display:'flex',flexDirection:'column',gap:6}}>
-        {filtered.map(co=>{const coContacts=contacts.filter(c=>c.companyId===co.id);const coOpps=opps.filter(o=>o.companyId===co.id&&o.stage!=='lost');const coVal=coOpps.reduce((s,o)=>s+o.value,0);return <div key={co.id} onClick={()=>setDetail({type:'company',id:co.id})} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer'}}>
+        {filtered.map(co=>{const coContacts=contacts.filter(c=>c.companyId===co.id);const coOpps=opps.filter(o=>o.companyId===co.id&&o.stage!=='lost');const coVal=coOpps.reduce((s,o)=>s+(o.value||0),0);return <div key={co.id} onClick={()=>setDetail({type:'company',id:co.id})} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer'}}>
           <div style={{width:42,height:42,borderRadius:10,background:`linear-gradient(135deg,${t.teal},${t.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,color:'#fff',flexShrink:0}}>{co.name.charAt(0)}</div>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:14,fontWeight:600}}>{co.name}</div>
