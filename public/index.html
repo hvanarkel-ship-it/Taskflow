@@ -367,6 +367,7 @@ const App = function(){
     if(authPass.length<6){setAuthErr(tx.fillPassword);return;}
     if(authMode==='register'&&!authName.trim()){setAuthErr(tx.fillName);return;}
     setAuthLoad(true);
+    let useLocal=false;
     try{
       const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:authMode,email:authEmail.trim().toLowerCase(),password:authPass,name:authName.trim()})});
       const d=await r.json();
@@ -374,9 +375,11 @@ const App = function(){
         const session={token:d.token,email:authEmail.trim().toLowerCase(),name:d.name||authName.trim(),expiresAt:new Date(Date.now()+14*24*60*60*1000).toISOString()};
         LS.set('auth_session',session);setAuthUser(session);
       }else if(r.status===409){setAuthErr(tx.emailInUse);}
+      else if(r.status>=500){useLocal=true;}
       else{setAuthErr(authMode==='login'?tx.loginError:tx.registerError);}
-    }catch{
-      // Offline fallback: local auth
+    }catch{useLocal=true;}
+    if(useLocal){
+      // Offline/error fallback: local auth
       const accounts=LS.get('local_accounts',{});
       if(authMode==='register'){
         if(accounts[authEmail.toLowerCase()]){setAuthErr(tx.emailInUse);setAuthLoad(false);return;}
