@@ -44,7 +44,7 @@ const fds=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'shor
 const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
-const APP_VERSION='9';
+const APP_VERSION='10';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -130,7 +130,7 @@ const TX={
     companyAdded:'Bedrijf toegevoegd',teamAdded:'Teamlid toegevoegd',
     fillTitle:'Vul een titel in',fillName:'Vul een naam in',fillTask:'Vul een taak in',fillCompanyName:'Vul een bedrijfsnaam in',
     won:'Deal gewonnen!',lost:'Deal verloren',dropped:'Deal geparkeerd',
-    export:'Data exporteren',import:'Data importeren',restore:'Backup terugzetten',dark:'Donker',light:'Licht',
+    export:'Data exporteren',import:'Data importeren',backup:'Backup downloaden',restore:'Backup terugzetten',dark:'Donker',light:'Licht',
     overdue:'Achterstallig',today:'Vandaag',upcoming:'Komend',all:'Alle',done:'Afgerond',
     weighted:'Gewogen',deals:'Deals',closedDeals:'Afgeronde deals',
     aiWelcome:'👋 Ik ben je AI sales assistent.\n\nIk analyseer je pipeline en help met:\n• Pipeline status & bottlenecks\n• Deal prioritering & volgende stappen\n• Contactstrategie & opvolging\n\nStel een vraag of typ "analyse".',
@@ -244,7 +244,7 @@ const TX={
     companyAdded:'Company added',teamAdded:'Team member added',
     fillTitle:'Please enter a title',fillName:'Please enter a name',fillTask:'Please enter a task',fillCompanyName:'Please enter a company name',
     won:'Deal won!',lost:'Deal lost',dropped:'Deal parked',
-    export:'Export data',import:'Import data',restore:'Restore backup',dark:'Dark',light:'Light',
+    export:'Export data',import:'Import data',backup:'Download backup',restore:'Restore backup',dark:'Dark',light:'Light',
     overdue:'Overdue',today:'Today',upcoming:'Upcoming',all:'All',done:'Completed',
     weighted:'Weighted',deals:'Deals',closedDeals:'Closed deals',
     aiWelcome:'👋 I\'m your AI sales assistant.\n\nI analyze your pipeline and help with:\n• Pipeline status & bottlenecks\n• Deal prioritization & next steps\n• Contact strategy & follow-up\n\nAsk a question or type "analyze".',
@@ -721,80 +721,53 @@ const App = function(){
     toast(lang==='nl'?`${ts.length} taken geëxporteerd naar agenda`:`${ts.length} tasks exported to calendar`);
   };
 
-  const exportData=()=>{
-    const data={contacts,companies,opps,tasks,atosTeam,interactions,exportedAt:new Date().toISOString(),version:APP_VERSION};
-    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download=`dpm-crm-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();
-    URL.revokeObjectURL(url);
-    toast(tx.exported);
-  };
-
-  const importData=()=>{
-    const input=document.createElement('input');input.type='file';input.accept='.json';
-    input.onchange=async(e)=>{
-      const file=e.target.files?.[0];if(!file)return;
-      try{
-        const text=await file.text();const d=JSON.parse(text);
-        if(!d.contacts&&!d.companies&&!d.opps){toast(tx.invalidFile,'info');return;}
-        const loc=lang==='nl'?'nl-NL':'en-US';
-        if(!confirm(`${tx.importConfirm} ${d.exportedAt?new Date(d.exportedAt).toLocaleString(loc):tx.unknown}?\n\n${(d.contacts||[]).length} ${tx.contactsCount}, ${(d.companies||[]).length} ${tx.companiesCount}, ${(d.opps||[]).length} ${tx.dealsCount}, ${(d.tasks||[]).length} ${tx.tasksCount}\n\n${tx.overwriteWarning}`))return;
-        if(d.contacts){setContacts(d.contacts);(d.contacts).forEach(c=>queueSync('contacts','POST',c));}
-        if(d.companies){setCompanies(d.companies);(d.companies).forEach(c=>queueSync('companies','POST',c));}
-        if(d.opps){setOpps(d.opps);(d.opps).forEach(o=>queueSync('opportunities','POST',o));}
-        if(d.tasks){setTasks(d.tasks);(d.tasks).forEach(t=>queueSync('tasks','POST',t));}
-        if(d.atosTeam){setAtosTeam(d.atosTeam);(d.atosTeam).forEach(a=>queueSync('atos','POST',a));}
-        if(d.interactions){setInteractions(d.interactions);(d.interactions).forEach(i=>queueSync('interactions','POST',i));}
-        toast(tx.imported);
-      }catch{toast(tx.importError,'info');}
-    };input.click();
-  };
-
-  const restoreBackup=()=>{try{
-    const regular=localStorage.getItem('pf_backup');
-    const preUpdate=localStorage.getItem('pf_backup_pre_update');
-    const loc=lang==='nl'?'nl-NL':'en-US';
-    const options=[];
-    if(regular){const b=JSON.parse(regular);options.push({label:`${tx.latestBackup}: ${new Date(b.ts).toLocaleString(loc)}`,data:b});}
-    if(preUpdate){const b=JSON.parse(preUpdate);options.push({label:`${tx.preUpdateBackup}: ${new Date(b.ts).toLocaleString(loc)} (v${b.version||'?'})`,data:b});}
-    if(!options.length){toast(tx.backupNotFound,'info');return;}
-    const choice=options.length===1?0:confirm(`${tx.twoBackups}\n\n1. ${options[0].label}\n${options[1]?'2. '+options[1].label:''}\n\n${tx.clickOk}`)?0:1;
-    const b=options[choice].data;
-    if(confirm(`${options[choice].label}\n\n${tx.overwriteCurrent}`)){
-      setContacts(b.contacts||[]);setCompanies(b.companies||[]);setOpps(b.opps||[]);setTasks(b.tasks||[]);setAtosTeam(b.atosTeam||b.atos||[]);setInteractions(b.interactions||[]);toast(tx.backupRestore);
-    }
-  }catch{toast(tx.backupError,'info');}};
-
-  const dbBackup=async()=>{
-    if(dbStatus!=='connected'){toast(tx.dbBackupError,'info');return;}
+  // ── Unified backup: export current state as JSON ──
+  const doBackup=async()=>{
     try{
-      const token=authUser?.token;if(!token){toast(tx.loginError,'info');return;}
-      const r=await fetch('/api/backup',{headers:{'Authorization':'Bearer '+token}});
-      const d=await r.json();if(!r.ok||!d.backup){toast(tx.dbBackupError,'info');return;}
-      const blob=new Blob([JSON.stringify(d.backup,null,2)],{type:'application/json'});
+      let data;
+      // Try Neon first if connected
+      if(dbStatus==='connected'&&authUser?.token){
+        const r=await fetch('/api/backup',{headers:{'Authorization':'Bearer '+authUser.token}});
+        const d=await r.json();
+        if(r.ok&&d.backup){data=d.backup;}
+      }
+      // Fallback: export from local state
+      if(!data)data={companies,contacts,opportunities:opps.map(o=>snakeObj(o)),tasks:tasks.map(t=>snakeObj(t)),atos_team:atosTeam.map(a=>snakeObj(a)),interactions:interactions.map(i=>snakeObj(i)),exported_at:new Date().toISOString(),version:APP_VERSION};
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
       const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');a.href=url;a.download=`dpm-db-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();
+      const a=document.createElement('a');a.href=url;a.download=`dpm-crm-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();
       URL.revokeObjectURL(url);
       toast(tx.dbBackupSuccess);
     }catch{toast(tx.dbBackupError,'info');}
   };
 
-  const dbRestore=async()=>{
-    if(dbStatus!=='connected'){toast(tx.dbBackupError,'info');return;}
+  // ── Unified restore: import JSON → local state + Neon ──
+  const doRestore=()=>{
     const input=document.createElement('input');input.type='file';input.accept='.json';
     input.onchange=async(e)=>{
       const file=e.target.files?.[0];if(!file)return;
       try{
-        const text=await file.text();const backup=JSON.parse(text);
+        const text=await file.text();const d=JSON.parse(text);
+        // Support both old (camelCase) and new (snake_case/Neon) format
+        const cts=d.contacts||[];const cos=d.companies||[];
+        const ops=d.opportunities||d.opps||[];const tks=d.tasks||[];
+        const ats=d.atos_team||d.atosTeam||d.atos||[];const ints=d.interactions||[];
+        if(!cts.length&&!cos.length&&!ops.length){toast(tx.invalidFile,'info');return;}
         const loc=lang==='nl'?'nl-NL':'en-US';
-        const info=`${(backup.companies||[]).length} ${tx.companiesCount}, ${(backup.contacts||[]).length} ${tx.contactsCount}, ${(backup.opportunities||[]).length} ${tx.dealsCount}, ${(backup.tasks||[]).length} ${tx.tasksCount}`;
-        if(!confirm(`${tx.dbRestoreConfirm} ${backup.exported_at?new Date(backup.exported_at).toLocaleString(loc):tx.unknown}?\n\n${info}\n\n${tx.overwriteWarning}`))return;
+        const ts=d.exported_at||d.exportedAt;
+        if(!confirm(`${tx.dbRestoreConfirm} ${ts?new Date(ts).toLocaleString(loc):tx.unknown}?\n\n${cos.length} ${tx.companiesCount}, ${cts.length} ${tx.contactsCount}, ${ops.length} ${tx.dealsCount}, ${tks.length} ${tx.tasksCount}\n\n${tx.overwriteWarning}`))return;
         toast(tx.dbRestoring);
-        const token=authUser?.token;if(!token){toast(tx.loginError,'info');return;}
-        const r=await fetch('/api/backup',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({backup})});
-        const d=await r.json();
-        if(r.ok&&d.restored){toast(tx.dbRestoreSuccess);}else{toast(d.error||tx.dbBackupError,'info');}
-      }catch{toast(tx.dbBackupError,'info');}
+        // Restore to Neon if connected
+        if(dbStatus==='connected'&&authUser?.token){
+          const backup={companies:cos,contacts:cts,opportunities:ops,tasks:tks,atos_team:ats,interactions:ints};
+          await fetch('/api/backup',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({backup})}).catch(()=>{});
+        }
+        // Restore to local state (convert snake_case to camelCase if needed)
+        const toCamelArr=arr=>arr.map(x=>x.company_id!==undefined||x.contact_id!==undefined||x.user_id!==undefined?camelObj(x):x);
+        setContacts(toCamelArr(cts));setCompanies(toCamelArr(cos));setOpps(toCamelArr(ops).map(o=>({...o,techTags:o.techTags||o.tech_tags||[],contactIds:o.contactIds||o.contact_ids||[],notes:o.notes||[]})));
+        setTasks(toCamelArr(tks));setAtosTeam(toCamelArr(ats));setInteractions(toCamelArr(ints));
+        toast(tx.dbRestoreSuccess);
+      }catch(err){console.error('Restore error:',err);toast(tx.dbBackupError,'info');}
     };input.click();
   };
 
@@ -1769,13 +1742,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           <div style={{borderTop:`0.5px solid ${t.border}`,marginTop:16,paddingTop:12}}>
             <div onClick={()=>setDark(!dark)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>{dark?'🌙':'☀️'} {tx.dark}/{tx.light}</div>
             <div onClick={()=>{const nl=lang==='nl'?'en':'nl';setLang(nl);LS.set('lang',nl);}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🌐 {lang==='nl'?'English':'Nederlands'}</div>
-            <div onClick={exportData} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📤 {tx.export}</div>
-            <div onClick={importData} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📥 {tx.import}</div>
-            <div onClick={restoreBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>💾 {tx.restore}</div>
-            {dbStatus==='connected'&&<>
-              <div onClick={dbBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🗄️ {tx.dbBackup}</div>
-              <div onClick={dbRestore} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🔄 {tx.dbRestore}</div>
-            </>}
+            <div onClick={doBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📤 {tx.backup}</div>
+            <div onClick={doRestore} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📥 {tx.restore}</div>
             {installPrompt&&<div onClick={installApp} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.accent,fontSize:13,fontWeight:600}}>{tx.installPrompt}</div>}
           </div>
         </nav>
@@ -1792,16 +1760,16 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       </aside>
 
       <main style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-        <header style={{padding:'14px 24px',borderBottom:`0.5px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',background:t.bg}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}><button className="ham" onClick={()=>setSb(true)} style={{display:'none',width:36,height:36,border:'none',background:t.elev,borderRadius:10,cursor:'pointer',color:t.text,fontSize:18,alignItems:'center',justifyContent:'center'}}>☰</button><h1 style={{fontSize:24,fontWeight:800,letterSpacing:-.5}}>{titles[view]}</h1></div>
-          <div style={{display:'flex',gap:8}}>
-            {view==='pipeline'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'kanban',l:tx.kanbanView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setPipeView(v.id)} style={{padding:'4px 12px',borderRadius:6,fontSize:12,fontWeight:pipeView===v.id?600:400,border:'none',background:pipeView===v.id?t.accent:'transparent',color:pipeView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit'}}>{v.ic} {v.l}</button>)}</div><button onClick={()=>setModal({type:'import'})} style={btnG}>📥 {tx.import}</button><button onClick={()=>setModal({type:'opp'})} style={btnP}>{tx.addDeal}</button></>}
-            {view==='contacts'&&<button onClick={()=>setModal({type:'contact'})} style={btnP}>{tx.addContact2}</button>}
-            {view==='companies'&&<button onClick={()=>setModal({type:'company'})} style={btnP}>{tx.addCompany}</button>}
-            {view==='tasks'&&<button onClick={()=>setModal({type:'task'})} style={btnP}>{tx.addTask}</button>}
-            {view==='dashboard'&&<button onClick={()=>setModal({type:'opp'})} style={btnP}>{tx.addDeal}</button>}
-            <button onClick={runDailyScan} style={{height:36,padding:'0 12px',borderRadius:10,background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,fontFamily:'inherit',gap:4}} title={tx.dailyScan}>🔍 {tx.scanBtn}</button>
-            <button onClick={()=>setAiOpen(!aiOpen)} style={{width:36,height:36,borderRadius:10,background:aiOpen?t.accentS:t.glass,backdropFilter:t.blur,border:`0.5px solid ${aiOpen?t.accent:t.border}`,color:aiOpen?t.accent:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}} title={tx.aiTitle}>✦</button>
+        <header style={{padding:'10px 16px',borderBottom:`0.5px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexWrap:'wrap',background:t.bg}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}><button className="ham" onClick={()=>setSb(true)} style={{display:'none',width:36,height:36,border:'none',background:t.elev,borderRadius:10,cursor:'pointer',color:t.text,fontSize:18,alignItems:'center',justifyContent:'center'}}>☰</button><h1 style={{fontSize:20,fontWeight:800,letterSpacing:-.5}}>{titles[view]}</h1></div>
+          <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+            {view==='pipeline'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'kanban',l:tx.kanbanView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setPipeView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:pipeView===v.id?600:400,border:'none',background:pipeView===v.id?t.accent:'transparent',color:pipeView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div><button onClick={()=>setModal({type:'import'})} style={{...btnG,padding:'6px 10px',fontSize:11}}>📥</button><button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button></>}
+            {view==='contacts'&&<button onClick={()=>setModal({type:'contact'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addContact2}</button>}
+            {view==='companies'&&<button onClick={()=>setModal({type:'company'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addCompany}</button>}
+            {view==='tasks'&&<button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addTask}</button>}
+            {view==='dashboard'&&<button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button>}
+            <button onClick={runDailyScan} style={{height:32,padding:'0 10px',borderRadius:8,background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,fontFamily:'inherit',gap:3,minHeight:32,minWidth:32}} title={tx.dailyScan}>🔍</button>
+            <button onClick={()=>setAiOpen(!aiOpen)} style={{width:32,height:32,borderRadius:8,background:aiOpen?t.accentS:t.glass,backdropFilter:t.blur,border:`0.5px solid ${aiOpen?t.accent:t.border}`,color:aiOpen?t.accent:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,minHeight:32,minWidth:32}} title={tx.aiTitle}>✦</button>
           </div>
         </header>
         <div className="mc" style={{flex:1,overflowY:'auto',padding:'20px 24px',animation:'fadeIn .3s'}}>
