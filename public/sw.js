@@ -1,4 +1,4 @@
-const CACHE = 'dpm-crm-v1';
+const CACHE = 'dpm-crm-v9';
 const STATIC = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -13,6 +13,7 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
+  // API calls: network-first, fallback to cache
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/.netlify/')) {
     e.respondWith(fetch(e.request).then(r => {
       if (e.request.method === 'GET' && r.ok) { const c = r.clone(); caches.open(CACHE).then(ca => ca.put(e.request, c)); }
@@ -20,6 +21,15 @@ self.addEventListener('fetch', e => {
     }).catch(() => caches.match(e.request)));
     return;
   }
+  // HTML navigation: network-first so updates always arrive
+  if (e.request.mode === 'navigate' || url.pathname === '/' || url.pathname.endsWith('.html')) {
+    e.respondWith(fetch(e.request).then(r => {
+      if (r.ok) { const cl = r.clone(); caches.open(CACHE).then(ca => ca.put(e.request, cl)); }
+      return r;
+    }).catch(() => caches.match(e.request).then(c => c || caches.match('/'))));
+    return;
+  }
+  // Other static assets: cache-first
   e.respondWith(caches.match(e.request).then(c => {
     if (c) return c;
     return fetch(e.request).then(r => {
