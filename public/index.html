@@ -44,7 +44,7 @@ const fds=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'shor
 const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
-const APP_VERSION='11';
+const APP_VERSION='12';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -555,12 +555,14 @@ const App = function(){
     syncTimer.current=setTimeout(flushSync,500);
   };
 
-  useEffect(()=>{LS.set('contacts',contacts);},[contacts]);
-  useEffect(()=>{LS.set('companies',companies);},[companies]);
-  useEffect(()=>{LS.set('opps',opps);},[opps]);
-  useEffect(()=>{LS.set('tasks',tasks);},[tasks]);
-  useEffect(()=>{LS.set('atos',atosTeam);},[atosTeam]);
-  useEffect(()=>{LS.set('interactions',interactions);},[interactions]);
+  // Save to localStorage — never overwrite existing data with empty arrays
+  const lsGuard=(k,v)=>{if(v.length>0||!LS.has(k)||LS.get(k,[]).length===0)LS.set(k,v);};
+  useEffect(()=>{lsGuard('contacts',contacts);},[contacts]);
+  useEffect(()=>{lsGuard('companies',companies);},[companies]);
+  useEffect(()=>{lsGuard('opps',opps);},[opps]);
+  useEffect(()=>{lsGuard('tasks',tasks);},[tasks]);
+  useEffect(()=>{lsGuard('atos',atosTeam);},[atosTeam]);
+  useEffect(()=>{lsGuard('interactions',interactions);},[interactions]);
 
   // ── Load data from Neon on login ──
   const neonLoaded=useRef(false);
@@ -572,27 +574,35 @@ const App = function(){
       try{
         const h=await fetch('/api/health',{signal:AbortSignal.timeout(4000)});
         if(!h.ok)return;
-        dbReady.current=true;neonLoaded.current=true;
-        const[cos,cts,ops,tks,ats,ints]=await Promise.all([
-          fetch('/api/companies',{headers}).then(r=>r.json()),
-          fetch('/api/contacts',{headers}).then(r=>r.json()),
-          fetch('/api/opportunities',{headers}).then(r=>r.json()),
-          fetch('/api/tasks',{headers}).then(r=>r.json()),
-          fetch('/api/atos',{headers}).then(r=>r.json()),
-          fetch('/api/interactions',{headers}).then(r=>r.json()),
+        neonLoaded.current=true;
+        // Fetch all data — check HTTP status before trusting response
+        const resps=await Promise.all([
+          fetch('/api/companies',{headers}),
+          fetch('/api/contacts',{headers}),
+          fetch('/api/opportunities',{headers}),
+          fetch('/api/tasks',{headers}),
+          fetch('/api/atos',{headers}),
+          fetch('/api/interactions',{headers}),
         ]);
+        // If any API returned an error, don't trust the data — keep localStorage
+        if(resps.some(r=>!r.ok)){console.warn('Neon: some APIs failed, keeping local data');dbReady.current=true;return;}
+        const[cos,cts,ops,tks,ats,ints]=await Promise.all(resps.map(r=>r.json()));
         const cc=camelArr(cos.companies||cos.data||[]);
         const ct=camelArr(cts.contacts||cts.data||[]);
         const op=camelArr(ops.opportunities||ops.data||[]).map(o=>({...o,techTags:o.techTags||[],contactIds:o.contactIds||[],notes:o.notes||[]}));
         const tk=camelArr(tks.tasks||tks.data||[]);
         const at=camelArr(ats.team||ats.data||[]);
         const it=camelArr(ints.interactions||ints.data||[]);
-        // Only replace if Neon has data, otherwise push local to Neon
-        if(cc.length+ct.length+op.length+tk.length>0){
+        const localCount=contacts.length+companies.length+opps.length+tasks.length;
+        const neonCount=cc.length+ct.length+op.length+tk.length;
+        // Neon has data — use it as source of truth
+        if(neonCount>0){
+          // Safety backup: save current localStorage before overwriting
+          try{localStorage.setItem('pf_backup_before_neon',JSON.stringify({contacts,companies,opps,tasks,atosTeam,interactions,ts:new Date().toISOString()}));}catch{}
           setCompanies(cc);setContacts(ct);setOpps(op);setTasks(tk);setAtosTeam(at);setInteractions(it);
           toast(lang==='nl'?'Data geladen uit database':'Data loaded from database');
-        }else if(contacts.length+companies.length+opps.length+tasks.length>0){
-          // Local has data, push to Neon (initial seed)
+        }else if(localCount>0){
+          // Neon is empty but local has data — seed Neon from localStorage
           const pushAll=async()=>{
             for(const c of companies)await apiCall('companies','POST',snakeObj(c)).catch(()=>{});
             for(const c of contacts)await apiCall('contacts','POST',snakeObj(c)).catch(()=>{});
@@ -604,7 +614,8 @@ const App = function(){
           };
           pushAll();
         }
-      }catch(e){console.error('Neon load error:',e);}
+        dbReady.current=true;
+      }catch(e){console.error('Neon load error:',e);dbReady.current=true;}
     };
     load();
   },[authUser]);
