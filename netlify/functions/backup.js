@@ -97,6 +97,18 @@ exports.handler = async (event) => {
       }});
     }
 
+    // DELETE = clear all user data (empty database)
+    if (event.httpMethod === 'DELETE') {
+      await sql`DELETE FROM interactions WHERE user_id = ${user.id}`;
+      await sql`DELETE FROM opp_notes WHERE opp_id IN (SELECT id FROM opportunities WHERE user_id = ${user.id})`;
+      await sql`DELETE FROM tasks WHERE user_id = ${user.id}`;
+      await sql`DELETE FROM opportunities WHERE user_id = ${user.id}`;
+      await sql`DELETE FROM contacts WHERE user_id = ${user.id}`;
+      await sql`DELETE FROM companies WHERE user_id = ${user.id}`;
+      await sql`DELETE FROM atos_team WHERE user_id = ${user.id}`;
+      return ok({ cleared: true });
+    }
+
     return err(405, 'Method not allowed');
   } catch (e) {
     console.error('Backup error:', e);
