@@ -44,7 +44,7 @@ const fds=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'shor
 const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
-const APP_VERSION='4.0';
+const APP_VERSION='5';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -333,6 +333,31 @@ const SearchSelect=({value,onChange,options,placeholder,style:sx,t:theme,lang:_l
   </div>;
 };
 
+// ═══ ERROR BOUNDARY ═════════════════════════════════════
+class ErrorBoundary extends React.Component{
+  constructor(p){super(p);this.state={error:null};}
+  static getDerivedStateFromError(e){return{error:e};}
+  componentDidCatch(e,info){console.error('CRM crash:',e,info);}
+  render(){
+    if(this.state.error){
+      const dark=window.matchMedia?.('(prefers-color-scheme:dark)').matches;
+      const bg=dark?'#000':'#f2f2f7';const text=dark?'#f5f5f7':'#1c1c1e';const dim=dark?'#98989f':'#8e8e93';
+      return React.createElement('div',{style:{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:bg,padding:20}},
+        React.createElement('div',{style:{maxWidth:400,textAlign:'center',color:text}},
+          React.createElement('div',{style:{fontSize:48,marginBottom:16}},'⚠️'),
+          React.createElement('h2',{style:{fontSize:20,fontWeight:700,marginBottom:8}},'Er ging iets mis'),
+          React.createElement('p',{style:{fontSize:14,color:dim,marginBottom:20}},String(this.state.error?.message||'Onbekende fout')),
+          React.createElement('div',{style:{display:'flex',gap:10,justifyContent:'center'}},
+            React.createElement('button',{onClick:()=>location.reload(),style:{padding:'10px 20px',borderRadius:10,background:'#007AFF',color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer'}},'Herladen'),
+            React.createElement('button',{onClick:()=>{try{Object.keys(localStorage).filter(k=>k.startsWith('pf_')&&k!=='pf_auth_session'&&k!=='pf_dark'&&k!=='pf_lang').forEach(k=>localStorage.removeItem(k));}catch{}location.reload();},style:{padding:'10px 20px',borderRadius:10,background:dark?'#3a3a3c':'#e5e5ea',color:text,border:'none',fontSize:14,fontWeight:600,cursor:'pointer'}},'Reset data & herladen')
+          )
+        )
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ═══ APP ════════════════════════════════════════════════
 const App = function(){
   const[dark,setDark]=useState(()=>LS.get('dark',true));
@@ -424,12 +449,13 @@ const App = function(){
       </div>
     </>;
   }
-  const[contacts,setContacts]=useState(()=>LS.has('contacts')?LS.get('contacts',[]):[]);
-  const[companies,setCompanies]=useState(()=>LS.has('companies')?LS.get('companies',[]):[]);
-  const[opps,setOpps]=useState(()=>LS.has('opps')?LS.get('opps',[]):[]);
-  const[tasks,setTasks]=useState(()=>LS.has('tasks')?LS.get('tasks',[]):[]);
-  const[atosTeam,setAtosTeam]=useState(()=>LS.has('atos')?LS.get('atos',[]):[]);
-  const[interactions,setInteractions]=useState(()=>LS.get('interactions',[]));
+  const safeArr=(k)=>{const v=LS.get(k,[]);return Array.isArray(v)?v:[];};
+  const[contacts,setContacts]=useState(()=>safeArr('contacts'));
+  const[companies,setCompanies]=useState(()=>safeArr('companies'));
+  const[opps,setOpps]=useState(()=>safeArr('opps'));
+  const[tasks,setTasks]=useState(()=>safeArr('tasks'));
+  const[atosTeam,setAtosTeam]=useState(()=>safeArr('atos'));
+  const[interactions,setInteractions]=useState(()=>safeArr('interactions'));
   const[view,setView]=useState('pipeline');
   const[sb,setSb]=useState(false);
   const[modal,setModal_]=useState(null);
@@ -1581,7 +1607,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
   </>;
 }
 
-ReactDOM.createRoot(document.getElementById("app")).render(<App/>);
+ReactDOM.createRoot(document.getElementById("app")).render(<ErrorBoundary><App/></ErrorBoundary>);
 </script>
 </body>
 </html>
