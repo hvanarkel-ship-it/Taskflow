@@ -45,7 +45,7 @@ const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-dig
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
 const linkify=(text)=>{if(!text)return '';const urlRe=/(https?:\/\/[^\s<]+)/g;const parts=text.split(urlRe);return parts.map((p,i)=>/^https?:\/\//.test(p)?React.createElement('a',{key:i,href:p,target:'_blank',rel:'noopener noreferrer',style:{color:'#007AFF',textDecoration:'underline',wordBreak:'break-all'}},p):p);};
-const APP_VERSION='14';
+const APP_VERSION='15';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -1257,7 +1257,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             <div style={{...card,padding:'10px 14px',flex:'1 1 80px'}}><div style={lbl}>{tx.chance}</div><div style={{fontSize:20,fontWeight:700}}>{o.probability}%</div></div>
             <div style={{...card,padding:'10px 14px',flex:'1 1 80px'}}><div style={lbl}>{tx.weighted}</div><div style={{fontSize:20,fontWeight:700,color:t.green}}>{eur(Math.round((o.value||0)*(o.probability||0)/100))}</div></div>
           </div>
-          {o.expectedCloseDate&&<div style={{fontSize:12,color:t.dim,marginBottom:8}}>📅 {tx.closeDate}: <strong>{fd(o.expectedCloseDate)}</strong></div>}
+          <div style={{fontSize:12,color:t.dim,marginBottom:8,display:'flex',alignItems:'center',gap:6}}>📅 {tx.closeDate}: <input type="date" value={o.expectedCloseDate||''} onChange={e=>updateOpp(o.id,{expectedCloseDate:e.target.value,updatedAt:new Date().toISOString()})} style={{border:'none',background:'transparent',color:t.text,fontWeight:700,fontSize:12,fontFamily:'inherit',cursor:'pointer',padding:'2px 4px',borderRadius:6,outline:'none'}}/></div>
           <div style={{fontSize:12,color:t.muted,marginBottom:8}}>{tx.phase.toUpperCase()}</div>
           <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:16}}>{STAGES.map(s=><button key={s.id} onClick={()=>{updateOpp(o.id,{stage:s.id,updatedAt:new Date().toISOString(),closedAt:(s.id==='won'||s.id==='lost'||s.id==='dropped')?new Date().toISOString():null});if(s.id==='won')toast('🏆 '+tx.won);else if(s.id==='lost')toast(tx.lost,'info');else if(s.id==='dropped')toast(tx.dropped,'info');}} style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:600,border:`1.5px solid ${o.stage===s.id?s.c:'transparent'}`,background:o.stage===s.id?`${s.c}20`:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:o.stage===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}</div>
         </div>
