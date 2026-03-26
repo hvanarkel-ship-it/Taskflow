@@ -44,7 +44,7 @@ const fds=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'shor
 const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
-const APP_VERSION='7';
+const APP_VERSION='8';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -365,7 +365,7 @@ class ErrorBoundary extends React.Component{
           React.createElement('p',{style:{fontSize:14,color:dim,marginBottom:20}},String(this.state.error?.message||'Onbekende fout')),
           React.createElement('div',{style:{display:'flex',gap:10,justifyContent:'center'}},
             React.createElement('button',{onClick:()=>location.reload(),style:{padding:'10px 20px',borderRadius:10,background:'#007AFF',color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer'}},'Herladen'),
-            React.createElement('button',{onClick:()=>{try{Object.keys(localStorage).filter(k=>k.startsWith('pf_')&&k!=='pf_auth_session'&&k!=='pf_dark'&&k!=='pf_lang').forEach(k=>localStorage.removeItem(k));}catch{}location.reload();},style:{padding:'10px 20px',borderRadius:10,background:dark?'#3a3a3c':'#e5e5ea',color:text,border:'none',fontSize:14,fontWeight:600,cursor:'pointer'}},'Reset data & herladen')
+            React.createElement('button',{onClick:()=>{try{Object.keys(localStorage).filter(k=>k.startsWith('pf_')&&k!=='pf_auth_session'&&k!=='pf_dark'&&k!=='pf_lang'&&k!=='pf_backup'&&!k.includes('backup_pre')).forEach(k=>localStorage.removeItem(k));}catch{}location.reload();},style:{padding:'10px 20px',borderRadius:10,background:dark?'#3a3a3c':'#e5e5ea',color:text,border:'none',fontSize:14,fontWeight:600,cursor:'pointer'}},'Reset data & herladen')
           )
         )
       );
@@ -472,6 +472,32 @@ const App = function(){
   const[tasks,setTasks]=useState(()=>safeArr('tasks'));
   const[atosTeam,setAtosTeam]=useState(()=>safeArr('atos'));
   const[interactions,setInteractions]=useState(()=>safeArr('interactions'));
+
+  // Auto-restore: if all data is empty but a backup exists, restore it
+  const didAutoRestore=useRef(false);
+  useEffect(()=>{
+    if(didAutoRestore.current)return;didAutoRestore.current=true;
+    if(contacts.length===0&&companies.length===0&&opps.length===0&&tasks.length===0){
+      try{
+        const bk=localStorage.getItem('pf_backup')||localStorage.getItem('pf_backup_pre_update');
+        if(bk){
+          const b=JSON.parse(bk);
+          if((b.contacts?.length||0)+(b.companies?.length||0)+(b.opps?.length||0)>0){
+            const loc=lang==='nl'?'nl-NL':'en-US';
+            const ts=b.ts?new Date(b.ts).toLocaleString(loc):'';
+            if(confirm(lang==='nl'?`Data is leeg maar er is een backup gevonden${ts?' van '+ts:''}. Wilt u deze terugzetten?`:`Data is empty but a backup was found${ts?' from '+ts:''}. Do you want to restore it?`)){
+              if(b.contacts)setContacts(b.contacts);
+              if(b.companies)setCompanies(b.companies);
+              if(b.opps)setOpps(b.opps);
+              if(b.tasks)setTasks(b.tasks);
+              if(b.atosTeam||b.atos)setAtosTeam(b.atosTeam||b.atos);
+              if(b.interactions)setInteractions(b.interactions);
+            }
+          }
+        }
+      }catch{}
+    }
+  },[]);
   const[view,setView]=useState('pipeline');
   const[sb,setSb]=useState(false);
   const[modal,setModal_]=useState(null);
