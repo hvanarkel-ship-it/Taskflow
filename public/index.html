@@ -463,30 +463,6 @@ const App = function(){
 
   const doLogout=()=>{LS.set('auth_session',null);setAuthUser(null);setAuthEmail('');setAuthPass('');setAuthName('');setAuthErr('');};
 
-  if(!authUser){
-    return <>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:Outfit,system-ui,sans-serif;background:${t.bg};color:${t.text}}`}</style>
-      <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-        <div style={{width:'100%',maxWidth:400,background:t.card,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:20,padding:32,boxShadow:t.shadow}}>
-          <div style={{textAlign:'center',marginBottom:28}}>
-            <div style={{width:56,height:56,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:14,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:24,fontWeight:800,color:'#fff',marginBottom:12}}>D</div>
-            <div style={{fontSize:24,fontWeight:800,letterSpacing:-.5}}>{tx.loginTitle}</div>
-            <div style={{fontSize:13,color:t.dim,marginTop:4}}>{authMode==='login'?tx.loginSub:tx.registerSub}</div>
-          </div>
-          {authMode==='register'&&<div style={{marginBottom:14}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.name}</label><input value={authName} onChange={e=>setAuthName(e.target.value)} placeholder={tx.fullName} style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>}
-          <div style={{marginBottom:14}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.email}</label><input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&doAuth()} placeholder={tx.emailPlaceholder} style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>
-          <div style={{marginBottom:20}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.password}</label><input type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&doAuth()} placeholder="••••••••" style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>
-          {authErr&&<div style={{padding:'8px 14px',borderRadius:8,background:t.redS,color:t.red,fontSize:12,marginBottom:14,fontWeight:500}}>{authErr}</div>}
-          <button onClick={doAuth} disabled={authLoad} style={{width:'100%',padding:'12px',borderRadius:10,background:t.accent,color:'#fff',border:'none',fontFamily:'inherit',fontSize:14,fontWeight:600,cursor:'pointer',opacity:authLoad?.6:1}}>{authLoad?'...':(authMode==='login'?tx.login:tx.register)}</button>
-          <div style={{textAlign:'center',marginTop:16,fontSize:13,color:t.dim}}>{authMode==='login'?tx.noAccount:tx.hasAccount} <span onClick={()=>{setAuthMode(authMode==='login'?'register':'login');setAuthErr('');}} style={{color:t.accent,cursor:'pointer',fontWeight:600}}>{authMode==='login'?tx.register:tx.login}</span></div>
-          <div style={{display:'flex',justifyContent:'center',gap:12,marginTop:20}}>
-            <span onClick={()=>setDark(!dark)} style={{fontSize:12,color:t.dim,cursor:'pointer'}}>{dark?'🌙':'☀️'} {tx.dark}/{tx.light}</span>
-            <span onClick={()=>{const nl=lang==='nl'?'en':'nl';setLang(nl);LS.set('lang',nl);}} style={{fontSize:12,color:t.dim,cursor:'pointer'}}>🌐 {lang==='nl'?'English':'Nederlands'}</span>
-          </div>
-        </div>
-      </div>
-    </>;
-  }
   const safeArr=(k)=>{const v=LS.get(k,[]);return Array.isArray(v)?v:[];};
   const[contacts,setContacts]=useState(()=>safeArr('contacts'));
   const[companies,setCompanies]=useState(()=>safeArr('companies'));
@@ -1727,6 +1703,31 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
 
   const titles={pipeline:tx.pipeline,contacts:tx.contacts,companies:tx.companies,atos:tx.atos,tasks:tx.tasks,dashboard:tx.dashboard,reports:tx.reports};
   const nav=[{id:'dashboard',ic:'◆',l:tx.dashboard},{id:'pipeline',ic:'📊',l:tx.pipeline},{id:'companies',ic:'🏢',l:tx.companies},{id:'contacts',ic:'👤',l:tx.contacts},{id:'atos',ic:'🔵',l:tx.atos},{id:'tasks',ic:'☑',l:tx.tasks},{id:'reports',ic:'📈',l:tx.reports}];
+
+  if(!authUser){
+    return <>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:Outfit,system-ui,sans-serif;background:${t.bg};color:${t.text}}`}</style>
+      <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+        <div style={{width:'100%',maxWidth:400,background:t.card,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:20,padding:32,boxShadow:t.shadow}}>
+          <div style={{textAlign:'center',marginBottom:28}}>
+            <div style={{width:56,height:56,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:14,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:24,fontWeight:800,color:'#fff',marginBottom:12}}>D</div>
+            <div style={{fontSize:24,fontWeight:800,letterSpacing:-.5}}>{tx.loginTitle}</div>
+            <div style={{fontSize:13,color:t.dim,marginTop:4}}>{authMode==='login'?tx.loginSub:tx.registerSub}</div>
+          </div>
+          {authMode==='register'&&<div style={{marginBottom:14}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.name}</label><input value={authName} onChange={e=>setAuthName(e.target.value)} placeholder={tx.fullName} style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>}
+          <div style={{marginBottom:14}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.email}</label><input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&doAuth()} placeholder={tx.emailPlaceholder} style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>
+          <div style={{marginBottom:20}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.password}</label><input type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&doAuth()} placeholder="••••••••" style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>
+          {authErr&&<div style={{padding:'8px 14px',borderRadius:8,background:t.redS,color:t.red,fontSize:12,marginBottom:14,fontWeight:500}}>{authErr}</div>}
+          <button onClick={doAuth} disabled={authLoad} style={{width:'100%',padding:'12px',borderRadius:10,background:t.accent,color:'#fff',border:'none',fontFamily:'inherit',fontSize:14,fontWeight:600,cursor:'pointer',opacity:authLoad?.6:1}}>{authLoad?'...':(authMode==='login'?tx.login:tx.register)}</button>
+          <div style={{textAlign:'center',marginTop:16,fontSize:13,color:t.dim}}>{authMode==='login'?tx.noAccount:tx.hasAccount} <span onClick={()=>{setAuthMode(authMode==='login'?'register':'login');setAuthErr('');}} style={{color:t.accent,cursor:'pointer',fontWeight:600}}>{authMode==='login'?tx.register:tx.login}</span></div>
+          <div style={{display:'flex',justifyContent:'center',gap:12,marginTop:20}}>
+            <span onClick={()=>setDark(!dark)} style={{fontSize:12,color:t.dim,cursor:'pointer'}}>{dark?'🌙':'☀️'} {tx.dark}/{tx.light}</span>
+            <span onClick={()=>{const nl=lang==='nl'?'en':'nl';setLang(nl);LS.set('lang',nl);}} style={{fontSize:12,color:t.dim,cursor:'pointer'}}>🌐 {lang==='nl'?'English':'Nederlands'}</span>
+          </div>
+        </div>
+      </div>
+    </>;
+  }
 
   return <>
     <style>{`
