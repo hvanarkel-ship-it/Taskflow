@@ -44,11 +44,29 @@ const fds=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'shor
 const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
-const APP_VERSION='8';
+const APP_VERSION='9';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
   has:(k)=>{try{return localStorage.getItem('pf_'+k)!==null;}catch{return false;}},
+};
+
+// ── Neon API helper — camelCase ↔ snake_case ──
+const toSnake=s=>s.replace(/[A-Z]/g,c=>'_'+c.toLowerCase());
+const toCamel=s=>s.replace(/_([a-z])/g,(_,c)=>c.toUpperCase());
+const snakeObj=o=>{const r={};for(const k in o)r[toSnake(k)]=o[k];return r;};
+const camelObj=o=>{const r={};for(const k in o)r[toCamel(k)]=o[k];return r;};
+const camelArr=a=>(a||[]).map(camelObj);
+
+const apiCall=async(endpoint,method='GET',body=null)=>{
+  const token=LS.get('auth_session',null)?.token;
+  const opts={method,headers:{'Content-Type':'application/json'}};
+  if(token)opts.headers['Authorization']='Bearer '+token;
+  if(body)opts.body=JSON.stringify(body);
+  const r=await fetch('/api/'+endpoint,opts);
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.error||'API error');
+  return d;
 };
 
 // ─── DATA PROTECTION: versioned migration ────────────
@@ -211,6 +229,8 @@ const TX={
     actionTaskCreated:'Taak aangemaakt vanuit volgende actie',actionCleared:'Volgende actie afgerond',
     // Contact groups
     companyContacts:'Klant contacten',partnerContacts:'Partner contacten',otherContacts:'Overige contacten',
+    // Calendar export
+    exportCalendar:'Exporteer agenda',tasksExported:'taken geëxporteerd naar agenda',
   },
   en:{
     pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',atos:'Atos Team',tasks:'Tasks',reports:'Reports',
@@ -323,6 +343,8 @@ const TX={
     actionTaskCreated:'Task created from next action',actionCleared:'Next action completed',
     // Contact groups
     companyContacts:'Client contacts',partnerContacts:'Partner contacts',otherContacts:'Other contacts',
+    // Calendar export
+    exportCalendar:'Export calendar',tasksExported:'tasks exported to calendar',
   }
 };
 
@@ -533,12 +555,83 @@ const App = function(){
   const[aiLoad,setAiLoad]=useState(false);
   const aiEnd=useRef(null);
 
+  // ── Neon sync: save to localStorage + queue API write ──
+  const syncQueue=useRef([]);
+  const syncTimer=useRef(null);
+  const dbReady=useRef(false);
+
+  const flushSync=useCallback(async()=>{
+    if(!dbReady.current||syncQueue.current.length===0)return;
+    const batch=[...syncQueue.current];syncQueue.current=[];
+    const token=authUser?.token;if(!token)return;
+    const headers={'Content-Type':'application/json','Authorization':'Bearer '+token};
+    for(const op of batch){
+      try{
+        if(op.method==='DELETE')await fetch('/api/'+op.endpoint+'?id='+op.id,{method:'DELETE',headers});
+        else await fetch('/api/'+op.endpoint,{method:op.method,headers,body:JSON.stringify(op.body)});
+      }catch(e){console.error('Sync error:',e);}
+    }
+  },[authUser]);
+
+  const queueSync=(endpoint,method,body,id)=>{
+    syncQueue.current.push({endpoint,method,body:body?snakeObj(body):null,id});
+    if(syncTimer.current)clearTimeout(syncTimer.current);
+    syncTimer.current=setTimeout(flushSync,500);
+  };
+
   useEffect(()=>{LS.set('contacts',contacts);},[contacts]);
   useEffect(()=>{LS.set('companies',companies);},[companies]);
   useEffect(()=>{LS.set('opps',opps);},[opps]);
   useEffect(()=>{LS.set('tasks',tasks);},[tasks]);
   useEffect(()=>{LS.set('atos',atosTeam);},[atosTeam]);
   useEffect(()=>{LS.set('interactions',interactions);},[interactions]);
+
+  // ── Load data from Neon on login ──
+  const neonLoaded=useRef(false);
+  useEffect(()=>{
+    if(neonLoaded.current||!authUser?.token||location.hostname.includes('claudeusercontent'))return;
+    const token=authUser.token;
+    const headers={'Authorization':'Bearer '+token};
+    const load=async()=>{
+      try{
+        const h=await fetch('/api/health',{signal:AbortSignal.timeout(4000)});
+        if(!h.ok)return;
+        dbReady.current=true;neonLoaded.current=true;
+        const[cos,cts,ops,tks,ats,ints]=await Promise.all([
+          fetch('/api/companies',{headers}).then(r=>r.json()),
+          fetch('/api/contacts',{headers}).then(r=>r.json()),
+          fetch('/api/opportunities',{headers}).then(r=>r.json()),
+          fetch('/api/tasks',{headers}).then(r=>r.json()),
+          fetch('/api/atos',{headers}).then(r=>r.json()),
+          fetch('/api/interactions',{headers}).then(r=>r.json()),
+        ]);
+        const cc=camelArr(cos.companies||cos.data||[]);
+        const ct=camelArr(cts.contacts||cts.data||[]);
+        const op=camelArr(ops.opportunities||ops.data||[]).map(o=>({...o,techTags:o.techTags||[],contactIds:o.contactIds||[],notes:o.notes||[]}));
+        const tk=camelArr(tks.tasks||tks.data||[]);
+        const at=camelArr(ats.team||ats.data||[]);
+        const it=camelArr(ints.interactions||ints.data||[]);
+        // Only replace if Neon has data, otherwise push local to Neon
+        if(cc.length+ct.length+op.length+tk.length>0){
+          setCompanies(cc);setContacts(ct);setOpps(op);setTasks(tk);setAtosTeam(at);setInteractions(it);
+          toast(lang==='nl'?'Data geladen uit database':'Data loaded from database');
+        }else if(contacts.length+companies.length+opps.length+tasks.length>0){
+          // Local has data, push to Neon (initial seed)
+          const pushAll=async()=>{
+            for(const c of companies)await apiCall('companies','POST',snakeObj(c)).catch(()=>{});
+            for(const c of contacts)await apiCall('contacts','POST',snakeObj(c)).catch(()=>{});
+            for(const o of opps)await apiCall('opportunities','POST',snakeObj(o)).catch(()=>{});
+            for(const tk of tasks)await apiCall('tasks','POST',snakeObj(tk)).catch(()=>{});
+            for(const a of atosTeam)await apiCall('atos','POST',snakeObj(a)).catch(()=>{});
+            for(const i of interactions)await apiCall('interactions','POST',snakeObj(i)).catch(()=>{});
+            toast(lang==='nl'?'Lokale data naar database gesynchroniseerd':'Local data synced to database');
+          };
+          pushAll();
+        }
+      }catch(e){console.error('Neon load error:',e);}
+    };
+    load();
+  },[authUser]);
   const[filtCompany,setFiltCompany]=useState('');
   const[filtContact,setFiltContact]=useState('');
   const[filtTech,setFiltTech]=useState('');
@@ -606,6 +699,52 @@ const App = function(){
     },2000);
   },[contacts,companies,opps,tasks,atosTeam,interactions]);
 
+  // ── Synced CRUD helpers ──
+  const addOpp=(o)=>{setOpps(p=>[...p,o]);queueSync('opportunities','POST',o);};
+  const updateOpp=(id,fields)=>{setOpps(p=>p.map(x=>x.id===id?{...x,...fields}:x));queueSync('opportunities','PUT',{id,...fields});};
+  const deleteOpp=(id)=>{setOpps(p=>p.filter(x=>x.id!==id));queueSync('opportunities','DELETE',null,id);};
+  const addContact_=(c)=>{setContacts(p=>[...p,c]);queueSync('contacts','POST',c);};
+  const updateContact_=(id,fields)=>{setContacts(p=>p.map(x=>x.id===id?{...x,...fields}:x));queueSync('contacts','PUT',{id,...fields});};
+  const deleteContact_=(id)=>{setContacts(p=>p.filter(x=>x.id!==id));queueSync('contacts','DELETE',null,id);};
+  const addCompany_=(c)=>{setCompanies(p=>[...p,c]);queueSync('companies','POST',c);};
+  const updateCompany_=(id,fields)=>{setCompanies(p=>p.map(x=>x.id===id?{...x,...fields}:x));queueSync('companies','PUT',{id,...fields});};
+  const deleteCompany_=(id)=>{setCompanies(p=>p.filter(x=>x.id!==id));queueSync('companies','DELETE',null,id);};
+  const addTask_=(t)=>{setTasks(p=>[...p,t]);queueSync('tasks','POST',t);};
+  const updateTask_=(id,fields)=>{setTasks(p=>p.map(x=>x.id===id?{...x,...fields}:x));queueSync('tasks','PUT',{id,...fields});};
+  const deleteTask_=(id)=>{setTasks(p=>p.filter(x=>x.id!==id));queueSync('tasks','DELETE',null,id);};
+  const addAtos_=(a)=>{setAtosTeam(p=>[...p,a]);queueSync('atos','POST',a);};
+  const updateAtos_=(id,fields)=>{setAtosTeam(p=>p.map(x=>x.id===id?{...x,...fields}:x));queueSync('atos','PUT',{id,...fields});};
+  const deleteAtos_=(id)=>{setAtosTeam(p=>p.filter(x=>x.id!==id));queueSync('atos','DELETE',null,id);};
+  const addInteraction_=(i)=>{setInteractions(p=>[i,...p]);queueSync('interactions','POST',i);};
+
+  // ── iCal export for tasks (Outlook/Google Calendar/Apple Calendar) ──
+  const exportTasksIcal=(taskList)=>{
+    const pad=(n)=>String(n).padStart(2,'0');
+    const icsDate=(d,t)=>{const dt=new Date(d);const y=dt.getFullYear();const m=pad(dt.getMonth()+1);const dd=pad(dt.getDate());if(t){const[hh,mm]=t.split(':');return`${y}${m}${dd}T${pad(hh)}${pad(mm)}00`;}return`${y}${m}${dd}`;};
+    const escape=(s)=>(s||'').replace(/[\\;,\n]/g,c=>c==='\n'?'\\n':'\\'+c);
+    let ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//DPM CRM//Tasks//NL\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n';
+    const ts=taskList||tasks.filter(t=>!t.done&&t.dueDate);
+    ts.forEach(tk=>{
+      const contact=cName(tk.contactId);const deal=oppName(tk.oppId);
+      const desc=[(contact?`Contact: ${contact}`:''),(deal?`Deal: ${deal}`:''),(tk.priority?`Priority: ${tk.priority}`:'')].filter(Boolean).join('\\n');
+      ics+='BEGIN:VEVENT\r\n';
+      ics+=`UID:${tk.id}@dpm-crm\r\n`;
+      ics+=`DTSTAMP:${icsDate(new Date().toISOString().slice(0,10),'00:00')}\r\n`;
+      if(tk.dueTime){ics+=`DTSTART:${icsDate(tk.dueDate,tk.dueTime)}\r\nDTEND:${icsDate(tk.dueDate,tk.dueTime.split(':').map((v,i)=>i===0?pad((+v+1)%24):v).join(':'))}\r\n`;}
+      else{ics+=`DTSTART;VALUE=DATE:${icsDate(tk.dueDate)}\r\nDTEND;VALUE=DATE:${icsDate(tk.dueDate)}\r\n`;}
+      ics+=`SUMMARY:${escape(tk.title)}\r\n`;
+      if(desc)ics+=`DESCRIPTION:${desc}\r\n`;
+      if(tk.reminder){ics+='BEGIN:VALARM\r\nTRIGGER:-PT'+(tk.reminderMin||15)+'M\r\nACTION:DISPLAY\r\nDESCRIPTION:Reminder\r\nEND:VALARM\r\n';}
+      ics+='END:VEVENT\r\n';
+    });
+    ics+='END:VCALENDAR\r\n';
+    const blob=new Blob([ics],{type:'text/calendar;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=`dpm-tasks-${new Date().toISOString().slice(0,10)}.ics`;a.click();
+    URL.revokeObjectURL(url);
+    toast(lang==='nl'?`${ts.length} taken geëxporteerd naar agenda`:`${ts.length} tasks exported to calendar`);
+  };
+
   const exportData=()=>{
     const data={contacts,companies,opps,tasks,atosTeam,interactions,exportedAt:new Date().toISOString(),version:APP_VERSION};
     const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
@@ -624,12 +763,12 @@ const App = function(){
         if(!d.contacts&&!d.companies&&!d.opps){toast(tx.invalidFile,'info');return;}
         const loc=lang==='nl'?'nl-NL':'en-US';
         if(!confirm(`${tx.importConfirm} ${d.exportedAt?new Date(d.exportedAt).toLocaleString(loc):tx.unknown}?\n\n${(d.contacts||[]).length} ${tx.contactsCount}, ${(d.companies||[]).length} ${tx.companiesCount}, ${(d.opps||[]).length} ${tx.dealsCount}, ${(d.tasks||[]).length} ${tx.tasksCount}\n\n${tx.overwriteWarning}`))return;
-        if(d.contacts)setContacts(d.contacts);
-        if(d.companies)setCompanies(d.companies);
-        if(d.opps)setOpps(d.opps);
-        if(d.tasks)setTasks(d.tasks);
-        if(d.atosTeam)setAtosTeam(d.atosTeam);
-        if(d.interactions)setInteractions(d.interactions);
+        if(d.contacts){setContacts(d.contacts);(d.contacts).forEach(c=>queueSync('contacts','POST',c));}
+        if(d.companies){setCompanies(d.companies);(d.companies).forEach(c=>queueSync('companies','POST',c));}
+        if(d.opps){setOpps(d.opps);(d.opps).forEach(o=>queueSync('opportunities','POST',o));}
+        if(d.tasks){setTasks(d.tasks);(d.tasks).forEach(t=>queueSync('tasks','POST',t));}
+        if(d.atosTeam){setAtosTeam(d.atosTeam);(d.atosTeam).forEach(a=>queueSync('atos','POST',a));}
+        if(d.interactions){setInteractions(d.interactions);(d.interactions).forEach(i=>queueSync('interactions','POST',i));}
         toast(tx.imported);
       }catch{toast(tx.importError,'info');}
     };input.click();
@@ -705,25 +844,25 @@ const App = function(){
   const oppName=id=>opps.find(o=>o.id===id)?.title||'';
   const atosName=id=>atosTeam.find(a=>a.id===id)?.name||'';
 
-  const logInteraction=(contactId,oppId,type,text)=>{setInteractions(p=>[{id:uid(),contactId,oppId,type,text,at:new Date().toISOString()},...p]);};
+  const logInteraction=(contactId,oppId,type,text)=>{addInteraction_({id:uid(),contactId,oppId,type,text,at:new Date().toISOString()});};
   const getInteractions=(contactId,oppId)=>interactions.filter(i=>(contactId&&i.contactId===contactId)||(oppId&&i.oppId===oppId)).slice(0,20);
 
   // Complete task — if it matches a deal's nextAction, clear it
   const completeTask=(tkId)=>{
     const tk=tasks.find(x=>x.id===tkId);if(!tk)return;
-    setTasks(p=>p.map(x=>x.id===tkId?{...x,done:true}:x));
+    updateTask_(tkId,{done:true});
     if(tk.oppId){
       const opp=opps.find(o=>o.id===tk.oppId);
       if(opp&&opp.nextAction&&opp.nextAction===tk.title){
-        setOpps(p=>p.map(o=>o.id===tk.oppId?{...o,nextAction:'',nextActionDate:'',updatedAt:new Date().toISOString()}:o));
+        updateOpp(tk.oppId,{nextAction:'',nextActionDate:'',updatedAt:new Date().toISOString()});
         toast(tx.actionCleared);return;
       }
     }
     toast(tx.taskDone);
   };
 
-  const addTagTo=(entity,setEntity,id,tag)=>{if(!tag.trim())return;setEntity(p=>p.map(x=>x.id===id?{...x,tags:[...new Set([...(x.tags||[]),tag.trim().toLowerCase()])]}:x));};
-  const removeTagFrom=(entity,setEntity,id,tag)=>{setEntity(p=>p.map(x=>x.id===id?{...x,tags:(x.tags||[]).filter(t2=>t2!==tag)}:x));};
+  const addTagTo=(entity,setEntity,id,tag,syncFn)=>{if(!tag.trim())return;const item=entity.find(x=>x.id===id);if(!item)return;const newTags=[...new Set([...(item.tags||[]),tag.trim().toLowerCase()])];setEntity(p=>p.map(x=>x.id===id?{...x,tags:newTags}:x));if(syncFn)syncFn(id,{tags:newTags});};
+  const removeTagFrom=(entity,setEntity,id,tag,syncFn)=>{const item=entity.find(x=>x.id===id);if(!item)return;const newTags=(item.tags||[]).filter(t2=>t2!==tag);setEntity(p=>p.map(x=>x.id===id?{...x,tags:newTags}:x));if(syncFn)syncFn(id,{tags:newTags});};
 
   const buildCRMContext=()=>{
     const ac=activeOpps.length,wv=Math.round(weightedPipeline),wr=wonRevenue;
@@ -884,7 +1023,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       {pipeView==='kanban'?<div style={{display:'grid',gridTemplateColumns:`repeat(${activeStages.length},1fr)`,gap:10,overflowX:'auto'}}>
         {activeStages.map(stage=>{
           const stOps=filteredOpps.filter(o=>o.stage===stage.id);const stVal=stOps.reduce((s,o)=>s+(o.value||0),0);
-          return <div key={stage.id} onDragOver={e=>e.preventDefault()} onDrop={()=>{if(dragOpp){setOpps(p=>p.map(o=>o.id===dragOpp?{...o,stage:stage.id,updatedAt:new Date().toISOString()}:o));toast(`${tx.movedTo} ${stage.l[lang]}`);setDragOpp(null);}}} style={{minWidth:200}}>
+          return <div key={stage.id} onDragOver={e=>e.preventDefault()} onDrop={()=>{if(dragOpp){updateOpp(dragOpp,{stage:stage.id,updatedAt:new Date().toISOString()});toast(`${tx.movedTo} ${stage.l[lang]}`);setDragOpp(null);}}} style={{minWidth:200}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'0 4px'}}>
               <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:8,height:8,borderRadius:'50%',background:stage.c}}/><span style={{fontSize:13,fontWeight:700}}>{stage.l[lang]}</span><span style={{fontSize:11,color:t.muted,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',padding:'1px 7px',borderRadius:8}}>{stOps.length}</span></div>
               <span style={{fontSize:11,color:t.dim,fontWeight:500}}>{eur(stVal)}</span>
@@ -912,7 +1051,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </tr></thead>
           <tbody>{filteredOpps.filter(o=>activeStages.some(s=>s.id===o.stage)).map(opp=>{
             const ec=editCell;const isE=(f)=>ec?.id===opp.id&&ec?.f===f;
-            const saveCell=(f,v)=>{setOpps(p=>p.map(o=>o.id===opp.id?{...o,[f]:v,updatedAt:new Date().toISOString()}:o));setEditCell(null);};
+            const saveCell=(f,v)=>{updateOpp(opp.id,{[f]:v,updatedAt:new Date().toISOString()});setEditCell(null);};
             const cellS={padding:'6px 10px',borderBottom:`0.5px solid ${t.border}`,cursor:'pointer',transition:`background .1s`};
             const stg=STAGES.find(s=>s.id===opp.stage)||STAGES[0];
             return <tr key={opp.id} style={{background:isE(null)?t.accentS:'transparent'}}>
@@ -981,7 +1120,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
 
     const renderTaskRow=(tk)=>{const isOverdue=tk.dueDate&&tk.dueDate<td()&&!tk.done;const oName=oppName(tk.oppId);return <div style={{...card,padding:'12px 16px',display:'flex',alignItems:'center',gap:12,borderLeft:`3px solid ${isOverdue?t.red:tk.done?t.green:PRIS.find(p=>p.id===tk.priority)?.c||t.accent}`}}>
       {!tk.done?<div onClick={()=>{completeTask(tk.id);}} style={{width:20,height:20,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}/>
-      :<div onClick={()=>setTasks(p=>p.map(x=>x.id===tk.id?{...x,done:false}:x))} style={{width:20,height:20,borderRadius:'50%',background:t.green,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#fff',fontWeight:700,cursor:'pointer',flexShrink:0}}>✓</div>}
+      :<div onClick={()=>updateTask_(tk.id,{done:false})} style={{width:20,height:20,borderRadius:'50%',background:t.green,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#fff',fontWeight:700,cursor:'pointer',flexShrink:0}}>✓</div>}
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:14,fontWeight:500,textDecoration:tk.done?'line-through':'none',opacity:tk.done?.5:1}}>{tk.title}</div>
         <div style={{fontSize:11,color:t.dim,display:'flex',gap:8,marginTop:3,flexWrap:'wrap',alignItems:'center'}}>
@@ -993,7 +1132,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         </div>
       </div>
       {!tk.done&&<button onClick={()=>setModal({type:'task',data:tk})} style={{...btnG,padding:'4px 10px',fontSize:11}}>✎</button>}
-      <button onClick={()=>{setTasks(p=>p.filter(x=>x.id!==tk.id));toast(tx.removed,'info');}} style={{background:'none',border:'none',color:t.red,cursor:'pointer',fontSize:14}}>✕</button>
+      <button onClick={()=>{deleteTask_(tk.id);toast(tx.removed,'info');}} style={{background:'none',border:'none',color:t.red,cursor:'pointer',fontSize:14}}>✕</button>
     </div>;};
 
     return <div>
@@ -1003,7 +1142,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       <div style={{display:'flex',gap:4,marginBottom:16,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:10,padding:3}}>
         {[{id:'today',l:`${tx.taskToday} (${overdue.length+today.length})`},{id:'upcoming',l:`${tx.taskUpcoming} (${upcoming.length})`},{id:'all',l:`${tx.all} (${allOpen.length})`},{id:'done',l:`${tx.taskDone} (${done.length})`}].map(tab=><button key={tab.id} onClick={()=>setTaskTab(tab.id)} style={{flex:1,padding:'7px 12px',borderRadius:8,fontSize:12,fontWeight:taskTab===tab.id?600:400,border:'none',background:taskTab===tab.id?t.accent:'transparent',color:taskTab===tab.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',transition:`all .15s ${sp}`}}>{tab.l}</button>)}
       </div>
-      <div style={{display:'flex',justifyContent:'flex-end',marginBottom:12}}><button onClick={()=>setModal({type:'task'})} style={btnP}>{tx.addTask}</button></div>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginBottom:12}}><button onClick={()=>exportTasksIcal()} style={{...btnG,fontSize:12}}>📅 {tx.exportCalendar||'Export'}</button><button onClick={()=>setModal({type:'task'})} style={btnP}>{tx.addTask}</button></div>
       {taskTab!=='done'?<div style={{display:'flex',flexDirection:'column',gap:4}}>
         {grouped.map(date=>{const dateTasks=shown.filter(t=>(t.dueDate||'no-date')===date);const isOverdueGroup=date!=='no-date'&&date<td();const isTodayGroup=date===td();return <div key={date}>
           <div style={{fontSize:12,fontWeight:700,color:isOverdueGroup?t.red:isTodayGroup?t.accent:t.dim,padding:'10px 4px 4px',textTransform:'uppercase',letterSpacing:1}}>
@@ -1070,15 +1209,15 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       const cTasks=tasks.filter(t=>t.contactId===c.id);
       return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:500,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
         <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
-          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'contact',data:c})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={()=>{setContacts(p=>p.filter(x=>x.id!==c.id));setDetail(null);toast(tx.contactDeleted,'info');}} style={btnD}>🗑</button></div></div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'contact',data:c})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={()=>{deleteContact_(c.id);setDetail(null);toast(tx.contactDeleted,'info');}} style={btnD}>🗑</button></div></div>
           <div style={{display:'flex',alignItems:'center',gap:14}}><div style={{width:56,height:56,borderRadius:'50%',background:`linear-gradient(135deg,${t.accent},${t.purple})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:'#fff'}}>{c.avatar}</div><div><div style={{fontSize:20,fontWeight:700}}>{c.name}</div><div style={{fontSize:13,color:t.dim}}>{c.role}{c.category&&<span style={{marginLeft:6,fontSize:10,padding:'1px 6px',borderRadius:4,background:t.purpleS,color:t.purple,fontWeight:600}}>{c.category}</span>}{c.companyId&&<span> · <span onClick={e=>{e.stopPropagation();setDetail({type:'company',id:c.companyId});}} style={{color:t.accent,cursor:'pointer'}}>{compName(c.companyId)}</span></span>}</div></div></div>
           <div style={{display:'flex',gap:8,marginTop:14,flexWrap:'wrap'}}>
             {c.email&&<a href={`mailto:${c.email}`} style={{...btnG,padding:'6px 12px',fontSize:12,textDecoration:'none'}}>📧 {c.email}</a>}
             {c.phone&&<a href={`tel:${c.phone}`} style={{...btnG,padding:'6px 12px',fontSize:12,textDecoration:'none'}}>📱 {c.phone}</a>}
           </div>
           <div style={{display:'flex',gap:4,marginTop:12,flexWrap:'wrap',alignItems:'center'}}>
-            {(c.tags||[]).map(tag=><span key={tag} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{tag}<span onClick={()=>{removeTagFrom(contacts,setContacts,c.id,tag);toast(tx.tagRemoved,'info');}} style={{cursor:'pointer',fontSize:12}}>✕</span></span>)}
-            <span onClick={()=>{const tg=prompt(tx.addTagPrompt);if(tg){addTagTo(contacts,setContacts,c.id,tg);toast(tx.tagAdded);}}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.border}`,color:t.muted,cursor:'pointer'}}>+ tag</span>
+            {(c.tags||[]).map(tag=><span key={tag} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{tag}<span onClick={()=>{removeTagFrom(contacts,setContacts,c.id,tag,(id,f)=>queueSync('contacts','PUT',{id,...f}));toast(tx.tagRemoved,'info');}} style={{cursor:'pointer',fontSize:12}}>✕</span></span>)}
+            <span onClick={()=>{const tg=prompt(tx.addTagPrompt);if(tg){addTagTo(contacts,setContacts,c.id,tg,(id,f)=>queueSync('contacts','PUT',{id,...f}));toast(tx.tagAdded);}}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.border}`,color:t.muted,cursor:'pointer'}}>+ tag</span>
           </div>
         </div>
         <div style={{padding:24}}>
@@ -1122,12 +1261,12 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       const co=companies.find(x=>x.id===o.companyId);
       const oTasks=tasks.filter(t=>t.oppId===o.id);
       const oInts=getInteractions('',o.id);
-      const addContactToDeal=(cid)=>{if(!cid)return;const ids=[...new Set([...(o.contactIds||[]),cid])];setOpps(p=>p.map(x=>x.id===o.id?{...x,contactIds:ids,contactId:x.contactId||cid}:x));toast(tx.linked);};
-      const removeContactFromDeal=(cid)=>{const ids=(o.contactIds||[]).filter(x=>x!==cid);setOpps(p=>p.map(x=>x.id===o.id?{...x,contactIds:ids,contactId:ids[0]||''}:x));toast(tx.unlinked,'info');};
-      const nextActionToTask=()=>{if(!o.nextAction)return;setTasks(p=>[...p,{id:uid(),title:o.nextAction,contactId:o.contactId||(o.contactIds||[])[0]||'',oppId:o.id,dueDate:o.nextActionDate||td(),dueTime:'',done:false,priority:o.priority||'medium',reminder:true,reminderMin:15,createdAt:new Date().toISOString()}]);toast(tx.taskFromAction);};
+      const addContactToDeal=(cid)=>{if(!cid)return;const ids=[...new Set([...(o.contactIds||[]),cid])];updateOpp(o.id,{contactIds:ids,contactId:o.contactId||cid});toast(tx.linked);};
+      const removeContactFromDeal=(cid)=>{const ids=(o.contactIds||[]).filter(x=>x!==cid);updateOpp(o.id,{contactIds:ids,contactId:ids[0]||''});toast(tx.unlinked,'info');};
+      const nextActionToTask=()=>{if(!o.nextAction)return;addTask_({id:uid(),title:o.nextAction,contactId:o.contactId||(o.contactIds||[])[0]||'',oppId:o.id,dueDate:o.nextActionDate||td(),dueTime:'',done:false,priority:o.priority||'medium',reminder:true,reminderMin:15,createdAt:new Date().toISOString()});toast(tx.taskFromAction);};
       return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:540,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
         <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
-          <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'opp',data:o})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={()=>{setOpps(p=>p.filter(x=>x.id!==o.id));setDetail(null);toast(tx.dealDeleted,'info');}} style={btnD}>🗑</button></div></div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'opp',data:o})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={()=>{deleteOpp(o.id);setDetail(null);toast(tx.dealDeleted,'info');}} style={btnD}>🗑</button></div></div>
           <div style={{fontSize:22,fontWeight:700,marginBottom:6}}>{o.title}</div>
           <div style={{marginBottom:10}}>
             <div style={{fontSize:11,color:t.muted,fontWeight:600,marginBottom:4}}>{tx.contactPersonsUpper}</div>
@@ -1145,8 +1284,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </div>
           {co&&<div style={{fontSize:13,marginBottom:8}}><span onClick={()=>setDetail({type:'company',id:co.id})} style={{color:t.accent,cursor:'pointer'}}>🏢 {co.name}</span></div>}
           {((o.techTags||[]).length>0||true)&&<div style={{display:'flex',gap:3,flexWrap:'wrap',marginBottom:10,alignItems:'center'}}>
-            {(o.techTags||[]).map(tt=><span key={tt} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.purpleS,color:t.purple,fontWeight:600,display:'flex',alignItems:'center',gap:4}}>{tt}<span onClick={()=>setOpps(p=>p.map(x=>x.id===o.id?{...x,techTags:(x.techTags||[]).filter(t2=>t2!==tt)}:x))} style={{cursor:'pointer'}}>✕</span></span>)}
-            <span onClick={()=>{const choices=TECH_TAGS.filter(tt=>!(o.techTags||[]).includes(tt));const tt=prompt(tx.techTagPrompt+'\n\n'+tx.suggestions+choices.slice(0,8).join(', '));if(tt&&tt.trim())setOpps(p=>p.map(x=>x.id===o.id?{...x,techTags:[...new Set([...(x.techTags||[]),tt.trim()])]}:x));}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.purple}44`,color:t.purple,cursor:'pointer'}}>+ tech</span>
+            {(o.techTags||[]).map(tt=><span key={tt} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.purpleS,color:t.purple,fontWeight:600,display:'flex',alignItems:'center',gap:4}}>{tt}<span onClick={()=>updateOpp(o.id,{techTags:(o.techTags||[]).filter(t2=>t2!==tt)})} style={{cursor:'pointer'}}>✕</span></span>)}
+            <span onClick={()=>{const choices=TECH_TAGS.filter(tt=>!(o.techTags||[]).includes(tt));const tt=prompt(tx.techTagPrompt+'\n\n'+tx.suggestions+choices.slice(0,8).join(', '));if(tt&&tt.trim())updateOpp(o.id,{techTags:[...new Set([...(o.techTags||[]),tt.trim()])]});}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.purple}44`,color:t.purple,cursor:'pointer'}}>+ tech</span>
           </div>}
           {(o.atosSalesId||o.atosDeliveryId)&&<div style={{display:'flex',gap:12,marginBottom:10,fontSize:12}}>
             {o.atosSalesId&&<span style={{color:t.accent}}>🔵 Sales: {atosName(o.atosSalesId)}</span>}
@@ -1159,7 +1298,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </div>
           {o.expectedCloseDate&&<div style={{fontSize:12,color:t.dim,marginBottom:8}}>📅 {tx.closeDate}: <strong>{fd(o.expectedCloseDate)}</strong></div>}
           <div style={{fontSize:12,color:t.muted,marginBottom:8}}>{tx.phase.toUpperCase()}</div>
-          <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:16}}>{STAGES.map(s=><button key={s.id} onClick={()=>{setOpps(p=>p.map(x=>x.id===o.id?{...x,stage:s.id,updatedAt:new Date().toISOString(),closedAt:(s.id==='won'||s.id==='lost'||s.id==='dropped')?new Date().toISOString():null}:x));if(s.id==='won')toast('🏆 '+tx.won);else if(s.id==='lost')toast(tx.lost,'info');else if(s.id==='dropped')toast(tx.dropped,'info');}} style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:600,border:`1.5px solid ${o.stage===s.id?s.c:'transparent'}`,background:o.stage===s.id?`${s.c}20`:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:o.stage===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}</div>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:16}}>{STAGES.map(s=><button key={s.id} onClick={()=>{updateOpp(o.id,{stage:s.id,updatedAt:new Date().toISOString(),closedAt:(s.id==='won'||s.id==='lost'||s.id==='dropped')?new Date().toISOString():null});if(s.id==='won')toast('🏆 '+tx.won);else if(s.id==='lost')toast(tx.lost,'info');else if(s.id==='dropped')toast(tx.dropped,'info');}} style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:600,border:`1.5px solid ${o.stage===s.id?s.c:'transparent'}`,background:o.stage===s.id?`${s.c}20`:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:o.stage===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}</div>
           {o.nextAction&&<div style={{padding:'10px 14px',borderRadius:10,background:t.orangeS,border:`0.5px solid ${t.orange}44`,marginBottom:12,display:'flex',alignItems:'flex-start',gap:10}}>
             <div style={{flex:1}}><div style={{fontSize:11,color:t.orange,fontWeight:700,marginBottom:2}}>{tx.nextActionUpper}</div><div style={{fontSize:13,fontWeight:500}}>{o.nextAction}</div>{o.nextActionDate&&<div style={{fontSize:11,color:t.dim,marginTop:2}}>{fd(o.nextActionDate)}</div>}</div>
             <button onClick={nextActionToTask} style={{...btnG,padding:'4px 10px',fontSize:11,color:t.orange,borderColor:`${t.orange}44`,whiteSpace:'nowrap'}}>{tx.toTask}</button>
@@ -1197,7 +1336,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       const coVal=coOpps.filter(o=>o.stage!=='lost').reduce((s,o)=>s+(o.value||0),0);
       return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
         <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
-          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'company',data:co})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={()=>{setCompanies(p=>p.filter(x=>x.id!==co.id));setDetail(null);toast(tx.companyDeleted,'info');}} style={btnD}>🗑</button></div></div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'company',data:co})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={()=>{deleteCompany_(co.id);setDetail(null);toast(tx.companyDeleted,'info');}} style={btnD}>🗑</button></div></div>
           <div style={{display:'flex',alignItems:'center',gap:14}}>
             <div style={{width:56,height:56,borderRadius:14,background:`linear-gradient(135deg,${t.teal},${t.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:800,color:'#fff'}}>{co.name.charAt(0)}</div>
             <div><div style={{fontSize:20,fontWeight:700}}>{co.name}</div><div style={{fontSize:13,color:t.dim}}>{co.industry}{co.size&&' · '+co.size+' '+tx.employees}{co.address&&' · '+co.address}</div></div>
@@ -1209,8 +1348,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </div>
           {co.notes&&<div style={{marginTop:12,padding:'10px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',fontSize:13,color:t.dim,borderLeft:`3px solid ${t.teal}`}}>{co.notes}</div>}
           <div style={{display:'flex',gap:4,marginTop:10,flexWrap:'wrap',alignItems:'center'}}>
-            {(co.tags||[]).map(tg=><span key={tg} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{tg}<span onClick={()=>{removeTagFrom(companies,setCompanies,co.id,tg);toast(tx.tagRemoved,'info');}} style={{cursor:'pointer',fontSize:12}}>✕</span></span>)}
-            <span onClick={()=>{const tg=prompt(tx.addTagPrompt);if(tg){addTagTo(companies,setCompanies,co.id,tg);toast(tx.tagAdded);}}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.border}`,color:t.muted,cursor:'pointer'}}>+ tag</span>
+            {(co.tags||[]).map(tg=><span key={tg} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{tg}<span onClick={()=>{removeTagFrom(companies,setCompanies,co.id,tg,(id,f)=>queueSync('companies','PUT',{id,...f}));toast(tx.tagRemoved,'info');}} style={{cursor:'pointer',fontSize:12}}>✕</span></span>)}
+            <span onClick={()=>{const tg=prompt(tx.addTagPrompt);if(tg){addTagTo(companies,setCompanies,co.id,tg,(id,f)=>queueSync('companies','PUT',{id,...f}));toast(tx.tagAdded);}}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.border}`,color:t.muted,cursor:'pointer'}}>+ tag</span>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginTop:16}}>
             <div style={{...card,padding:'10px 12px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:700}}>{coContacts.length}</div><div style={{fontSize:10,color:t.muted}}>{tx.contacts}</div></div>
@@ -1250,7 +1389,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
   };
 
   const renderContactModal=()=>{const d=modal?.data;const f=mf;const sf=setMf;
-  const inlineAddCo2=()=>{if(!mfNewCo.trim())return;const nco={id:uid(),name:mfNewCo.trim(),website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],createdAt:new Date().toISOString()};setCompanies(p=>[...p,nco]);sf({...f,companyId:nco.id});setMfNewCo('');setMfShowNewCo(false);toast(tx.companyCreated);};
+  const inlineAddCo2=()=>{if(!mfNewCo.trim())return;const nco={id:uid(),name:mfNewCo.trim(),website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],createdAt:new Date().toISOString()};addCompany_(nco);sf({...f,companyId:nco.id});setMfNewCo('');setMfShowNewCo(false);toast(tx.companyCreated);};
   return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
     <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:460,maxHeight:'90vh',overflowY:'auto'}}>
       <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?tx.editContact:tx.newContact}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
@@ -1267,16 +1406,16 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         <div style={{marginBottom:12}}><label style={lbl}>{tx.tags}</label><div style={{display:'flex',gap:5}}><input style={inp} value={mfTag} onChange={e=>setMfTag(e.target.value)} placeholder={tx.addTag} onKeyDown={e=>{if(e.key==='Enter'&&mfTag.trim()){sf({...f,tags:[...new Set([...(f.tags||[]),mfTag.trim().toLowerCase()])]});setMfTag('');}}}/><button onClick={()=>{if(mfTag.trim()){sf({...f,tags:[...new Set([...(f.tags||[]),mfTag.trim().toLowerCase()])]});setMfTag('');}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
           {(f.tags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.tags.map((t2,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,display:'flex',alignItems:'center',gap:4}}>{t2}<span onClick={()=>sf({...f,tags:f.tags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}</div>
       </div>
-      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={()=>{if(!f.name?.trim()){toast(tx.fillName,'info');return;}const av=f.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const newId=uid();if(d?.id){setContacts(p=>p.map(x=>x.id===d.id?{...x,...f,avatar:av}:x));toast(tx.contactUpdated);}else{setContacts(p=>[...p,{...f,id:newId,avatar:av,createdAt:new Date().toISOString()}]);if(d?._linkToOpp){setOpps(p=>p.map(o=>o.id===d._linkToOpp?{...o,contactId:newId,contactIds:[...(o.contactIds||[]),newId],companyId:f.companyId||o.companyId}:o));}toast(tx.contactAdded);}setModal(null);}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={()=>{if(!f.name?.trim()){toast(tx.fillName,'info');return;}const av=f.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const newId=uid();if(d?.id){updateContact_(d.id,{...f,avatar:av});toast(tx.contactUpdated);}else{addContact_({...f,id:newId,avatar:av,createdAt:new Date().toISOString()});if(d?._linkToOpp){updateOpp(d._linkToOpp,{contactId:newId,contactIds:[...(opps.find(o=>o.id===d._linkToOpp)?.contactIds||[]),newId],companyId:f.companyId||opps.find(o=>o.id===d._linkToOpp)?.companyId||''});}toast(tx.contactAdded);}setModal(null);}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
     </div>
   </div>;};
 
   const renderOppModal=()=>{const d=modal?.data;const f=mf;const sf=setMf;
     const addTech=(tag)=>{if(tag&&!(f.techTags||[]).includes(tag))sf({...f,techTags:[...(f.techTags||[]),tag]});setMfTechIn('');};
-    const inlineAddCo=()=>{if(!mfNewCo.trim())return;const co={id:uid(),name:mfNewCo.trim(),website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],createdAt:new Date().toISOString()};setCompanies(p=>[...p,co]);sf({...f,companyId:co.id});setMfNewCo('');setMfShowNewCo(false);toast(tx.companyCreated);};
-    const inlineAddCt=()=>{if(!mfNewCt.trim())return;const av=mfNewCt.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const ct={id:uid(),name:mfNewCt.trim(),email:'',phone:'',companyId:f.companyId||'',role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};setContacts(p=>[...p,ct]);sf({...f,contactId:ct.id,contactIds:[...(f.contactIds||[]),ct.id]});setMfNewCt('');setMfShowNewCt(false);toast(tx.contactCreated);};
+    const inlineAddCo=()=>{if(!mfNewCo.trim())return;const co={id:uid(),name:mfNewCo.trim(),website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],createdAt:new Date().toISOString()};addCompany_(co);sf({...f,companyId:co.id});setMfNewCo('');setMfShowNewCo(false);toast(tx.companyCreated);};
+    const inlineAddCt=()=>{if(!mfNewCt.trim())return;const av=mfNewCt.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const ct={id:uid(),name:mfNewCt.trim(),email:'',phone:'',companyId:f.companyId||'',role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};addContact_(ct);sf({...f,contactId:ct.id,contactIds:[...(f.contactIds||[]),ct.id]});setMfNewCt('');setMfShowNewCt(false);toast(tx.contactCreated);};
     const addContactToOpp=(cid)=>{if(!cid||((f.contactIds||[]).includes(cid)))return;const ct=contacts.find(c=>c.id===cid);sf({...f,contactId:f.contactId||cid,contactIds:[...(f.contactIds||[]),cid],companyId:ct?.companyId||f.companyId});};
-    const inlineAddAtos=()=>{if(!mfNewAtosName.trim())return;const a={id:uid(),name:mfNewAtosName.trim(),role:mfNewAtosRole,email:'',phone:''};setAtosTeam(p=>[...p,a]);if(mfNewAtosRole==='sales')sf({...f,atosSalesId:a.id});else sf({...f,atosDeliveryId:a.id});setMfNewAtosName('');setMfShowAtosAdd(false);toast(tx.atosContactAdded);};
+    const inlineAddAtos=()=>{if(!mfNewAtosName.trim())return;const a={id:uid(),name:mfNewAtosName.trim(),role:mfNewAtosRole,email:'',phone:''};addAtos_(a);if(mfNewAtosRole==='sales')sf({...f,atosSalesId:a.id});else sf({...f,atosDeliveryId:a.id});setMfNewAtosName('');setMfShowAtosAdd(false);toast(tx.atosContactAdded);};
   return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
     <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:540,maxHeight:'90vh',overflowY:'auto'}}>
       <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?tx.editDeal:tx.newDeal}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
@@ -1327,15 +1466,15 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         const actionChanged=f.nextAction&&f.nextAction.trim()&&(!oldOpp||oldOpp.nextAction!==f.nextAction);
         if(actionChanged){
           // Remove old auto-task if action text changed
-          if(oldOpp?.nextAction){setTasks(p=>p.filter(tk=>!(tk.oppId===oppId&&tk.title===oldOpp.nextAction&&!tk.done)));}
-          setTasks(p=>[...p,{id:uid(),title:f.nextAction.trim(),contactId:f.contactId||(f.contactIds||[])[0]||'',oppId:oppId,dueDate:f.nextActionDate||td(),dueTime:'',done:false,priority:f.priority||'medium',reminder:true,reminderMin:15,createdAt:now}]);
+          if(oldOpp?.nextAction){const oldTask=tasks.find(tk=>tk.oppId===oppId&&tk.title===oldOpp.nextAction&&!tk.done);if(oldTask)deleteTask_(oldTask.id);}
+          addTask_({id:uid(),title:f.nextAction.trim(),contactId:f.contactId||(f.contactIds||[])[0]||'',oppId:oppId,dueDate:f.nextActionDate||td(),dueTime:'',done:false,priority:f.priority||'medium',reminder:true,reminderMin:15,createdAt:now});
           toast(tx.actionTaskCreated);
         }
         if(!f.nextAction?.trim()&&oldOpp?.nextAction){
           // Next action cleared — remove linked task
-          setTasks(p=>p.filter(tk=>!(tk.oppId===oppId&&tk.title===oldOpp.nextAction&&!tk.done)));
+          const oldTask=tasks.find(tk=>tk.oppId===oppId&&tk.title===oldOpp.nextAction&&!tk.done);if(oldTask)deleteTask_(oldTask.id);
         }
-        if(d?.id){setOpps(p=>p.map(x=>x.id===d.id?{...x,...f,updatedAt:now}:x));toast(tx.dealUpdated);}else{setOpps(p=>[...p,{...f,id:oppId,notes:[],createdAt:now,updatedAt:now,closedAt:null}]);toast(tx.dealAdded);}setModal(null);}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
+        if(d?.id){updateOpp(d.id,{...f,updatedAt:now});toast(tx.dealUpdated);}else{addOpp({...f,id:oppId,notes:[],createdAt:now,updatedAt:now,closedAt:null});toast(tx.dealAdded);}setModal(null);}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
     </div>
   </div>;};
 
@@ -1364,7 +1503,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </div>}
         </div>
       </div>
-      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={()=>{if(!f.title?.trim()){toast(tx.fillTask,'info');return;}if(d?.id){setTasks(p=>p.map(x=>x.id===d.id?{...x,...f}:x));toast(tx.taskUpdated);}else{setTasks(p=>[...p,{...f,id:uid(),done:false,createdAt:new Date().toISOString()}]);toast(tx.taskAdded);}setModal(null);}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={()=>{if(!f.title?.trim()){toast(tx.fillTask,'info');return;}if(d?.id){updateTask_(d.id,f);toast(tx.taskUpdated);}else{addTask_({...f,id:uid(),done:false,createdAt:new Date().toISOString()});toast(tx.taskAdded);}setModal(null);}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
     </div>
   </div>;};
 
@@ -1379,7 +1518,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         <div style={{marginBottom:12}}><label style={lbl}>{tx.tags}</label><div style={{display:'flex',gap:5}}><input style={inp} value={mfTag} onChange={e=>setMfTag(e.target.value)} placeholder={tx.addTag} onKeyDown={e=>{if(e.key==='Enter'&&mfTag.trim()){sf({...f,tags:[...(f.tags||[]),mfTag.trim().toLowerCase()]});setMfTag('');}}}/><button onClick={()=>{if(mfTag.trim()){sf({...f,tags:[...(f.tags||[]),mfTag.trim().toLowerCase()]});setMfTag('');}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
           {(f.tags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.tags.map((tg,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,display:'flex',alignItems:'center',gap:4}}>{tg}<span onClick={()=>sf({...f,tags:f.tags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}</div>
       </div>
-      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={()=>{if(!f.name?.trim()){toast(tx.fillCompanyName,'info');return;}const newId=uid();if(d?.id){setCompanies(p=>p.map(x=>x.id===d.id?{...x,...f}:x));toast(tx.companyUpdated);}else{setCompanies(p=>[...p,{...f,id:newId,createdAt:new Date().toISOString()}]);if(d?._linkToOpp){setOpps(p=>p.map(o=>o.id===d._linkToOpp?{...o,companyId:newId}:o));}toast(tx.companyAdded);}setModal(null);}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={()=>{if(!f.name?.trim()){toast(tx.fillCompanyName,'info');return;}const newId=uid();if(d?.id){updateCompany_(d.id,f);toast(tx.companyUpdated);}else{addCompany_({...f,id:newId,createdAt:new Date().toISOString()});if(d?._linkToOpp){updateOpp(d._linkToOpp,{companyId:newId});}toast(tx.companyAdded);}setModal(null);}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
     </div>
   </div>;};
 
@@ -1411,16 +1550,16 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       impData.forEach(row=>{const g=col=>col?row[impCols.indexOf(col)]||'':'';
         const title=g(impMapping.title);if(!title){skipped++;return;}
         let coId='';const coName=g(impMapping.company);
-        if(coName){const ex=companies.find(c=>c.name.toLowerCase()===coName.toLowerCase());if(ex)coId=ex.id;else{const nco={id:uid(),name:coName,website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],createdAt:new Date().toISOString()};setCompanies(p=>[...p,nco]);coId=nco.id;companiesAdded++;}}
+        if(coName){const ex=companies.find(c=>c.name.toLowerCase()===coName.toLowerCase());if(ex)coId=ex.id;else{const nco={id:uid(),name:coName,website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],createdAt:new Date().toISOString()};addCompany_(nco);coId=nco.id;companiesAdded++;}}
         let ctId='';const ctName=g(impMapping.contact);
-        if(ctName){const ex=contacts.find(c=>c.name.toLowerCase()===ctName.toLowerCase());if(ex)ctId=ex.id;else{const av=ctName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const nct={id:uid(),name:ctName,email:'',phone:'',companyId:coId,role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};setContacts(p=>[...p,nct]);ctId=nct.id;contactsAdded++;}}
+        if(ctName){const ex=contacts.find(c=>c.name.toLowerCase()===ctName.toLowerCase());if(ex)ctId=ex.id;else{const av=ctName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const nct={id:uid(),name:ctName,email:'',phone:'',companyId:coId,role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};addContact_(nct);ctId=nct.id;contactsAdded++;}}
         const rawStage=(g(impMapping.stage)||'').toLowerCase();const stage=stageMap[rawStage]||'lead';
         const rawVal=(g(impMapping.value)||'0').replace(/[€$£\s]/g,'').trim();
         const val=Math.round(parseFloat(rawVal.replace(/\.(?=\d{3})/g,'').replace(',','.'))||0);
         const prob=parseInt(g(impMapping.probability))||20;
         const tech=(g(impMapping.tech)||'').split(/[,;|]/).map(s=>s.trim()).filter(Boolean);
         const now=new Date().toISOString();
-        setOpps(p=>[...p,{id:uid(),title,contactId:ctId,contactIds:ctId?[ctId]:[],companyId:coId,stage,value:val,probability:prob,priority:'medium',nextAction:g(impMapping.nextAction),nextActionDate:'',techTags:tech,atosSalesId:'',atosDeliveryId:'',notes:[],createdAt:now,updatedAt:now,closedAt:null}]);added++;
+        addOpp({id:uid(),title,contactId:ctId,contactIds:ctId?[ctId]:[],companyId:coId,stage,value:val,probability:prob,priority:'medium',nextAction:g(impMapping.nextAction),nextActionDate:'',techTags:tech,atosSalesId:'',atosDeliveryId:'',notes:[],createdAt:now,updatedAt:now,closedAt:null});added++;
       });
       setImpResult({added,skipped,companiesAdded,contactsAdded});setImpStep(3);
     };
@@ -1555,7 +1694,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </div>
           <div style={{display:'flex',gap:4}}>
             <button onClick={()=>setAtModal(a)} style={{...btnG,padding:'4px 10px',fontSize:11}}>✎</button>
-            <button onClick={()=>{if(confirm(tx.deleteTeamConfirm))setAtosTeam(p=>p.filter(x=>x.id!==a.id));}} style={{...btnD,padding:'4px 10px',fontSize:11}}>✕</button>
+            <button onClick={()=>{if(confirm(tx.deleteTeamConfirm))deleteAtos_(a.id);}} style={{...btnD,padding:'4px 10px',fontSize:11}}>✕</button>
           </div>
         </div>;})}
       </div>
@@ -1703,7 +1842,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             {[{k:'name',l:tx.name,p:tx.fullName},{k:'email',l:tx.email,p:'name@atos.net'},{k:'phone',l:tx.phone,p:'+31...'}].map(x=><div key={x.k} style={{marginBottom:12}}><label style={lbl}>{x.l}</label><input style={inp} value={atModal[x.k]||''} onChange={e=>setAtModal({...atModal,[x.k]:e.target.value})} placeholder={x.p}/></div>)}
             <div style={{marginBottom:12}}><label style={lbl}>{tx.roleLabel}</label><div style={{display:'flex',gap:6}}>{['sales','delivery'].map(r=><button key={r} onClick={()=>setAtModal({...atModal,role:r})} style={{flex:1,padding:'8px',borderRadius:8,fontSize:13,fontWeight:600,border:`1.5px solid ${atModal.role===r?(r==='sales'?t.accent:t.green):'transparent'}`,background:atModal.role===r?(r==='sales'?t.accentS:t.greenS):(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:atModal.role===r?(r==='sales'?t.accent:t.green):t.dim,cursor:'pointer',fontFamily:'inherit'}}>{r==='sales'?'🔵 Sales':'🟢 Delivery'}</button>)}</div></div>
           </div>
-          <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setAtModal(null)} style={btnG}>{tx.cancel}</button><button onClick={()=>{if(!atModal.name?.trim()){toast(tx.fillName,'info');return;}if(atModal.id){setAtosTeam(p=>p.map(x=>x.id===atModal.id?{...atModal}:x));toast(tx.updated);}else{setAtosTeam(p=>[...p,{...atModal,id:uid()}]);toast(tx.teamAdded);}setAtModal(null);}} style={btnP}>{atModal.id?tx.save:tx.add}</button></div>
+          <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setAtModal(null)} style={btnG}>{tx.cancel}</button><button onClick={()=>{if(!atModal.name?.trim()){toast(tx.fillName,'info');return;}if(atModal.id){updateAtos_(atModal.id,atModal);toast(tx.updated);}else{addAtos_({...atModal,id:uid()});toast(tx.teamAdded);}setAtModal(null);}} style={btnP}>{atModal.id?tx.save:tx.add}</button></div>
         </div>
       </div>}
       <div style={{position:'fixed',bottom:20,right:20,zIndex:9999,display:'flex',flexDirection:'column',gap:6}}>{toasts.map(x=><div key={x.id} style={{padding:'10px 16px',background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:12,fontSize:13,boxShadow:t.shadow,animation:'fadeIn .3s',borderLeft:`3px solid ${x.ty==='ok'?t.green:t.accent}`}}>{x.ty==='ok'?'✓':'ℹ'} {x.m}</div>)}</div>
@@ -1721,8 +1860,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
                 <button onClick={()=>setIntModal({...intModal,_showNew:!intModal._showNew})} style={{...btnG,padding:'8px 10px',fontSize:11,whiteSpace:'nowrap'}}>{intModal._showNew?'✕':'+ '+tx.newContact.split(' ').pop()}</button>
               </div>
               {intModal._showNew&&<div style={{display:'flex',gap:5,marginTop:6}}>
-                <input style={inp} value={intModal._newName||''} onChange={e=>setIntModal({...intModal,_newName:e.target.value})} placeholder={tx.newContactName} onKeyDown={e=>{if(e.key==='Enter'&&intModal._newName?.trim()){const av=intModal._newName.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const opp=intModal.oppId?opps.find(o=>o.id===intModal.oppId):null;const ct={id:uid(),name:intModal._newName.trim(),email:'',phone:'',companyId:opp?.companyId||'',role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};setContacts(p=>[...p,ct]);if(intModal.oppId){setOpps(p=>p.map(o=>o.id===intModal.oppId?{...o,contactIds:[...(o.contactIds||[]),ct.id],contactId:o.contactId||ct.id}:o));}setIntModal({...intModal,contactId:ct.id,_newName:'',_showNew:false});toast(tx.contactAdded);}}}/>
-                <button onClick={()=>{if(!intModal._newName?.trim())return;const av=intModal._newName.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const opp=intModal.oppId?opps.find(o=>o.id===intModal.oppId):null;const ct={id:uid(),name:intModal._newName.trim(),email:'',phone:'',companyId:opp?.companyId||'',role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};setContacts(p=>[...p,ct]);if(intModal.oppId){setOpps(p=>p.map(o=>o.id===intModal.oppId?{...o,contactIds:[...(o.contactIds||[]),ct.id],contactId:o.contactId||ct.id}:o));}setIntModal({...intModal,contactId:ct.id,_newName:'',_showNew:false});toast(tx.contactAdded);}} style={{...btnP,padding:'6px 12px',fontSize:11}}>{tx.createContact}</button>
+                <input style={inp} value={intModal._newName||''} onChange={e=>setIntModal({...intModal,_newName:e.target.value})} placeholder={tx.newContactName} onKeyDown={e=>{if(e.key==='Enter'&&intModal._newName?.trim()){const av=intModal._newName.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const opp=intModal.oppId?opps.find(o=>o.id===intModal.oppId):null;const ct={id:uid(),name:intModal._newName.trim(),email:'',phone:'',companyId:opp?.companyId||'',role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};addContact_(ct);if(intModal.oppId){updateOpp(intModal.oppId,{contactIds:[...(opp?.contactIds||[]),ct.id],contactId:opp?.contactId||ct.id});}setIntModal({...intModal,contactId:ct.id,_newName:'',_showNew:false});toast(tx.contactAdded);}}}/>
+                <button onClick={()=>{if(!intModal._newName?.trim())return;const av=intModal._newName.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const opp=intModal.oppId?opps.find(o=>o.id===intModal.oppId):null;const ct={id:uid(),name:intModal._newName.trim(),email:'',phone:'',companyId:opp?.companyId||'',role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};addContact_(ct);if(intModal.oppId){updateOpp(intModal.oppId,{contactIds:[...(opp?.contactIds||[]),ct.id],contactId:opp?.contactId||ct.id});}setIntModal({...intModal,contactId:ct.id,_newName:'',_showNew:false});toast(tx.contactAdded);}} style={{...btnP,padding:'6px 12px',fontSize:11}}>{tx.createContact}</button>
               </div>}
             </div>
             <div style={{marginBottom:12}}><label style={lbl}>Type</label><div style={{display:'flex',gap:4}}>{INT_TYPES.map(it=><button key={it.id} onClick={()=>setIntModal({...intModal,type:it.id})} style={{flex:1,padding:'6px',borderRadius:8,fontSize:12,fontWeight:600,border:`1.5px solid ${intModal.type===it.id?t.accent:'transparent'}`,background:intModal.type===it.id?t.accentS:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:intModal.type===it.id?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{it.ic} {it.l}</button>)}</div></div>
@@ -1733,7 +1872,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
               <div><label style={lbl}>{tx.date}</label><input type="date" style={inp} value={intModal.taskDate||td()} onChange={e=>setIntModal({...intModal,taskDate:e.target.value})}/></div>
             </div>}
           </div>
-          <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setIntModal(null)} style={btnG}>{tx.cancel}</button><button onClick={()=>{if(!intText.trim()){toast(tx.fillDesc,'info');return;}logInteraction(intModal.contactId||'',intModal.oppId||'',intModal.type,intText.trim());if(intModal.createTask&&intModal.taskTitle?.trim()){setTasks(p=>[...p,{id:uid(),title:intModal.taskTitle.trim(),contactId:intModal.contactId||'',oppId:intModal.oppId||'',dueDate:intModal.taskDate||td(),dueTime:'',done:false,priority:'medium',reminder:true,reminderMin:15,createdAt:new Date().toISOString()}]);toast(tx.intAndTask);}else{toast(`${INT_TYPES.find(x=>x.id===intModal.type)?.l} ${tx.intLogged}`);}setIntModal(null);}} style={btnP}>{tx.save}</button></div>
+          <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setIntModal(null)} style={btnG}>{tx.cancel}</button><button onClick={()=>{if(!intText.trim()){toast(tx.fillDesc,'info');return;}logInteraction(intModal.contactId||'',intModal.oppId||'',intModal.type,intText.trim());if(intModal.createTask&&intModal.taskTitle?.trim()){addTask_({id:uid(),title:intModal.taskTitle.trim(),contactId:intModal.contactId||'',oppId:intModal.oppId||'',dueDate:intModal.taskDate||td(),dueTime:'',done:false,priority:'medium',reminder:true,reminderMin:15,createdAt:new Date().toISOString()});toast(tx.intAndTask);}else{toast(`${INT_TYPES.find(x=>x.id===intModal.type)?.l} ${tx.intLogged}`);}setIntModal(null);}} style={btnP}>{tx.save}</button></div>
         </div>
       </div>}
     </div>
