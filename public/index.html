@@ -44,7 +44,8 @@ const fds=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'shor
 const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
-const APP_VERSION='13';
+const linkify=(text)=>{if(!text)return '';const urlRe=/(https?:\/\/[^\s<]+)/g;const parts=text.split(urlRe);return parts.map((p,i)=>/^https?:\/\//.test(p)?React.createElement('a',{key:i,href:p,target:'_blank',rel:'noopener noreferrer',style:{color:'#007AFF',textDecoration:'underline',wordBreak:'break-all'}},p):p);};
+const APP_VERSION='14';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -1205,7 +1206,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             <div style={{display:'flex',flexDirection:'column',gap:5}}>
               {getInteractions(c.id).map(i=><div key={i.id} style={{padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple}`,fontSize:12}}>
                 <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}><span style={{fontWeight:600}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}</span><span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span></div>
-                <div style={{color:t.dim}}>{i.text}</div>
+                <div style={{color:t.dim}}>{linkify(i.text)}</div>
               </div>)}
               {getInteractions(c.id).length===0&&<div style={{fontSize:12,color:t.muted,fontStyle:'italic',textAlign:'center',padding:12}}>{tx.noInteractionsLogged}</div>}
             </div>
@@ -1276,7 +1277,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             <div style={{display:'flex',flexDirection:'column',gap:5}}>
               {oInts.map(i=><div key={i.id} style={{padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple}`,fontSize:12}}>
                 <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}><span style={{fontWeight:600}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}{i.contactId&&cName(i.contactId)?' — '+cName(i.contactId):''}</span><span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span></div>
-                <div style={{color:t.dim}}>{i.text}</div>
+                <div style={{color:t.dim}}>{linkify(i.text)}</div>
               </div>)}
               {oInts.length===0&&<div style={{fontSize:12,color:t.muted,fontStyle:'italic',textAlign:'center',padding:12}}>{tx.noInteractionsYet}</div>}
             </div>
@@ -1431,11 +1432,11 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         {d?.id&&(()=>{const oInts=getInteractions('',d.id);return <div style={{marginBottom:12}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><label style={lbl}>{tx.interactions} ({oInts.length})</label></div>
           <div style={{display:'flex',gap:4,marginBottom:6}}>{INT_TYPES.map(it=><button key={it.id} onClick={()=>{setIntModal({contactId:f.contactId||(f.contactIds||[])[0]||'',oppId:d.id,type:it.id});setIntText('');}} style={{...btnG,padding:'4px 8px',fontSize:10}}>{it.ic} {it.l}</button>)}</div>
-          {oInts.slice(0,3).map(i=><div key={i.id} style={{padding:'6px 10px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple}`,fontSize:11,marginBottom:4}}>
+          <div style={{maxHeight:200,overflowY:'auto'}}>{oInts.map(i=><div key={i.id} style={{padding:'6px 10px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple}`,fontSize:11,marginBottom:4}}>
             <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontWeight:600}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}</span><span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span></div>
-            <div style={{color:t.dim,marginTop:2}}>{i.text}</div>
-          </div>)}
-          {oInts.length>3&&<div style={{fontSize:11,color:t.accent,cursor:'pointer',textAlign:'center'}} onClick={()=>{setModal(null);setDetail({type:'opp',id:d.id});}}>{lang==='nl'?`Alle ${oInts.length} interacties bekijken`:`View all ${oInts.length} interactions`}</div>}
+            <div style={{color:t.dim,marginTop:2}}>{linkify(i.text)}</div>
+          </div>)}</div>
+          {oInts.length===0&&<div style={{fontSize:11,color:t.muted,fontStyle:'italic'}}>{tx.noInteractionsYet}</div>}
         </div>;})()}
       </div>
       <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={()=>{if(!f.title?.trim()){toast(tx.fillTitle,'info');return;}const now=new Date().toISOString();const oppId=d?.id||uid();
