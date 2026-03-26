@@ -128,6 +128,11 @@ async function setup() {
     // v4.0: expected close date, contact category
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS expected_close_date DATE", v: '4.0' },
     { sql: "ALTER TABLE contacts ADD COLUMN IF NOT EXISTS category VARCHAR(100) DEFAULT ''", v: '4.0' },
+    // v16: win/loss reasons, deal notes, stage velocity
+    { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS stage_changed_at TIMESTAMPTZ", v: '16' },
+    { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS closed_reason VARCHAR(100) DEFAULT ''", v: '16' },
+    { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS closed_note TEXT DEFAULT ''", v: '16' },
+    { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS deal_notes TEXT DEFAULT ''", v: '16' },
   ];
 
   let migrated = 0;

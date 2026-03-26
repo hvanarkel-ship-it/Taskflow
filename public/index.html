@@ -45,7 +45,7 @@ const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-dig
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
 const linkify=(text)=>{if(!text)return '';const urlRe=/(https?:\/\/[^\s<]+)/g;const parts=text.split(urlRe);return parts.map((p,i)=>/^https?:\/\//.test(p)?React.createElement('a',{key:i,href:p,target:'_blank',rel:'noopener noreferrer',style:{color:'#007AFF',textDecoration:'underline',wordBreak:'break-all'}},p):p);};
-const APP_VERSION='15';
+const APP_VERSION='16';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -77,7 +77,7 @@ const storedVersion=LS.get('_initialized','0');
 const migrateData=()=>{
   if(LS.has('opps')){
     const opps=LS.get('opps',[]);
-    const migrated=opps.map(o=>({contactIds:[],techTags:[],atosSalesId:'',atosDeliveryId:'',expectedCloseDate:'',...o}));
+    const migrated=opps.map(o=>({contactIds:[],techTags:[],atosSalesId:'',atosDeliveryId:'',expectedCloseDate:'',stageChangedAt:'',closedReason:'',closedNote:'',dealNotes:'',...o}));
     LS.set('opps',migrated);
   }
   if(LS.has('contacts')){
@@ -106,14 +106,18 @@ if(!isFirstLaunch){
 }
 
 const STAGES=[
-  {id:'lead',l:{nl:'Lead',en:'Lead'},ic:'🎯',c:'#5AC8FA'},
-  {id:'qualified',l:{nl:'Gekwalificeerd',en:'Qualified'},ic:'✓',c:'#007AFF'},
-  {id:'proposal',l:{nl:'Voorstel',en:'Proposal'},ic:'📄',c:'#BF5AF2'},
-  {id:'negotiation',l:{nl:'Onderhandeling',en:'Negotiation'},ic:'🤝',c:'#FF9F0A'},
-  {id:'won',l:{nl:'Gewonnen',en:'Won'},ic:'🏆',c:'#30D158'},
-  {id:'lost',l:{nl:'Verloren',en:'Lost'},ic:'✕',c:'#FF453A'},
-  {id:'dropped',l:{nl:'Afgevallen',en:'Dropped'},ic:'⏸',c:'#8E8E93'},
+  {id:'lead',l:{nl:'Lead',en:'Lead'},ic:'🎯',c:'#5AC8FA',prob:10},
+  {id:'qualified',l:{nl:'Gekwalificeerd',en:'Qualified'},ic:'✓',c:'#007AFF',prob:25},
+  {id:'proposal',l:{nl:'Voorstel',en:'Proposal'},ic:'📄',c:'#BF5AF2',prob:50},
+  {id:'negotiation',l:{nl:'Onderhandeling',en:'Negotiation'},ic:'🤝',c:'#FF9F0A',prob:75},
+  {id:'won',l:{nl:'Gewonnen',en:'Won'},ic:'🏆',c:'#30D158',prob:100},
+  {id:'lost',l:{nl:'Verloren',en:'Lost'},ic:'✕',c:'#FF453A',prob:0},
+  {id:'dropped',l:{nl:'Afgevallen',en:'Dropped'},ic:'⏸',c:'#8E8E93',prob:0},
 ];
+const STAGE_PROB=Object.fromEntries(STAGES.map(s=>[s.id,s.prob]));
+const WIN_REASONS=['reasonQuality','reasonRelation','reasonBestPrice','reasonOther'];
+const LOSS_REASONS=['reasonCompetitor','reasonPrice','reasonTiming','reasonFit','reasonNoResponse','reasonOther'];
+const dealAge=(opp)=>{const d=opp.stageChangedAt||opp.updatedAt||opp.createdAt;if(!d)return 0;return Math.floor((Date.now()-new Date(d).getTime())/(1000*60*60*24));};
 const stageC=(id,lang='nl')=>{const s=STAGES.find(s=>s.id===id)||STAGES[0];return{...s,l:s.l[lang]||s.l.nl};};
 
 const PRIS=[{id:'high',l:{nl:'Hoog',en:'High'},c:'#FF453A'},{id:'medium',l:{nl:'Midden',en:'Medium'},c:'#FF9F0A'},{id:'low',l:{nl:'Laag',en:'Low'},c:'#30D158'}];
@@ -232,6 +236,19 @@ const TX={
     companyContacts:'Klant contacten',partnerContacts:'Partner contacten',otherContacts:'Overige contacten',
     // Calendar export
     exportCalendar:'Exporteer agenda',tasksExported:'taken geëxporteerd naar agenda',
+    // Win/Loss reasons
+    winReason:'Reden gewonnen',lossReason:'Reden verloren',dropReason:'Reden geparkeerd',
+    reasonCompetitor:'Concurrent gekozen',reasonPrice:'Prijs te hoog',reasonTiming:'Timing/geen budget',reasonFit:'Geen goede fit',reasonNoResponse:'Geen reactie',reasonOther:'Anders',
+    reasonQuality:'Kwaliteit/Aanbod',reasonRelation:'Relatie/Vertrouwen',reasonBestPrice:'Beste prijs',
+    pleaseSelectReason:'Selecteer een reden',optionalNote:'Optionele toelichting...',
+    // Velocity metrics
+    avgCycleTime:'Gem. Doorlooptijd',avgDaysInStage:'Gem. Dagen/Fase',daysInStage:'dagen in fase',day:'dag',days:'dagen',
+    closedSummary:'Afgeronde Deals (maand)',wonDeals:'Gewonnen',lostDeals2:'Verloren',noClosedDeals:'Geen afgeronde deals deze maand',
+    staleIndicator:'Inactief',dealNotes:'Deal Notities',addNote:'Notitie toevoegen...',
+    // Stage gate
+    stageRequiresContact:'Voeg eerst een contact toe voor deze fase',stageRequiresValue:'Voeg eerst een waarde toe voor deze fase',stageRequiresClose:'Voeg eerst een sluitdatum toe',
+    lostReengagement:'Verloren Deals',reengageFilter:'Heractiveer filter',monthsAgo:'maanden geleden',
+    nextStep:'Volgende stap',noNextStep:'Geen volgende stap',
   },
   en:{
     pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',atos:'Atos Team',tasks:'Tasks',reports:'Reports',
@@ -346,6 +363,19 @@ const TX={
     companyContacts:'Client contacts',partnerContacts:'Partner contacts',otherContacts:'Other contacts',
     // Calendar export
     exportCalendar:'Export calendar',tasksExported:'tasks exported to calendar',
+    // Win/Loss reasons
+    winReason:'Reason won',lossReason:'Reason lost',dropReason:'Reason parked',
+    reasonCompetitor:'Competitor chosen',reasonPrice:'Price too high',reasonTiming:'Timing/no budget',reasonFit:'Not a good fit',reasonNoResponse:'No response',reasonOther:'Other',
+    reasonQuality:'Quality/Offering',reasonRelation:'Relationship/Trust',reasonBestPrice:'Best price',
+    pleaseSelectReason:'Please select a reason',optionalNote:'Optional note...',
+    // Velocity metrics
+    avgCycleTime:'Avg. Cycle Time',avgDaysInStage:'Avg. Days/Stage',daysInStage:'days in stage',day:'day',days:'days',
+    closedSummary:'Closed Deals (month)',wonDeals:'Won',lostDeals2:'Lost',noClosedDeals:'No closed deals this month',
+    staleIndicator:'Stale',dealNotes:'Deal Notes',addNote:'Add note...',
+    // Stage gate
+    stageRequiresContact:'Add a contact first for this stage',stageRequiresValue:'Add a value first for this stage',stageRequiresClose:'Add a close date first',
+    lostReengagement:'Lost Deals',reengageFilter:'Re-engage filter',monthsAgo:'months ago',
+    nextStep:'Next step',noNextStep:'No next step',
   }
 };
 
@@ -646,6 +676,7 @@ const App = function(){
   const impFileRef=useRef(null);
   const[intModal,setIntModal]=useState(null);
   const[intText,setIntText]=useState('');
+  const[reasonModal,setReasonModal]=useState(null); // {oppId,stage,reasons[],title}
 
   // ── FIX: track both type AND id so editing always re-initialises the form ──
   const prevModalRef=useRef({type:null,id:null});
@@ -660,7 +691,7 @@ const App = function(){
       if(mt==='import'){setImpData([]);setImpCols([]);setImpMapping({title:'',company:'',contact:'',value:'',stage:'',probability:'',priority:'',tech:'',nextAction:'',closeDate:''});setImpStep(1);setImpResult(null);}
       if(mt==='opp'){
         if(md?.id){setMf({...md,_pendingTasks:[],_taskInput:''});}
-        else{const base={title:'',contactId:'',contactIds:[],companyId:'',stage:'lead',value:0,probability:20,priority:'medium',expectedCloseDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',notes:[],_pendingTasks:[],_taskInput:'',...(md||{})};if(base.contactId&&!base.contactIds.includes(base.contactId))base.contactIds=[...base.contactIds,base.contactId];setMf(base);}
+        else{const base={title:'',contactId:'',contactIds:[],companyId:'',stage:'lead',value:0,probability:10,priority:'medium',expectedCloseDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',dealNotes:'',notes:[],_pendingTasks:[],_taskInput:'',...(md||{})};if(base.contactId&&!base.contactIds.includes(base.contactId))base.contactIds=[...base.contactIds,base.contactId];setMf(base);}
       }else if(mt==='contact'){
         setMf(md?.id?{...md}:{name:'',email:'',phone:'',companyId:md?.companyId||'',role:'',category:'',tags:[],...(md||{})});
       }else if(mt==='task'){
@@ -984,23 +1015,39 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       {pipeView==='kanban'?<div style={{display:'grid',gridTemplateColumns:`repeat(${activeStages.length},1fr)`,gap:10,overflowX:'auto'}}>
         {activeStages.map(stage=>{
           const stOps=filteredOpps.filter(o=>o.stage===stage.id);const stVal=stOps.reduce((s,o)=>s+(o.value||0),0);
-          return <div key={stage.id} onDragOver={e=>e.preventDefault()} onDrop={()=>{if(dragOpp){updateOpp(dragOpp,{stage:stage.id,updatedAt:new Date().toISOString()});toast(`${tx.movedTo} ${stage.l[lang]}`);setDragOpp(null);}}} style={{minWidth:200}}>
+          return <div key={stage.id} onDragOver={e=>e.preventDefault()} onDrop={()=>{if(dragOpp){const dOpp=opps.find(x=>x.id===dragOpp);
+            if(dOpp){
+              const sid=stage.id;
+              if((sid==='qualified'||sid==='proposal'||sid==='negotiation')&&!(dOpp.contactId||(dOpp.contactIds||[]).length)){toast(tx.stageRequiresContact,'info');setDragOpp(null);return;}
+              if((sid==='proposal'||sid==='negotiation')&&!dOpp.value){toast(tx.stageRequiresValue,'info');setDragOpp(null);return;}
+              if(sid==='negotiation'&&!dOpp.expectedCloseDate){toast(tx.stageRequiresClose,'info');setDragOpp(null);return;}
+              if(sid==='won'){setReasonModal({oppId:dragOpp,stage:'won',reasons:WIN_REASONS,title:tx.winReason});setDragOpp(null);return;}
+              if(sid==='lost'){setReasonModal({oppId:dragOpp,stage:'lost',reasons:LOSS_REASONS,title:tx.lossReason});setDragOpp(null);return;}
+              if(sid==='dropped'){setReasonModal({oppId:dragOpp,stage:'dropped',reasons:LOSS_REASONS,title:tx.dropReason});setDragOpp(null);return;}
+              updateOpp(dragOpp,{stage:sid,probability:STAGE_PROB[sid]||dOpp.probability,stageChangedAt:new Date().toISOString(),updatedAt:new Date().toISOString()});toast(`${tx.movedTo} ${stage.l[lang]}`);
+            }
+            setDragOpp(null);}}} style={{minWidth:200}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'0 4px'}}>
               <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:8,height:8,borderRadius:'50%',background:stage.c}}/><span style={{fontSize:13,fontWeight:700}}>{stage.l[lang]}</span><span style={{fontSize:11,color:t.muted,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',padding:'1px 7px',borderRadius:8}}>{stOps.length}</span></div>
               <span style={{fontSize:11,color:t.dim,fontWeight:500}}>{eur(stVal)}</span>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:6,minHeight:100}}>
-              {stOps.map(opp=><div key={opp.id} draggable onDragStart={()=>setDragOpp(opp.id)} onClick={()=>setDetail({type:'opp',id:opp.id})} style={{...card,padding:'12px 14px',cursor:'grab',transition:`all 0.15s ${sp}`,borderLeft:`3px solid ${PRIS.find(p=>p.id===opp.priority)?.c||t.accent}`}}>
-                <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{opp.title}</div>
+              {stOps.map(opp=>{const age=dealAge(opp);const isStale=age>7;const nextTask=tasks.find(tk=>tk.oppId===opp.id&&!tk.done);const closeOverdue=opp.expectedCloseDate&&opp.expectedCloseDate<td();
+              return <div key={opp.id} draggable onDragStart={()=>setDragOpp(opp.id)} onClick={()=>setDetail({type:'opp',id:opp.id})} style={{...card,padding:'12px 14px',cursor:'grab',transition:`all 0.15s ${sp}`,borderLeft:`3px solid ${PRIS.find(p=>p.id===opp.priority)?.c||t.accent}`,opacity:isStale?.85:1}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:3}}>
+                  <div style={{fontSize:13,fontWeight:600,flex:1}}>{opp.title}</div>
+                  <span style={{fontSize:9,padding:'1px 6px',borderRadius:5,color:isStale?t.red:t.muted,fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{age}{lang==='nl'?'d':'d'}</span>
+                </div>
                 <div style={{fontSize:11,color:t.dim,marginBottom:3}}>{oppWho(opp)}{oppOrg(opp)&&oppWho(opp)?' · '+oppOrg(opp):oppOrg(opp)}</div>
                 {(opp.techTags||[]).length>0&&<div style={{display:'flex',gap:3,flexWrap:'wrap',marginBottom:4}}>{opp.techTags.map(tt=><span key={tt} style={{fontSize:9,padding:'1px 6px',borderRadius:5,background:t.purpleS,color:t.purple,fontWeight:600}}>{tt}</span>)}</div>}
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <span style={{fontSize:14,fontWeight:700}}>{eur(opp.value||0)}</span>
                   <span style={{fontSize:10,padding:'2px 8px',borderRadius:8,background:`${stage.c}20`,color:stage.c,fontWeight:600}}>{opp.probability}%</span>
                 </div>
-                {(opp.atosSalesId||opp.atosDeliveryId)&&<div style={{fontSize:10,color:t.dim,marginTop:4,display:'flex',gap:8}}>{opp.atosSalesId&&<span>🔵{atosName(opp.atosSalesId)}</span>}{opp.atosDeliveryId&&<span>🟢{atosName(opp.atosDeliveryId)}</span>}</div>}
-                {opp.nextAction&&<div style={{fontSize:11,color:t.orange,marginTop:4,fontWeight:500}}>→ {opp.nextAction}</div>}
-              </div>)}
+                {opp.expectedCloseDate&&<div style={{fontSize:10,marginTop:3,color:closeOverdue?t.red:t.dim,fontWeight:closeOverdue?600:400}}>{closeOverdue?'⚠ ':''}{fds(opp.expectedCloseDate)}</div>}
+                {nextTask&&<div style={{fontSize:10,color:t.orange,marginTop:3,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>→ {nextTask.title}</div>}
+                {!nextTask&&!opp.nextAction&&<div style={{fontSize:10,color:t.red,marginTop:3,fontStyle:'italic'}}>{tx.noNextStep}</div>}
+              </div>;})}
               <div onClick={()=>setModal({type:'opp',data:{stage:stage.id}})} style={{padding:10,borderRadius:10,border:`1.5px dashed ${t.border}`,textAlign:'center',color:t.muted,fontSize:12,cursor:'pointer'}}>{tx.addDeal}</div>
             </div>
           </div>;})}
@@ -1132,10 +1179,21 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
     const convRate=pOpps.length?(Math.round(pWon.length/pOpps.length*100)):0;
     const stageData=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost'&&s.id!=='dropped').map(s=>({...s,count:pOpps.filter(o=>o.stage===s.id).length,val:pOpps.filter(o=>o.stage===s.id).reduce((sum,o)=>sum+(o.value||0),0)}));
     const maxVal=Math.max(...stageData.map(s=>s.val),1);
+    // Velocity: avg cycle time for won deals
+    const wonCycles=pWon.map(o=>{const c=new Date(o.closedAt||o.updatedAt),s=new Date(o.createdAt);return Math.max(1,Math.round((c-s)/(1000*60*60*24)));}).filter(Boolean);
+    const avgCycle=wonCycles.length?Math.round(wonCycles.reduce((a,b)=>a+b,0)/wonCycles.length):0;
+    // Avg days per stage for active deals
+    const avgStageAge=pActive.length?Math.round(pActive.reduce((s,o)=>s+dealAge(o),0)/pActive.length):0;
+    // Closed deals this month
+    const now30=new Date();now30.setDate(now30.getDate()-30);
+    const monthWon=opps.filter(o=>o.stage==='won'&&o.closedAt&&new Date(o.closedAt)>=now30);
+    const monthLost=opps.filter(o=>o.stage==='lost'&&o.closedAt&&new Date(o.closedAt)>=now30);
+    const monthWonVal=monthWon.reduce((s,o)=>s+(o.value||0),0);
+    const monthLostVal=monthLost.reduce((s,o)=>s+(o.value||0),0);
     return <div>
       {renderPeriodBar()}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:20}}>
-        {[{l:tx.openPipeline,v:eur(pPipeline),c:t.accent},{l:tx.weightedValue,v:eur(Math.round(pWeighted)),c:t.purple},{l:tx.wonLabel,v:eur(pWonRev),c:t.green},{l:tx.conversionLabel,v:convRate+'%',c:t.orange},{l:tx.activeDeals,v:pActive.length,c:t.text},{l:tx.tasksToday,v:todayTasks.length+(overdueTasks.length?` (+${overdueTasks.length})`:'')+' ',c:overdueTasks.length?t.red:t.text}].map((s,i)=><div key={i} style={card}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10,marginBottom:20}}>
+        {[{l:tx.openPipeline,v:eur(pPipeline),c:t.accent},{l:tx.weightedValue,v:eur(Math.round(pWeighted)),c:t.purple},{l:tx.wonLabel,v:eur(pWonRev),c:t.green},{l:tx.conversionLabel,v:convRate+'%',c:t.orange},{l:tx.activeDeals,v:pActive.length,c:t.text},{l:tx.avgCycleTime,v:avgCycle?avgCycle+' '+tx.days:'—',c:t.teal},{l:tx.avgDaysInStage,v:avgStageAge+' '+tx.days,c:avgStageAge>14?t.red:t.text},{l:tx.tasksToday,v:todayTasks.length+(overdueTasks.length?` (+${overdueTasks.length})`:'')+' ',c:overdueTasks.length?t.red:t.text}].map((s,i)=><div key={i} style={card}><div style={lbl}>{s.l}</div><div style={{fontSize:22,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:20}}>
         <div style={card}>
@@ -1158,7 +1216,23 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </div>}
         </div>
       </div>
-      {activeOpps.filter(o=>o.priority==='high').length>0&&<div><div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{tx.highPriority}</div><div style={{display:'flex',flexDirection:'column',gap:6}}>{activeOpps.filter(o=>o.priority==='high').map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',borderLeft:`3px solid ${t.red}`}}><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{cName(o.contactId)} · {stageC(o.stage,lang).l}</div></div><div style={{fontWeight:700}}>{eur(o.value||0)}</div></div>)}</div></div>}
+      {activeOpps.filter(o=>o.priority==='high').length>0&&<div style={{marginBottom:20}}><div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{tx.highPriority}</div><div style={{display:'flex',flexDirection:'column',gap:6}}>{activeOpps.filter(o=>o.priority==='high').map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',borderLeft:`3px solid ${t.red}`}}><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div><div style={{fontSize:11,color:t.dim}}>{cName(o.contactId)} · {stageC(o.stage,lang).l}</div></div><div style={{fontWeight:700}}>{eur(o.value||0)}</div></div>)}</div></div>}
+      <div style={card}>
+        <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>{tx.closedSummary}</div>
+        {(monthWon.length+monthLost.length)===0?<div style={{color:t.muted,fontSize:12,textAlign:'center',padding:12}}>{tx.noClosedDeals}</div>:
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div style={{padding:12,borderRadius:10,background:t.greenS}}>
+            <div style={{fontSize:12,color:t.green,fontWeight:700,marginBottom:4}}>{tx.wonDeals}</div>
+            <div style={{fontSize:20,fontWeight:700,color:t.green}}>{monthWon.length}</div>
+            <div style={{fontSize:12,color:t.dim}}>{eur(monthWonVal)}</div>
+          </div>
+          <div style={{padding:12,borderRadius:10,background:t.redS}}>
+            <div style={{fontSize:12,color:t.red,fontWeight:700,marginBottom:4}}>{tx.lostDeals2}</div>
+            <div style={{fontSize:20,fontWeight:700,color:t.red}}>{monthLost.length}</div>
+            <div style={{fontSize:12,color:t.dim}}>{eur(monthLostVal)}</div>
+          </div>
+        </div>}
+      </div>
     </div>;
   };
 
@@ -1258,8 +1332,20 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             <div style={{...card,padding:'10px 14px',flex:'1 1 80px'}}><div style={lbl}>{tx.weighted}</div><div style={{fontSize:20,fontWeight:700,color:t.green}}>{eur(Math.round((o.value||0)*(o.probability||0)/100))}</div></div>
           </div>
           <div style={{fontSize:12,color:t.dim,marginBottom:8,display:'flex',alignItems:'center',gap:6}}>📅 {tx.closeDate}: <input type="date" value={o.expectedCloseDate||''} onChange={e=>updateOpp(o.id,{expectedCloseDate:e.target.value,updatedAt:new Date().toISOString()})} style={{border:'none',background:'transparent',color:t.text,fontWeight:700,fontSize:12,fontFamily:'inherit',cursor:'pointer',padding:'2px 4px',borderRadius:6,outline:'none'}}/></div>
+          {dealAge(o)>0&&<div style={{fontSize:11,color:dealAge(o)>14?t.red:dealAge(o)>7?t.orange:t.muted,marginBottom:8}}>{dealAge(o)} {tx.daysInStage}</div>}
+          {o.closedReason&&<div style={{fontSize:12,color:t.dim,marginBottom:8,padding:'6px 10px',borderRadius:8,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)'}}>{o.stage==='won'?tx.winReason:tx.lossReason}: <strong>{tx[o.closedReason]||o.closedReason}</strong>{o.closedNote&&<span style={{color:t.muted}}> — {o.closedNote}</span>}</div>}
           <div style={{fontSize:12,color:t.muted,marginBottom:8}}>{tx.phase.toUpperCase()}</div>
-          <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:16}}>{STAGES.map(s=><button key={s.id} onClick={()=>{updateOpp(o.id,{stage:s.id,updatedAt:new Date().toISOString(),closedAt:(s.id==='won'||s.id==='lost'||s.id==='dropped')?new Date().toISOString():null});if(s.id==='won')toast('🏆 '+tx.won);else if(s.id==='lost')toast(tx.lost,'info');else if(s.id==='dropped')toast(tx.dropped,'info');}} style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:600,border:`1.5px solid ${o.stage===s.id?s.c:'transparent'}`,background:o.stage===s.id?`${s.c}20`:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:o.stage===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}</div>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:16}}>{STAGES.map(s=><button key={s.id} onClick={()=>{
+            // Stage gate requirements
+            if((s.id==='qualified'||s.id==='proposal'||s.id==='negotiation')&&!(o.contactId||(o.contactIds||[]).length)){toast(tx.stageRequiresContact,'info');return;}
+            if((s.id==='proposal'||s.id==='negotiation')&&!o.value){toast(tx.stageRequiresValue,'info');return;}
+            if(s.id==='negotiation'&&!o.expectedCloseDate){toast(tx.stageRequiresClose,'info');return;}
+            // Win/Loss/Drop → prompt for reason
+            if(s.id==='won'){setReasonModal({oppId:o.id,stage:'won',reasons:WIN_REASONS,title:tx.winReason});return;}
+            if(s.id==='lost'){setReasonModal({oppId:o.id,stage:'lost',reasons:LOSS_REASONS,title:tx.lossReason});return;}
+            if(s.id==='dropped'){setReasonModal({oppId:o.id,stage:'dropped',reasons:LOSS_REASONS,title:tx.dropReason});return;}
+            updateOpp(o.id,{stage:s.id,probability:STAGE_PROB[s.id]||o.probability,stageChangedAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+          }} style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:600,border:`1.5px solid ${o.stage===s.id?s.c:'transparent'}`,background:o.stage===s.id?`${s.c}20`:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:o.stage===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}</div>
         </div>
         <div style={{padding:24}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>{tx.tasks2} ({oTasks.filter(tk=>!tk.done).length})</span><button onClick={()=>setModal({type:'task',data:{contactId:o.contactId||(o.contactIds||[])[0]||'',oppId:o.id}})} style={{...btnG,padding:'4px 12px',fontSize:11}}>{tx.addTask}</button></div>
@@ -1281,6 +1367,10 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
               </div>)}
               {oInts.length===0&&<div style={{fontSize:12,color:t.muted,fontStyle:'italic',textAlign:'center',padding:12}}>{tx.noInteractionsYet}</div>}
             </div>
+          </div>
+          <div style={{marginTop:20}}>
+            <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{tx.dealNotes}</div>
+            <textarea value={o.dealNotes||''} onChange={e=>updateOpp(o.id,{dealNotes:e.target.value,updatedAt:new Date().toISOString()})} placeholder={tx.addNote} style={{...inp,minHeight:80,resize:'vertical',fontSize:12}}/>
           </div>
         </div>
       </div></div>;
@@ -1395,7 +1485,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
           {/* FIX: s.l is {nl,en} object — use s.l[lang] */}
-          <div><label style={lbl}>{tx.phase}</label><select style={{...inp,cursor:'pointer'}} value={f.stage||'lead'} onChange={e=>sf({...f,stage:e.target.value})}>{STAGES.map(s=><option key={s.id} value={s.id}>{s.l[lang]||s.l.nl}</option>)}</select></div>
+          <div><label style={lbl}>{tx.phase}</label><select style={{...inp,cursor:'pointer'}} value={f.stage||'lead'} onChange={e=>{const ns=e.target.value;sf({...f,stage:ns,probability:STAGE_PROB[ns]??f.probability});}}>{STAGES.map(s=><option key={s.id} value={s.id}>{s.l[lang]||s.l.nl}</option>)}</select></div>
           <div><label style={lbl}>{tx.priority}</label><select style={{...inp,cursor:'pointer'}} value={f.priority||'medium'} onChange={e=>sf({...f,priority:e.target.value})}>{PRIS.map(p=><option key={p.id} value={p.id}>{p.l[lang]||p.l.nl}</option>)}</select></div>
         </div>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.technology}</label>
@@ -1644,6 +1734,20 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           <line x1="28" y1="130" x2={Math.max(30+funnelData.length*110-20,280)} y2="130" stroke={t.border} strokeWidth=".5"/>
         </svg>
       </div>
+      <div style={{...card,marginTop:16}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:12}}>{tx.lostReengagement}</div>
+        {(()=>{const lostDeals=opps.filter(o=>o.stage==='lost').sort((a,b)=>new Date(b.closedAt||b.updatedAt)-new Date(a.closedAt||a.updatedAt));
+          return lostDeals.length===0?<div style={{color:t.muted,fontSize:12,textAlign:'center',padding:12}}>{tx.noData}</div>:
+          <div style={{display:'flex',flexDirection:'column',gap:6}}>
+            {lostDeals.slice(0,10).map(o=>{const months=Math.round((Date.now()-new Date(o.closedAt||o.updatedAt).getTime())/(1000*60*60*24*30));return <div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{padding:'10px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',cursor:'pointer',display:'flex',alignItems:'center',gap:12}}>
+              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div>
+                <div style={{fontSize:11,color:t.dim}}>{compName(o.companyId)}{o.closedReason&&' · '+(tx[o.closedReason]||o.closedReason)}</div></div>
+              <div style={{textAlign:'right'}}><div style={{fontWeight:700,fontSize:13}}>{eur(o.value||0)}</div>
+                <div style={{fontSize:10,color:months>=3?t.green:t.muted}}>{months} {tx.monthsAgo}</div></div>
+            </div>;})}
+          </div>;
+        })()}
+      </div>
     </div>;
   };
 
@@ -1868,6 +1972,21 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             </div>}
           </div>
           <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setIntModal(null)} style={btnG}>{tx.cancel}</button><button onClick={()=>{if(!intText.trim()){toast(tx.fillDesc,'info');return;}logInteraction(intModal.contactId||'',intModal.oppId||'',intModal.type,intText.trim());if(intModal.createTask&&intModal.taskTitle?.trim()){addTask_({id:uid(),title:intModal.taskTitle.trim(),contactId:intModal.contactId||'',oppId:intModal.oppId||'',dueDate:intModal.taskDate||td(),dueTime:'',done:false,priority:'medium',reminder:true,reminderMin:15,createdAt:new Date().toISOString()});toast(tx.intAndTask);}else{toast(`${INT_TYPES.find(x=>x.id===intModal.type)?.l} ${tx.intLogged}`);}setIntModal(null);}} style={btnP}>{tx.save}</button></div>
+        </div>
+      </div>}
+      {reasonModal&&<div onClick={()=>setReasonModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:400}}>
+          <div style={{padding:'20px 24px 0'}}><span style={{fontSize:19,fontWeight:700}}>{reasonModal.title}</span></div>
+          <div style={{padding:'16px 24px'}}>
+            <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:12}}>
+              {reasonModal.reasons.map(r=><button key={r} onClick={()=>setReasonModal({...reasonModal,selected:r})} style={{padding:'8px 14px',borderRadius:10,fontSize:13,fontWeight:reasonModal.selected===r?700:400,border:`1.5px solid ${reasonModal.selected===r?t.accent:'transparent'}`,background:reasonModal.selected===r?t.accentS:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:reasonModal.selected===r?t.accent:t.text,cursor:'pointer',textAlign:'left',fontFamily:'inherit'}}>{tx[r]||r}</button>)}
+            </div>
+            <textarea value={reasonModal.note||''} onChange={e=>setReasonModal({...reasonModal,note:e.target.value})} placeholder={tx.optionalNote} style={{...inp,minHeight:60,resize:'vertical',fontSize:12}}/>
+          </div>
+          <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}>
+            <button onClick={()=>setReasonModal(null)} style={btnG}>{tx.cancel}</button>
+            <button onClick={()=>{if(!reasonModal.selected){toast(tx.pleaseSelectReason,'info');return;}const now=new Date().toISOString();updateOpp(reasonModal.oppId,{stage:reasonModal.stage,closedAt:now,closedReason:reasonModal.selected,closedNote:reasonModal.note||'',probability:0,stageChangedAt:now,updatedAt:now});if(reasonModal.stage==='won'){updateOpp(reasonModal.oppId,{probability:100});toast('🏆 '+tx.won);}else if(reasonModal.stage==='lost')toast(tx.lost,'info');else toast(tx.dropped,'info');setReasonModal(null);}} style={btnP}>{tx.save}</button>
+          </div>
         </div>
       </div>}
     </div>
