@@ -44,7 +44,7 @@ const fds=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'shor
 const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
-const APP_VERSION='5';
+const APP_VERSION='6';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -1287,7 +1287,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         let ctId='';const ctName=g(impMapping.contact);
         if(ctName){const ex=contacts.find(c=>c.name.toLowerCase()===ctName.toLowerCase());if(ex)ctId=ex.id;else{const av=ctName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const nct={id:uid(),name:ctName,email:'',phone:'',companyId:coId,role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};setContacts(p=>[...p,nct]);ctId=nct.id;contactsAdded++;}}
         const rawStage=(g(impMapping.stage)||'').toLowerCase();const stage=stageMap[rawStage]||'lead';
-        const val=parseInt((g(impMapping.value)||'0').replace(/[^\d]/g,''))||0;
+        const rawVal=(g(impMapping.value)||'0').replace(/[€$£\s]/g,'').trim();
+        const val=Math.round(parseFloat(rawVal.replace(/\.(?=\d{3})/g,'').replace(',','.'))||0);
         const prob=parseInt(g(impMapping.probability))||20;
         const tech=(g(impMapping.tech)||'').split(/[,;|]/).map(s=>s.trim()).filter(Boolean);
         const now=new Date().toISOString();
