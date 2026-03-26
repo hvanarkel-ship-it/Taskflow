@@ -44,7 +44,7 @@ const fds=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'shor
 const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
-const APP_VERSION='10';
+const APP_VERSION='11';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -171,7 +171,7 @@ const TX={
     tags:'Tags',addTag:'Tag toevoegen...',role:'Functie',fullName:'Volledige naam',
     // Import
     importTitle:'📥 Opportunities Importeren',importDrag:'Sleep een CSV of klik om te uploaden',importHint:'CSV, TSV — kolommen worden automatisch herkend',
-    importExpected:'Verwachte kolommen (flexibel):',importCols:'Titel/Deal, Bedrijf/Account, Contact, Waarde/Bedrag, Fase/Stage, Kans(%), Technologie, Volgende Actie',
+    importExpected:'Verwachte kolommen (flexibel):',importCols:'Titel/Deal, Bedrijf/Account, Contact, Waarde/Bedrag, Fase/Stage, Kans(%), Prioriteit, Technologie, Volgende Actie, Sluitdatum',
     importRows:'rijen gevonden — Koppel kolommen:',importPreview:'Preview (eerste 3 rijen):',importBack:'Terug',
     importBtn:'Importeer',importDone:'Import voltooid!',importClose:'Sluiten',importDeals:'Deals',importSkipped:'Overgeslagen',importCompanies:'Bedrijven',importContacts:'Contacten',
     dontMap:'— Niet koppelen —',
@@ -285,7 +285,7 @@ const TX={
     tags:'Tags',addTag:'Add tag...',role:'Role',fullName:'Full name',
     // Import
     importTitle:'📥 Import Opportunities',importDrag:'Drag a CSV or click to upload',importHint:'CSV, TSV — columns are auto-detected',
-    importExpected:'Expected columns (flexible):',importCols:'Title/Deal, Company/Account, Contact, Value/Amount, Stage/Status, Probability(%), Technology, Next Action',
+    importExpected:'Expected columns (flexible):',importCols:'Title/Deal, Company/Account, Contact, Value/Amount, Stage/Status, Probability(%), Priority, Technology, Next Action, Close Date',
     importRows:'rows found — Map columns:',importPreview:'Preview (first 3 rows):',importBack:'Back',
     importBtn:'Import',importDone:'Import complete!',importClose:'Close',importDeals:'Deals',importSkipped:'Skipped',importCompanies:'Companies',importContacts:'Contacts',
     dontMap:'— Don\'t map —',
@@ -629,7 +629,7 @@ const App = function(){
   const[mfNewAtosName,setMfNewAtosName]=useState('');
   const[mfNewAtosRole,setMfNewAtosRole]=useState('sales');
   const[impData,setImpData]=useState([]);const[impCols,setImpCols]=useState([]);
-  const[impMapping,setImpMapping]=useState({title:'',company:'',contact:'',value:'',stage:'',probability:'',tech:'',nextAction:''});
+  const[impMapping,setImpMapping]=useState({title:'',company:'',contact:'',value:'',stage:'',probability:'',priority:'',tech:'',nextAction:'',closeDate:''});
   const[impStep,setImpStep]=useState(1);const[impResult,setImpResult]=useState(null);
   const impFileRef=useRef(null);
   const[intModal,setIntModal]=useState(null);
@@ -645,7 +645,7 @@ const App = function(){
       setMfTag('');setMfNewCo('');setMfNewCt('');setMfTechIn('');
       setMfShowNewCo(false);setMfShowNewCt(false);setMfShowAtosAdd(false);
       setMfNewAtosName('');setMfNewAtosRole('sales');
-      if(mt==='import'){setImpData([]);setImpCols([]);setImpMapping({title:'',company:'',contact:'',value:'',stage:'',probability:'',tech:'',nextAction:''});setImpStep(1);setImpResult(null);}
+      if(mt==='import'){setImpData([]);setImpCols([]);setImpMapping({title:'',company:'',contact:'',value:'',stage:'',probability:'',priority:'',tech:'',nextAction:'',closeDate:''});setImpStep(1);setImpResult(null);}
       if(mt==='opp'){
         if(md?.id){setMf({...md});}
         else{const base={title:'',contactId:'',contactIds:[],companyId:'',stage:'lead',value:0,probability:20,priority:'medium',nextAction:'',nextActionDate:'',expectedCloseDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',notes:[],...(md||{})};if(base.contactId&&!base.contactIds.includes(base.contactId))base.contactIds=[...base.contactIds,base.contactId];setMf(base);}
@@ -1473,7 +1473,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
 
   const renderImportModal=()=>{
     const fileRef=impFileRef;
-    const fields=[{k:'title',l:tx.title+' *',req:true},{k:'company',l:tx.company},{k:'contact',l:tx.contact},{k:'value',l:tx.value+' (€)'},{k:'stage',l:tx.phase},{k:'probability',l:tx.chance+' (%)'},{k:'tech',l:tx.technology},{k:'nextAction',l:tx.nextAction}];
+    const fields=[{k:'title',l:tx.title+' *',req:true},{k:'company',l:tx.company},{k:'contact',l:tx.contact},{k:'value',l:tx.value+' (€)'},{k:'stage',l:tx.phase},{k:'probability',l:tx.chance+' (%)'},{k:'priority',l:tx.priority},{k:'tech',l:tx.technology},{k:'nextAction',l:tx.nextAction},{k:'closeDate',l:tx.closeDate}];
     const stageMap={'lead':'lead','prospect':'lead','gekwalificeerd':'qualified','qualified':'qualified','voorstel':'proposal','proposal':'proposal','offerte':'proposal','onderhandeling':'negotiation','negotiation':'negotiation','gewonnen':'won','won':'won','verloren':'lost','lost':'lost'};
     const handleFile=async(e)=>{const file=e.target.files?.[0];if(!file)return;
       const ext=file.name.split('.').pop().toLowerCase();
@@ -1491,6 +1491,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           else if(lc.includes('kans')||lc.includes('prob'))m.probability=col;
           else if(lc.includes('tech'))m.tech=col;
           else if(lc.includes('actie')||lc.includes('action')||lc.includes('next'))m.nextAction=col;
+          else if(lc.includes('sluit')||lc.includes('close')||lc.includes('deadline')||lc.includes('verwacht')||lc.includes('expected')||lc.includes('einddatum')||lc.includes('end date'))m.closeDate=col;
+          else if(lc.includes('prioriteit')||lc.includes('priority')||lc.includes('urgentie')||lc.includes('urgency'))m.priority=col;
         });setImpMapping(m);setImpStep(2);
       }else{toast(tx.uploadCsvOnly,'info');}
     };
@@ -1507,8 +1509,12 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         const val=Math.round(parseFloat(rawVal.replace(/\.(?=\d{3})/g,'').replace(',','.'))||0);
         const prob=parseInt(g(impMapping.probability))||20;
         const tech=(g(impMapping.tech)||'').split(/[,;|]/).map(s=>s.trim()).filter(Boolean);
+        const rawPri=(g(impMapping.priority)||'').toLowerCase();const pri=['high','hoog'].includes(rawPri)?'high':['low','laag'].includes(rawPri)?'low':'medium';
+        let closeRaw=g(impMapping.closeDate);let expClose='';
+        if(closeRaw){const dp=new Date(closeRaw.replace(/(\d{2})-(\d{2})-(\d{4})/,'$3-$2-$1'));if(!isNaN(dp))expClose=dp.toISOString().slice(0,10);}
+        if(!expClose){const d=new Date();d.setMonth(d.getMonth()+3);expClose=d.toISOString().slice(0,10);}
         const now=new Date().toISOString();
-        addOpp({id:uid(),title,contactId:ctId,contactIds:ctId?[ctId]:[],companyId:coId,stage,value:val,probability:prob,priority:'medium',nextAction:g(impMapping.nextAction),nextActionDate:'',techTags:tech,atosSalesId:'',atosDeliveryId:'',notes:[],createdAt:now,updatedAt:now,closedAt:null});added++;
+        addOpp({id:uid(),title,contactId:ctId,contactIds:ctId?[ctId]:[],companyId:coId,stage,value:val,probability:prob,priority:pri,nextAction:g(impMapping.nextAction),nextActionDate:'',expectedCloseDate:expClose,techTags:tech,atosSalesId:'',atosDeliveryId:'',notes:[],createdAt:now,updatedAt:now,closedAt:null});added++;
       });
       setImpResult({added,skipped,companiesAdded,contactsAdded});setImpStep(3);
     };
