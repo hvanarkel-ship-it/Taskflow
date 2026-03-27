@@ -249,6 +249,8 @@ const TX={
     stageRequiresContact:'Voeg eerst een contact toe voor deze fase',stageRequiresValue:'Voeg eerst een waarde toe voor deze fase',stageRequiresClose:'Voeg eerst een sluitdatum toe',
     lostReengagement:'Verloren Deals',reengageFilter:'Heractiveer filter',monthsAgo:'maanden geleden',
     nextStep:'Volgende stap',noNextStep:'Geen volgende stap',
+    // Table sort & bulk
+    deleteSelected:'Verwijder geselecteerd',confirmDeleteN:'deals verwijderen?',nSelected:'geselecteerd',
   },
   en:{
     pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',atos:'Atos Team',tasks:'Tasks',reports:'Reports',
@@ -376,6 +378,7 @@ const TX={
     stageRequiresContact:'Add a contact first for this stage',stageRequiresValue:'Add a value first for this stage',stageRequiresClose:'Add a close date first',
     lostReengagement:'Lost Deals',reengageFilter:'Re-engage filter',monthsAgo:'months ago',
     nextStep:'Next step',noNextStep:'No next step',
+    deleteSelected:'Delete selected',confirmDeleteN:'deals to delete?',nSelected:'selected',
   }
 };
 
@@ -610,6 +613,8 @@ const App = function(){
   const[filtTech,setFiltTech]=useState('');
   const[pipeView,setPipeView]=useState('kanban');
   const[editCell,setEditCell]=useState(null);
+  const[tblSort,setTblSort]=useState({col:'value',dir:'desc'});
+  const[tblSel,setTblSel]=useState([]);
   const[filtPhase,setFiltPhase]=useState('');
   const[filtCloseP,setFiltCloseP]=useState('');
   const[taskTab,setTaskTab]=useState('today');
@@ -1059,29 +1064,61 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             </div>
           </div>;})}
       </div>
-      :<div style={{overflowX:'auto'}}>
+      :(()=>{
+        const tblCols=[
+          {key:'title',l:tx.title,sort:(a,b)=>(a.title||'').localeCompare(b.title||'')},
+          {key:'company',l:tx.company,sort:(a,b)=>(compName(a.companyId)||'').localeCompare(compName(b.companyId)||'')},
+          {key:'contact',l:tx.contactPersons,sort:(a,b)=>(oppWho(a)||'').localeCompare(oppWho(b)||'')},
+          {key:'stage',l:tx.phase,sort:(a,b)=>{const si=s=>STAGES.findIndex(x=>x.id===s);return si(a.stage)-si(b.stage);}},
+          {key:'value',l:tx.value,sort:(a,b)=>(a.value||0)-(b.value||0)},
+          {key:'probability',l:tx.chance+'%',sort:(a,b)=>(a.probability||0)-(b.probability||0)},
+          {key:'priority',l:tx.priority,sort:(a,b)=>{const pi={high:0,medium:1,low:2};return (pi[a.priority]??1)-(pi[b.priority]??1);}},
+          {key:'nextAction',l:tx.nextAction,sort:(a,b)=>(a.nextAction||'').localeCompare(b.nextAction||'')},
+          {key:'expectedCloseDate',l:tx.closeDate,sort:(a,b)=>(a.expectedCloseDate||'9').localeCompare(b.expectedCloseDate||'9')},
+        ];
+        const tblRows=filteredOpps.filter(o=>activeStages.some(s=>s.id===o.stage));
+        const sortFn=tblCols.find(c=>c.key===tblSort.col)?.sort||(()=>0);
+        const sorted=[...tblRows].sort((a,b)=>{const r=sortFn(a,b);return tblSort.dir==='asc'?r:-r;});
+        const allIds=sorted.map(o=>o.id);
+        const allSel=allIds.length>0&&allIds.every(id=>tblSel.includes(id));
+        const toggleSel=id=>setTblSel(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
+        const toggleAll=()=>setTblSel(allSel?[]:allIds);
+        const doSort=col=>setTblSort(s=>s.col===col?{col,dir:s.dir==='asc'?'desc':'asc'}:{col,dir:'desc'});
+        const sortIc=col=>tblSort.col===col?(tblSort.dir==='asc'?' ↑':' ↓'):'';
+        const bulkDel=async()=>{if(!tblSel.length)return;if(!confirm(`${tblSel.length} ${tx.confirmDeleteN}`))return;for(const id of tblSel)await deleteOpp(id);setTblSel([]);};
+        return <div style={{overflowX:'auto'}}>
+        {tblSel.length>0&&<div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 14px',marginBottom:8,borderRadius:10,background:t.accentS,border:`1px solid ${t.accent}44`}}>
+          <span style={{fontSize:13,fontWeight:600,color:t.accent}}>{tblSel.length} {tx.nSelected}</span>
+          <button onClick={bulkDel} style={{padding:'5px 14px',borderRadius:8,border:'none',background:t.red,color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.deleteSelected}</button>
+          <button onClick={()=>setTblSel([])} style={{padding:'5px 14px',borderRadius:8,border:`1px solid ${t.border}`,background:'transparent',color:t.dim,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>{tx.cancel}</button>
+        </div>}
         <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
           <thead><tr>
-            {[tx.title,tx.company,tx.contactPersons,tx.phase,tx.value,tx.chance+'%',tx.priority,tx.nextAction,tx.closeDate].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',borderBottom:`1.5px solid ${t.border}`,fontSize:11,color:t.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:.5,whiteSpace:'nowrap'}}>{h}</th>)}
+            <th style={{padding:'8px 6px',borderBottom:`1.5px solid ${t.border}`,width:32}}><div onClick={toggleAll} style={{width:18,height:18,borderRadius:4,border:`2px solid ${allSel?t.accent:t.muted}`,background:allSel?t.accent:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:10,color:'#fff',fontWeight:700}}>{allSel&&'✓'}</div></th>
+            {tblCols.map(c=><th key={c.key} onClick={()=>doSort(c.key)} style={{padding:'8px 10px',textAlign:'left',borderBottom:`1.5px solid ${t.border}`,fontSize:11,color:tblSort.col===c.key?t.accent:t.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:.5,whiteSpace:'nowrap',cursor:'pointer',userSelect:'none'}}>{c.l}{sortIc(c.key)}</th>)}
+            <th style={{padding:'8px 6px',borderBottom:`1.5px solid ${t.border}`,width:32}}></th>
           </tr></thead>
-          <tbody>{filteredOpps.filter(o=>activeStages.some(s=>s.id===o.stage)).map(opp=>{
+          <tbody>{sorted.map(opp=>{
             const ec=editCell;const isE=(f)=>ec?.id===opp.id&&ec?.f===f;
             const saveCell=(f,v)=>{updateOpp(opp.id,{[f]:v,updatedAt:new Date().toISOString()});setEditCell(null);};
             const cellS={padding:'6px 10px',borderBottom:`0.5px solid ${t.border}`,cursor:'pointer',transition:`background .1s`};
             const stg=STAGES.find(s=>s.id===opp.stage)||STAGES[0];
-            return <tr key={opp.id} style={{background:isE(null)?t.accentS:'transparent'}}>
+            const isSel=tblSel.includes(opp.id);
+            return <tr key={opp.id} style={{background:isSel?t.accentS:isE(null)?t.accentS:'transparent'}}>
+              <td style={{...cellS,padding:'6px 6px'}}><div onClick={()=>toggleSel(opp.id)} style={{width:18,height:18,borderRadius:4,border:`2px solid ${isSel?t.accent:t.muted}`,background:isSel?t.accent:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:10,color:'#fff',fontWeight:700}}>{isSel&&'✓'}</div></td>
               <td style={cellS} onClick={()=>!isE('title')&&setEditCell({id:opp.id,f:'title'})}>{isE('title')?<input autoFocus style={{...inp,padding:'4px 8px',fontSize:13}} defaultValue={opp.title} onBlur={e=>saveCell('title',e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('title',e.target.value);if(e.key==='Escape')setEditCell(null);}}/>:<span style={{fontWeight:600}}>{opp.title}</span>}</td>
               <td style={cellS} onClick={()=>setDetail({type:'opp',id:opp.id})}><span style={{color:t.dim}}>{compName(opp.companyId)||'—'}</span></td>
               <td style={cellS} onClick={()=>setDetail({type:'opp',id:opp.id})}><span style={{color:t.dim}}>{oppWho(opp)||'—'}</span></td>
               <td style={cellS} onClick={()=>!isE('stage')&&setEditCell({id:opp.id,f:'stage'})}>{isE('stage')?<select autoFocus style={{...inp,padding:'4px 8px',fontSize:12}} value={opp.stage} onChange={e=>{saveCell('stage',e.target.value);}} onBlur={()=>setEditCell(null)}>{STAGES.map(s=><option key={s.id} value={s.id}>{s.l[lang]||s.l.nl}</option>)}</select>:<span style={{fontSize:11,padding:'2px 8px',borderRadius:8,background:`${stg.c}20`,color:stg.c,fontWeight:600}}>{stg.l[lang]}</span>}</td>
-              <td style={cellS} onClick={()=>!isE('value')&&setEditCell({id:opp.id,f:'value'})}>{isE('value')?<input autoFocus type="number" style={{...inp,padding:'4px 8px',fontSize:13,width:100}} defaultValue={opp.value||0} onBlur={e=>saveCell('value',+e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('value',+e.target.value);if(e.key==='Escape')setEditCell(null);}}/>:<span style={{fontWeight:700}}>{eur(opp.value||0)}</span>}</td>
-              <td style={cellS} onClick={()=>!isE('probability')&&setEditCell({id:opp.id,f:'probability'})}>{isE('probability')?<input autoFocus type="number" min="0" max="100" style={{...inp,padding:'4px 8px',fontSize:13,width:60}} defaultValue={opp.probability||0} onBlur={e=>saveCell('probability',+e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('probability',+e.target.value);if(e.key==='Escape')setEditCell(null);}}/>:<span>{opp.probability}%</span>}</td>
+              <td style={cellS} onClick={()=>!isE('value')&&setEditCell({id:opp.id,f:'value'})}>{isE('value')?<input autoFocus type="number" style={{...inp,padding:'4px 8px',fontSize:13,width:100}} defaultValue={opp.value??0} onBlur={e=>saveCell('value',+e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('value',+e.target.value);if(e.key==='Escape')setEditCell(null);}}/>:<span style={{fontWeight:700}}>{eur(opp.value||0)}</span>}</td>
+              <td style={cellS} onClick={()=>!isE('probability')&&setEditCell({id:opp.id,f:'probability'})}>{isE('probability')?<input autoFocus type="number" min="0" max="100" style={{...inp,padding:'4px 8px',fontSize:13,width:60}} defaultValue={opp.probability??0} onBlur={e=>saveCell('probability',+e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('probability',+e.target.value);if(e.key==='Escape')setEditCell(null);}}/>:<span>{opp.probability??0}%</span>}</td>
               <td style={cellS} onClick={()=>!isE('priority')&&setEditCell({id:opp.id,f:'priority'})}>{isE('priority')?<select autoFocus style={{...inp,padding:'4px 8px',fontSize:12}} value={opp.priority||'medium'} onChange={e=>saveCell('priority',e.target.value)} onBlur={()=>setEditCell(null)}>{PRIS.map(p=><option key={p.id} value={p.id}>{p.l[lang]||p.l.nl}</option>)}</select>:<span style={{color:(PRIS.find(p=>p.id===opp.priority)||PRIS[1]).c,fontWeight:600,fontSize:11}}>{pl(opp.priority)}</span>}</td>
               <td style={cellS} onClick={()=>!isE('nextAction')&&setEditCell({id:opp.id,f:'nextAction'})}>{isE('nextAction')?<input autoFocus style={{...inp,padding:'4px 8px',fontSize:12}} defaultValue={opp.nextAction||''} onBlur={e=>saveCell('nextAction',e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('nextAction',e.target.value);if(e.key==='Escape')setEditCell(null);}}/>:<span style={{color:opp.nextAction?t.orange:t.muted,fontSize:12}}>{opp.nextAction||'—'}</span>}</td>
               <td style={cellS} onClick={()=>!isE('expectedCloseDate')&&setEditCell({id:opp.id,f:'expectedCloseDate'})}>{isE('expectedCloseDate')?<input autoFocus type="date" style={{...inp,padding:'4px 8px',fontSize:12}} defaultValue={opp.expectedCloseDate||''} onBlur={e=>saveCell('expectedCloseDate',e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('expectedCloseDate',e.target.value);if(e.key==='Escape')setEditCell(null);}}/>:<span style={{fontSize:12,color:t.dim}}>{opp.expectedCloseDate?fds(opp.expectedCloseDate):'—'}</span>}</td>
+              <td style={{...cellS,padding:'6px 6px',textAlign:'center'}}><span onClick={async(e)=>{e.stopPropagation();if(confirm(lang==='nl'?`"${opp.title}" verwijderen?`:`Delete "${opp.title}"?`))await deleteOpp(opp.id);}} style={{cursor:'pointer',color:t.red,fontSize:14,opacity:.6,transition:'opacity .15s'}} onMouseOver={e=>e.target.style.opacity=1} onMouseOut={e=>e.target.style.opacity=.6}>✕</span></td>
             </tr>;})}</tbody>
         </table>
-      </div>}
+      </div>;})()}
       {(fWon.length>0||filteredOpps.filter(o=>o.stage==='lost'||o.stage==='dropped').length>0)&&<div style={{marginTop:24}}>
         <div style={{fontSize:15,fontWeight:700,marginBottom:10}}>{tx.closedDeals}</div>
         <div style={{display:'flex',flexDirection:'column',gap:6}}>
