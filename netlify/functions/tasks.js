@@ -35,9 +35,11 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'PUT') {
       const b = parseBody(event);
       if (!b.id) return err(400, 'ID vereist');
-      const contactId = b.contact_id!==undefined||b.contactId!==undefined?(b.contact_id||b.contactId||null):null;
-      const oppId = b.opp_id!==undefined||b.oppId!==undefined?(b.opp_id||b.oppId||null):null;
-      const [task] = await sql`UPDATE tasks SET title=COALESCE(${b.title||null},title), contact_id=${contactId}, opp_id=${oppId}, due_date=${b.due_date||b.dueDate||null}, due_time=${b.due_time||b.dueTime||null}, priority=COALESCE(${b.priority||null},priority), reminder=COALESCE(${b.reminder!==undefined?b.reminder:null},reminder), reminder_min=COALESCE(${b.reminder_min||b.reminderMin||null},reminder_min), done=COALESCE(${b.done!==undefined?b.done:null},done), updated_at=NOW() WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
+      const hasContact = b.contact_id !== undefined || b.contactId !== undefined ? 1 : 0;
+      const hasOpp = b.opp_id !== undefined || b.oppId !== undefined ? 1 : 0;
+      const hasDueDate = b.due_date !== undefined || b.dueDate !== undefined ? 1 : 0;
+      const hasDueTime = b.due_time !== undefined || b.dueTime !== undefined ? 1 : 0;
+      const [task] = await sql`UPDATE tasks SET title=COALESCE(${b.title||null},title), contact_id=CASE WHEN ${hasContact}=1 THEN ${b.contact_id||b.contactId||null}::integer ELSE contact_id END, opp_id=CASE WHEN ${hasOpp}=1 THEN ${b.opp_id||b.oppId||null}::integer ELSE opp_id END, due_date=CASE WHEN ${hasDueDate}=1 THEN ${b.due_date||b.dueDate||null}::date ELSE due_date END, due_time=CASE WHEN ${hasDueTime}=1 THEN ${b.due_time||b.dueTime||null} ELSE due_time END, priority=COALESCE(${b.priority||null},priority), reminder=COALESCE(${b.reminder!==undefined?b.reminder:null},reminder), reminder_min=COALESCE(${b.reminder_min||b.reminderMin||null},reminder_min), done=COALESCE(${b.done!==undefined?b.done:null},done), updated_at=NOW() WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
       return ok({ task });
     }
 
