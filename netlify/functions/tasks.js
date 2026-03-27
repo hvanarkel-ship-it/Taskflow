@@ -28,22 +28,26 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'POST') {
       const b = parseBody(event);
       if (!b.title) return err(400, 'Titel vereist');
-      const [task] = await sql`INSERT INTO tasks (title, contact_id, opp_id, due_date, due_time, priority, reminder, reminder_min, user_id) VALUES (${b.title}, ${b.contactId||null}, ${b.oppId||null}, ${b.dueDate||null}, ${b.dueTime||null}, ${b.priority||'medium'}, ${b.reminder||false}, ${b.reminderMin||15}, ${user.id}) RETURNING *`;
+      const [task] = await sql`INSERT INTO tasks (title, contact_id, opp_id, due_date, due_time, priority, reminder, reminder_min, user_id) VALUES (${b.title}, ${b.contact_id||b.contactId||null}, ${b.opp_id||b.oppId||null}, ${b.due_date||b.dueDate||null}, ${b.due_time||b.dueTime||null}, ${b.priority||'medium'}, ${b.reminder||false}, ${b.reminder_min||b.reminderMin||15}, ${user.id}) RETURNING *`;
       return ok({ task });
     }
- 
+
     if (event.httpMethod === 'PUT') {
       const b = parseBody(event);
       if (!b.id) return err(400, 'ID vereist');
-      const [task] = await sql`UPDATE tasks SET title=COALESCE(${b.title||null},title), contact_id=${b.contactId!==undefined?b.contactId||null:null}, opp_id=${b.oppId!==undefined?b.oppId||null:null}, due_date=${b.dueDate||null}, due_time=${b.dueTime||null}, priority=COALESCE(${b.priority||null},priority), reminder=COALESCE(${b.reminder!==undefined?b.reminder:null},reminder), reminder_min=COALESCE(${b.reminderMin||null},reminder_min), done=COALESCE(${b.done!==undefined?b.done:null},done), updated_at=NOW() WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
+      const contactId = b.contact_id!==undefined||b.contactId!==undefined?(b.contact_id||b.contactId||null):null;
+      const oppId = b.opp_id!==undefined||b.oppId!==undefined?(b.opp_id||b.oppId||null):null;
+      const [task] = await sql`UPDATE tasks SET title=COALESCE(${b.title||null},title), contact_id=${contactId}, opp_id=${oppId}, due_date=${b.due_date||b.dueDate||null}, due_time=${b.due_time||b.dueTime||null}, priority=COALESCE(${b.priority||null},priority), reminder=COALESCE(${b.reminder!==undefined?b.reminder:null},reminder), reminder_min=COALESCE(${b.reminder_min||b.reminderMin||null},reminder_min), done=COALESCE(${b.done!==undefined?b.done:null},done), updated_at=NOW() WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
       return ok({ task });
     }
- 
+
     if (event.httpMethod === 'DELETE') {
+      const p = event.queryStringParameters || {};
       const b = parseBody(event);
-      if (!b.id) return err(400, 'ID vereist');
-      await sql`DELETE FROM tasks WHERE id=${b.id} AND user_id=${user.id}`;
-      return ok({ deleted: b.id });
+      const id = p.id || b.id;
+      if (!id) return err(400, 'ID vereist');
+      await sql`DELETE FROM tasks WHERE id=${id} AND user_id=${user.id}`;
+      return ok({ deleted: id });
     }
     return err(405, 'Method not allowed');
   } catch (e) {

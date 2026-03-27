@@ -26,10 +26,12 @@ exports.handler = async (event) => {
     }
  
     if (event.httpMethod === 'DELETE') {
+      const p = event.queryStringParameters || {};
       const b = parseBody(event);
-      if (!b.id) return err(400, 'ID vereist');
-      await sql`DELETE FROM atos_team WHERE id=${b.id} AND user_id=${user.id}`;
-      return ok({ deleted: b.id });
+      const id = p.id || b.id;
+      if (!id) return err(400, 'ID vereist');
+      await sql`DELETE FROM atos_team WHERE id=${id} AND user_id=${user.id}`;
+      return ok({ deleted: id });
     }
     return err(405, 'Method not allowed');
   } catch (e) {
