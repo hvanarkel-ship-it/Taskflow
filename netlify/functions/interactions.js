@@ -22,7 +22,9 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'POST') {
       const b = parseBody(event);
       if (!b.text || !b.type) return err(400, 'Type en tekst vereist');
-      const [i] = await sql`INSERT INTO interactions (contact_id, opp_id, type, text, user_id) VALUES (${b.contact_id||b.contactId||null}, ${b.opp_id||b.oppId||null}, ${b.type}, ${b.text}, ${user.id}) RETURNING *`;
+      const cid = (b.contact_id === '' || b.contact_id === undefined || b.contact_id === null) ? null : parseInt(b.contact_id) || null;
+      const oid = (b.opp_id === '' || b.opp_id === undefined || b.opp_id === null) ? null : parseInt(b.opp_id) || null;
+      const [i] = await sql`INSERT INTO interactions (contact_id, opp_id, type, text, user_id) VALUES (${cid}, ${oid}, ${b.type}, ${b.text}, ${user.id}) RETURNING *`;
       return ok({ interaction: i });
     }
 

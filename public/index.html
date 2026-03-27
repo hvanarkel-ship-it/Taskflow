@@ -684,51 +684,64 @@ const App = function(){
   const serverCreate=async(endpoint,data)=>{
     await waitForDb();
     if(!authUser?.token){toast(lang==='nl'?'Niet ingelogd':'Not logged in','info');return null;}
-    const resp=await fetch('/api/'+endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(snakeObj(data))});
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'Server error');}
+    const body=snakeObj(data);
+    // Clean: remove client-only fields, convert empty strings to null for FK/date fields
+    delete body.id;delete body.created_at;delete body.updated_at;delete body.notes;delete body.avatar;
+    ['contact_id','company_id','opp_id','atos_sales_id','atos_delivery_id'].forEach(k=>{if(body[k]==='')body[k]=null;});
+    ['due_date','due_time','next_action_date','expected_close_date','stage_changed_at'].forEach(k=>{if(body[k]==='')body[k]=null;});
+    if(Array.isArray(body.contact_ids))body.contact_ids=JSON.stringify(body.contact_ids);
+    if(Array.isArray(body.tech_tags))body.tech_tags=JSON.stringify(body.tech_tags);
+    if(Array.isArray(body.tags))body.tags=JSON.stringify(body.tags);
+    console.log('serverCreate',endpoint,body);
+    const resp=await fetch('/api/'+endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(body)});
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));console.error('serverCreate error',endpoint,resp.status,e);throw new Error(e.error||'Server error '+resp.status);}
     const j=await resp.json();const rec=j.company||j.contact||j.opportunity||j.task||j.member||j.interaction;return rec?camelObj(rec):null;
   };
   const serverUpdate=async(endpoint,data)=>{
     await waitForDb();
     if(!authUser?.token)return null;
-    const resp=await fetch('/api/'+endpoint,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(snakeObj(data))});
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'Server error');}
+    const body=snakeObj(data);
+    ['contact_id','company_id','opp_id','atos_sales_id','atos_delivery_id'].forEach(k=>{if(body[k]==='')body[k]=null;});
+    ['due_date','due_time','next_action_date','expected_close_date','stage_changed_at'].forEach(k=>{if(body[k]==='')body[k]=null;});
+    if(Array.isArray(body.contact_ids))body.contact_ids=JSON.stringify(body.contact_ids);
+    if(Array.isArray(body.tech_tags))body.tech_tags=JSON.stringify(body.tech_tags);
+    if(Array.isArray(body.tags))body.tags=JSON.stringify(body.tags);
+    const resp=await fetch('/api/'+endpoint,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(body)});
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));console.error('serverUpdate error',endpoint,resp.status,e);throw new Error(e.error||'Server error '+resp.status);}
     const j=await resp.json();const rec=j.company||j.contact||j.opportunity||j.task||j.member||j.interaction;return rec?camelObj(rec):null;
   };
   const serverDelete=async(endpoint,id)=>{
     await waitForDb();
     if(!authUser?.token)return false;
     const resp=await fetch('/api/'+endpoint+'?id='+id,{method:'DELETE',headers:{'Authorization':'Bearer '+authUser.token}});
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'Server error');}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));console.error('serverDelete error',endpoint,resp.status,e);throw new Error(e.error||'Server error '+resp.status);}
     return true;
   };
 
   // ── CRUD helpers: server-first, state only updated on success ──
-  const saveFail=()=>toast(lang==='nl'?'Opslaan mislukt':'Save failed','info');
-  const updFail=()=>toast(lang==='nl'?'Bijwerken mislukt':'Update failed','info');
-  const delFail=()=>toast(lang==='nl'?'Verwijderen mislukt':'Delete failed','info');
+  const showErr=(action,e)=>{const msg=e?.message||'';console.error(action,msg);toast((lang==='nl'?'Fout: ':'Error: ')+msg,'info');};
 
   // Creates: server-first, only add to state on success
-  const addOpp=async(o)=>{try{const s=await serverCreate('opportunities',o);if(!s){saveFail();return null;}const saved={...s,notes:s.notes||[],techTags:s.techTags||[],contactIds:s.contactIds||[]};setOpps(p=>[...p,saved]);return saved;}catch(e){console.error('addOpp:',e);saveFail();return null;}};
-  const addContact_=async(c)=>{try{const s=await serverCreate('contacts',c);if(!s){saveFail();return null;}setContacts(p=>[...p,s]);return s;}catch(e){console.error('addContact:',e);saveFail();return null;}};
-  const addCompany_=async(c)=>{try{const s=await serverCreate('companies',c);if(!s){saveFail();return null;}setCompanies(p=>[...p,s]);return s;}catch(e){console.error('addCompany:',e);saveFail();return null;}};
-  const addTask_=async(t)=>{try{const s=await serverCreate('tasks',t);if(!s){saveFail();return null;}setTasks(p=>[...p,s]);return s;}catch(e){console.error('addTask:',e);saveFail();return null;}};
-  const addAtos_=async(a)=>{try{const s=await serverCreate('atos',a);if(!s){saveFail();return null;}setAtosTeam(p=>[...p,s]);return s;}catch(e){console.error('addAtos:',e);saveFail();return null;}};
-  const addInteraction_=async(i)=>{try{const s=await serverCreate('interactions',i);if(!s){saveFail();return null;}const saved={...s,at:s.at||s.createdAt};setInteractions(p=>[saved,...p]);return saved;}catch(e){console.error('addInteraction:',e);saveFail();return null;}};
+  const addOpp=async(o)=>{try{const s=await serverCreate('opportunities',o);if(!s)return null;const saved={...s,notes:s.notes||[],techTags:s.techTags||[],contactIds:s.contactIds||[]};setOpps(p=>[...p,saved]);return saved;}catch(e){showErr('addOpp',e);return null;}};
+  const addContact_=async(c)=>{try{const s=await serverCreate('contacts',c);if(!s)return null;setContacts(p=>[...p,s]);return s;}catch(e){showErr('addContact',e);return null;}};
+  const addCompany_=async(c)=>{try{const s=await serverCreate('companies',c);if(!s)return null;setCompanies(p=>[...p,s]);return s;}catch(e){showErr('addCompany',e);return null;}};
+  const addTask_=async(t)=>{try{const s=await serverCreate('tasks',t);if(!s)return null;setTasks(p=>[...p,s]);return s;}catch(e){showErr('addTask',e);return null;}};
+  const addAtos_=async(a)=>{try{const s=await serverCreate('atos',a);if(!s)return null;setAtosTeam(p=>[...p,s]);return s;}catch(e){showErr('addAtos',e);return null;}};
+  const addInteraction_=async(i)=>{try{const s=await serverCreate('interactions',i);if(!s)return null;const saved={...s,at:s.at||s.createdAt};setInteractions(p=>[saved,...p]);return saved;}catch(e){showErr('addInteraction',e);return null;}};
 
-  // Updates: optimistic UI + server persist (toast on failure, but don't rollback to avoid jarring UX)
-  const updateOpp=(id,fields)=>{setOpps(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('opportunities',{id,...fields}).catch(e=>{console.error('updateOpp:',e);updFail();});};
-  const updateContact_=(id,fields)=>{setContacts(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('contacts',{id,...fields}).catch(e=>{console.error('updateContact:',e);updFail();});};
-  const updateCompany_=(id,fields)=>{setCompanies(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('companies',{id,...fields}).catch(e=>{console.error('updateCompany:',e);updFail();});};
-  const updateTask_=(id,fields)=>{setTasks(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('tasks',{id,...fields}).catch(e=>{console.error('updateTask:',e);updFail();});};
-  const updateAtos_=(id,fields)=>{setAtosTeam(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('atos',{id,...fields}).catch(e=>{console.error('updateAtos:',e);updFail();});};
+  // Updates: optimistic UI + server persist (toast on failure)
+  const updateOpp=(id,fields)=>{setOpps(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('opportunities',{id,...fields}).catch(e=>showErr('updateOpp',e));};
+  const updateContact_=(id,fields)=>{setContacts(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('contacts',{id,...fields}).catch(e=>showErr('updateContact',e));};
+  const updateCompany_=(id,fields)=>{setCompanies(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('companies',{id,...fields}).catch(e=>showErr('updateCompany',e));};
+  const updateTask_=(id,fields)=>{setTasks(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('tasks',{id,...fields}).catch(e=>showErr('updateTask',e));};
+  const updateAtos_=(id,fields)=>{setAtosTeam(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('atos',{id,...fields}).catch(e=>showErr('updateAtos',e));};
 
   // Deletes: server-first, only remove from state on success
-  const deleteOpp=async(id)=>{try{await serverDelete('opportunities',id);setOpps(p=>p.filter(x=>x.id!==id));}catch(e){console.error('deleteOpp:',e);delFail();}};
-  const deleteContact_=async(id)=>{try{await serverDelete('contacts',id);setContacts(p=>p.filter(x=>x.id!==id));}catch(e){console.error('deleteContact:',e);delFail();}};
-  const deleteCompany_=async(id)=>{try{await serverDelete('companies',id);setCompanies(p=>p.filter(x=>x.id!==id));}catch(e){console.error('deleteCompany:',e);delFail();}};
-  const deleteTask_=async(id)=>{try{await serverDelete('tasks',id);setTasks(p=>p.filter(x=>x.id!==id));}catch(e){console.error('deleteTask:',e);delFail();}};
-  const deleteAtos_=async(id)=>{try{await serverDelete('atos',id);setAtosTeam(p=>p.filter(x=>x.id!==id));}catch(e){console.error('deleteAtos:',e);delFail();}};
+  const deleteOpp=async(id)=>{try{await serverDelete('opportunities',id);setOpps(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteOpp',e);}};
+  const deleteContact_=async(id)=>{try{await serverDelete('contacts',id);setContacts(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteContact',e);}};
+  const deleteCompany_=async(id)=>{try{await serverDelete('companies',id);setCompanies(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteCompany',e);}};
+  const deleteTask_=async(id)=>{try{await serverDelete('tasks',id);setTasks(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteTask',e);}};
+  const deleteAtos_=async(id)=>{try{await serverDelete('atos',id);setAtosTeam(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteAtos',e);}};
 
   // ── iCal export for tasks (Outlook/Google Calendar/Apple Calendar) ──
   const exportTasksIcal=(taskList)=>{
@@ -1245,8 +1258,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             {c.phone&&<a href={`tel:${c.phone}`} style={{...btnG,padding:'6px 12px',fontSize:12,textDecoration:'none'}}>📱 {c.phone}</a>}
           </div>
           <div style={{display:'flex',gap:4,marginTop:12,flexWrap:'wrap',alignItems:'center'}}>
-            {(c.tags||[]).map(tag=><span key={tag} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{tag}<span onClick={()=>{removeTagFrom(contacts,setContacts,c.id,tag,(id,f)=>serverUpdate('contacts',{id,...f}).catch(()=>updFail()));toast(tx.tagRemoved,'info');}} style={{cursor:'pointer',fontSize:12}}>✕</span></span>)}
-            <span onClick={()=>{const tg=prompt(tx.addTagPrompt);if(tg){addTagTo(contacts,setContacts,c.id,tg,(id,f)=>serverUpdate('contacts',{id,...f}).catch(()=>updFail()));toast(tx.tagAdded);}}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.border}`,color:t.muted,cursor:'pointer'}}>+ tag</span>
+            {(c.tags||[]).map(tag=><span key={tag} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{tag}<span onClick={()=>{removeTagFrom(contacts,setContacts,c.id,tag,(id,f)=>serverUpdate('contacts',{id,...f}).catch(e=>showErr('updateTags',e)));toast(tx.tagRemoved,'info');}} style={{cursor:'pointer',fontSize:12}}>✕</span></span>)}
+            <span onClick={()=>{const tg=prompt(tx.addTagPrompt);if(tg){addTagTo(contacts,setContacts,c.id,tg,(id,f)=>serverUpdate('contacts',{id,...f}).catch(e=>showErr('updateTags',e)));toast(tx.tagAdded);}}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.border}`,color:t.muted,cursor:'pointer'}}>+ tag</span>
           </div>
         </div>
         <div style={{padding:24}}>
@@ -1389,8 +1402,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </div>
           {co.notes&&<div style={{marginTop:12,padding:'10px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',fontSize:13,color:t.dim,borderLeft:`3px solid ${t.teal}`}}>{co.notes}</div>}
           <div style={{display:'flex',gap:4,marginTop:10,flexWrap:'wrap',alignItems:'center'}}>
-            {(co.tags||[]).map(tg=><span key={tg} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{tg}<span onClick={()=>{removeTagFrom(companies,setCompanies,co.id,tg,(id,f)=>serverUpdate('companies',{id,...f}).catch(()=>updFail()));toast(tx.tagRemoved,'info');}} style={{cursor:'pointer',fontSize:12}}>✕</span></span>)}
-            <span onClick={()=>{const tg=prompt(tx.addTagPrompt);if(tg){addTagTo(companies,setCompanies,co.id,tg,(id,f)=>serverUpdate('companies',{id,...f}).catch(()=>updFail()));toast(tx.tagAdded);}}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.border}`,color:t.muted,cursor:'pointer'}}>+ tag</span>
+            {(co.tags||[]).map(tg=><span key={tg} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{tg}<span onClick={()=>{removeTagFrom(companies,setCompanies,co.id,tg,(id,f)=>serverUpdate('companies',{id,...f}).catch(e=>showErr('updateTags',e)));toast(tx.tagRemoved,'info');}} style={{cursor:'pointer',fontSize:12}}>✕</span></span>)}
+            <span onClick={()=>{const tg=prompt(tx.addTagPrompt);if(tg){addTagTo(companies,setCompanies,co.id,tg,(id,f)=>serverUpdate('companies',{id,...f}).catch(e=>showErr('updateTags',e)));toast(tx.tagAdded);}}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.border}`,color:t.muted,cursor:'pointer'}}>+ tag</span>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginTop:16}}>
             <div style={{...card,padding:'10px 12px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:700}}>{coContacts.length}</div><div style={{fontSize:10,color:t.muted}}>{tx.contacts}</div></div>

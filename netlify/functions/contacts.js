@@ -1,11 +1,19 @@
 const { sql, ok, err, json, requireAuth, checkRate, parseBody, safeErr } = require('./shared/db');
- 
+
+const toNull = (v) => (v === '' || v === undefined || v === null) ? null : v;
+const toInt = (v) => { const n = toNull(v); return n !== null ? parseInt(n) || null : null; };
+const toJsonb = (v) => {
+  if (v === null || v === undefined) return '[]';
+  if (typeof v === 'string') return v;
+  return JSON.stringify(v);
+};
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json(204, '');
-    if (!checkRate(event)) return err(429, 'Te veel verzoeken');
+  if (!checkRate(event)) return err(429, 'Te veel verzoeken');
   try {
     const user = requireAuth(event);
- 
+
     if (event.httpMethod === 'GET') {
       const p = event.queryStringParameters || {};
       let contacts;
@@ -18,19 +26,37 @@ exports.handler = async (event) => {
       }
       return ok({ contacts });
     }
- 
+
     if (event.httpMethod === 'POST') {
       const b = parseBody(event);
       if (!b.name) return err(400, 'Naam is vereist');
-      const [ct] = await sql`INSERT INTO contacts (name, email, phone, company_id, role, tags, category, user_id) VALUES (${b.name}, ${b.email||''}, ${b.phone||''}, ${b.company_id||b.companyId||null}, ${b.role||''}, ${JSON.stringify(b.tags||[])}, ${b.category||''}, ${user.id}) RETURNING *`;
+      const [ct] = await sql`INSERT INTO contacts (name, email, phone, company_id, role, tags, category, user_id) VALUES (
+        ${b.name},
+        ${toNull(b.email) || ''},
+        ${toNull(b.phone) || ''},
+        ${toInt(b.company_id)},
+        ${toNull(b.role) || ''},
+        ${toJsonb(b.tags)}::jsonb,
+        ${toNull(b.category) || ''},
+        ${user.id}
+      ) RETURNING *`;
       return ok({ contact: ct });
     }
 
     if (event.httpMethod === 'PUT') {
       const b = parseBody(event);
       if (!b.id) return err(400, 'ID vereist');
-      const hasCompany = b.company_id !== undefined || b.companyId !== undefined ? 1 : 0;
-      const [ct] = await sql`UPDATE contacts SET name=COALESCE(${b.name||null},name), email=COALESCE(${b.email!==undefined?b.email:null},email), phone=COALESCE(${b.phone!==undefined?b.phone:null},phone), company_id=CASE WHEN ${hasCompany}=1 THEN ${b.company_id||b.companyId||null}::integer ELSE company_id END, role=COALESCE(${b.role!==undefined?b.role:null},role), tags=COALESCE(${b.tags?JSON.stringify(b.tags):null}::jsonb,tags), category=COALESCE(${b.category||null},category), updated_at=NOW() WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
+      const hasCompany = b.company_id !== undefined ? 1 : 0;
+      const [ct] = await sql`UPDATE contacts SET
+        name=COALESCE(${toNull(b.name)},name),
+        email=COALESCE(${b.email !== undefined ? (toNull(b.email) || '') : null},email),
+        phone=COALESCE(${b.phone !== undefined ? (toNull(b.phone) || '') : null},phone),
+        company_id=CASE WHEN ${hasCompany}=1 THEN ${toInt(b.company_id)} ELSE company_id END,
+        role=COALESCE(${b.role !== undefined ? (toNull(b.role) || '') : null},role),
+        tags=COALESCE(${b.tags !== undefined ? toJsonb(b.tags) : null}::jsonb,tags),
+        category=COALESCE(${toNull(b.category)},category),
+        updated_at=NOW()
+      WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
       return ok({ contact: ct });
     }
 
@@ -44,9 +70,7 @@ exports.handler = async (event) => {
     }
     return err(405, 'Method not allowed');
   } catch (e) {
-    
-    console.error('Contacts error:', e);
+    console.error('Contacts error:', e.message || e);
     return safeErr(e);
   }
 };
- 
