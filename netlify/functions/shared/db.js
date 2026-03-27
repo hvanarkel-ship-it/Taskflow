@@ -61,10 +61,16 @@ const parseBody = (event) => {
   catch { throw { status: 400, message: 'Ongeldig verzoek' }; }
 };
 
-// Safe error handler — never expose internals
+// Safe error handler — surfaces DB constraint errors, hides internals
 const safeErr = (e) => {
   if (e.status) return err(e.status, e.message);
-  console.error('Internal error:', e.message); // Server-side only
+  const msg = e.message || '';
+  console.error('Internal error:', msg);
+  // Surface common PostgreSQL errors that help debugging
+  if (msg.includes('column') && msg.includes('does not exist')) return err(500, 'Database schema out of date — run db:setup');
+  if (msg.includes('violates foreign key')) return err(400, 'Ongeldige referentie (FK fout)');
+  if (msg.includes('invalid input syntax')) return err(400, 'Ongeldig veld formaat');
+  if (msg.includes('duplicate key')) return err(409, 'Record bestaat al');
   return err(500, 'Er ging iets mis');
 };
 

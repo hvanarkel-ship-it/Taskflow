@@ -1,11 +1,14 @@
 const { sql, ok, err, json, requireAuth, checkRate, parseBody, safeErr } = require('./shared/db');
- 
+
+const toNull = (v) => (v === '' || v === undefined || v === null) ? null : v;
+const toInt = (v) => { const n = toNull(v); return n !== null ? parseInt(n) || null : null; };
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json(204, '');
-    if (!checkRate(event)) return err(429, 'Te veel verzoeken');
+  if (!checkRate(event)) return err(429, 'Te veel verzoeken');
   try {
     const user = requireAuth(event);
- 
+
     if (event.httpMethod === 'GET') {
       const p = event.queryStringParameters || {};
       let tasks;
@@ -24,22 +27,43 @@ exports.handler = async (event) => {
       }
       return ok({ tasks });
     }
- 
+
     if (event.httpMethod === 'POST') {
       const b = parseBody(event);
       if (!b.title) return err(400, 'Titel vereist');
-      const [task] = await sql`INSERT INTO tasks (title, contact_id, opp_id, due_date, due_time, priority, reminder, reminder_min, user_id) VALUES (${b.title}, ${b.contact_id||b.contactId||null}, ${b.opp_id||b.oppId||null}, ${b.due_date||b.dueDate||null}, ${b.due_time||b.dueTime||null}, ${b.priority||'medium'}, ${b.reminder||false}, ${b.reminder_min||b.reminderMin||15}, ${user.id}) RETURNING *`;
+      const [task] = await sql`INSERT INTO tasks (title, contact_id, opp_id, due_date, due_time, priority, reminder, reminder_min, user_id) VALUES (
+        ${b.title},
+        ${toInt(b.contact_id)},
+        ${toInt(b.opp_id)},
+        ${toNull(b.due_date)},
+        ${toNull(b.due_time)},
+        ${b.priority || 'medium'},
+        ${b.reminder || false},
+        ${b.reminder_min || 15},
+        ${user.id}
+      ) RETURNING *`;
       return ok({ task });
     }
 
     if (event.httpMethod === 'PUT') {
       const b = parseBody(event);
       if (!b.id) return err(400, 'ID vereist');
-      const hasContact = b.contact_id !== undefined || b.contactId !== undefined ? 1 : 0;
-      const hasOpp = b.opp_id !== undefined || b.oppId !== undefined ? 1 : 0;
-      const hasDueDate = b.due_date !== undefined || b.dueDate !== undefined ? 1 : 0;
-      const hasDueTime = b.due_time !== undefined || b.dueTime !== undefined ? 1 : 0;
-      const [task] = await sql`UPDATE tasks SET title=COALESCE(${b.title||null},title), contact_id=CASE WHEN ${hasContact}=1 THEN ${b.contact_id||b.contactId||null}::integer ELSE contact_id END, opp_id=CASE WHEN ${hasOpp}=1 THEN ${b.opp_id||b.oppId||null}::integer ELSE opp_id END, due_date=CASE WHEN ${hasDueDate}=1 THEN ${b.due_date||b.dueDate||null}::date ELSE due_date END, due_time=CASE WHEN ${hasDueTime}=1 THEN ${b.due_time||b.dueTime||null} ELSE due_time END, priority=COALESCE(${b.priority||null},priority), reminder=COALESCE(${b.reminder!==undefined?b.reminder:null},reminder), reminder_min=COALESCE(${b.reminder_min||b.reminderMin||null},reminder_min), done=COALESCE(${b.done!==undefined?b.done:null},done), updated_at=NOW() WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
+      const hasContact = b.contact_id !== undefined ? 1 : 0;
+      const hasOpp = b.opp_id !== undefined ? 1 : 0;
+      const hasDueDate = b.due_date !== undefined ? 1 : 0;
+      const hasDueTime = b.due_time !== undefined ? 1 : 0;
+      const [task] = await sql`UPDATE tasks SET
+        title=COALESCE(${toNull(b.title)},title),
+        contact_id=CASE WHEN ${hasContact}=1 THEN ${toInt(b.contact_id)} ELSE contact_id END,
+        opp_id=CASE WHEN ${hasOpp}=1 THEN ${toInt(b.opp_id)} ELSE opp_id END,
+        due_date=CASE WHEN ${hasDueDate}=1 THEN ${toNull(b.due_date)}::date ELSE due_date END,
+        due_time=CASE WHEN ${hasDueTime}=1 THEN ${toNull(b.due_time)} ELSE due_time END,
+        priority=COALESCE(${toNull(b.priority)},priority),
+        reminder=COALESCE(${b.reminder !== undefined ? b.reminder : null},reminder),
+        reminder_min=COALESCE(${toNull(b.reminder_min)},reminder_min),
+        done=COALESCE(${b.done !== undefined ? b.done : null},done),
+        updated_at=NOW()
+      WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
       return ok({ task });
     }
 
@@ -53,9 +77,7 @@ exports.handler = async (event) => {
     }
     return err(405, 'Method not allowed');
   } catch (e) {
-    
-    console.error('Tasks error:', e);
+    console.error('Tasks error:', e.message || e);
     return safeErr(e);
   }
 };
- 
