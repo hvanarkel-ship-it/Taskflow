@@ -22,15 +22,17 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'POST') {
       const b = parseBody(event);
       if (!b.text || !b.type) return err(400, 'Type en tekst vereist');
-      const [i] = await sql`INSERT INTO interactions (contact_id, opp_id, type, text, user_id) VALUES (${b.contactId||null}, ${b.oppId||null}, ${b.type}, ${b.text}, ${user.id}) RETURNING *`;
+      const [i] = await sql`INSERT INTO interactions (contact_id, opp_id, type, text, user_id) VALUES (${b.contact_id||b.contactId||null}, ${b.opp_id||b.oppId||null}, ${b.type}, ${b.text}, ${user.id}) RETURNING *`;
       return ok({ interaction: i });
     }
- 
+
     if (event.httpMethod === 'DELETE') {
+      const p = event.queryStringParameters || {};
       const b = parseBody(event);
-      if (!b.id) return err(400, 'ID vereist');
-      await sql`DELETE FROM interactions WHERE id=${b.id} AND user_id=${user.id}`;
-      return ok({ deleted: b.id });
+      const id = p.id || b.id;
+      if (!id) return err(400, 'ID vereist');
+      await sql`DELETE FROM interactions WHERE id=${id} AND user_id=${user.id}`;
+      return ok({ deleted: id });
     }
     return err(405, 'Method not allowed');
   } catch (e) {
