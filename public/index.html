@@ -636,14 +636,21 @@ const App = function(){
           try{localStorage.setItem('pf_backup_before_neon',JSON.stringify({contacts,companies,opps,tasks,atosTeam,interactions,ts:new Date().toISOString()}));}catch{}
           if(cc.length>0)setCompanies(cc); if(ct.length>0)setContacts(ct); if(op.length>0)setOpps(op); if(tk.length>0)setTasks(tk); if(at.length>0)setAtosTeam(at); if(it.length>0)setInteractions(it);
           setDataSource('neon');
-          // Seed any local-only entities that are missing in Neon
-          const seedMissing=async()=>{
-            if(cc.length===0&&companies.length>0)for(const c of companies)await apiCall('companies','POST',snakeObj(c)).catch(()=>{});
-            if(ct.length===0&&contacts.length>0)for(const c of contacts)await apiCall('contacts','POST',snakeObj(c)).catch(()=>{});
-            if(op.length===0&&opps.length>0)for(const o of opps)await apiCall('opportunities','POST',snakeObj(o)).catch(()=>{});
-            if(tk.length===0&&tasks.length>0)for(const t of tasks)await apiCall('tasks','POST',snakeObj(t)).catch(()=>{});
-          };
-          seedMissing();
+          // Seed any local-only entities that are missing in Neon (with ID mapping)
+          const needsSeed=(cc.length===0&&companies.length>0)||(ct.length===0&&contacts.length>0)||(op.length===0&&opps.length>0)||(tk.length===0&&tasks.length>0);
+          if(needsSeed){const seedMissing=async()=>{
+            const idMap={};
+            // Build map from Neon entities that already exist (server ID = server ID)
+            cc.forEach(c=>{idMap[c.id]=c.id;});ct.forEach(c=>{idMap[c.id]=c.id;});at.forEach(a=>{idMap[a.id]=a.id;});
+            // Seed missing entity types in dependency order
+            if(cc.length===0&&companies.length>0)for(const c of companies){try{const r=await apiCall('companies','POST',snakeObj(c));if(r.company)idMap[c.id]=r.company.id;}catch{}}
+            if(at.length===0&&atosTeam.length>0)for(const a of atosTeam){try{const r=await apiCall('atos','POST',snakeObj(a));if(r.member)idMap[a.id]=r.member.id;}catch{}}
+            if(ct.length===0&&contacts.length>0)for(const c of contacts){const d=snakeObj(c);if(d.company_id&&idMap[d.company_id])d.company_id=idMap[d.company_id];try{const r=await apiCall('contacts','POST',d);if(r.contact)idMap[c.id]=r.contact.id;}catch{}}
+            if(op.length===0&&opps.length>0)for(const o of opps){const d=snakeObj(o);if(d.company_id&&idMap[d.company_id])d.company_id=idMap[d.company_id];if(d.contact_id&&idMap[d.contact_id])d.contact_id=idMap[d.contact_id];if(d.atos_sales_id&&idMap[d.atos_sales_id])d.atos_sales_id=idMap[d.atos_sales_id];if(d.atos_delivery_id&&idMap[d.atos_delivery_id])d.atos_delivery_id=idMap[d.atos_delivery_id];if(Array.isArray(d.contact_ids))d.contact_ids=JSON.stringify(d.contact_ids.map(x=>idMap[x]||x));try{const r=await apiCall('opportunities','POST',d);if(r.opportunity)idMap[o.id]=r.opportunity.id;}catch{}}
+            if(tk.length===0&&tasks.length>0)for(const t of tasks){const d=snakeObj(t);if(d.contact_id&&idMap[d.contact_id])d.contact_id=idMap[d.contact_id];if(d.opp_id&&idMap[d.opp_id])d.opp_id=idMap[d.opp_id];try{await apiCall('tasks','POST',d);}catch{}}
+            // Reload ALL from server to get consistent integer IDs
+            try{const[cos2,cts2,ops2,tks2,ats2,ints2]=await Promise.all([fetch('/api/companies',{headers}).then(r=>r.json()),fetch('/api/contacts',{headers}).then(r=>r.json()),fetch('/api/opportunities',{headers}).then(r=>r.json()),fetch('/api/tasks',{headers}).then(r=>r.json()),fetch('/api/atos',{headers}).then(r=>r.json()),fetch('/api/interactions',{headers}).then(r=>r.json())]);setCompanies(camelArr(cos2.companies||[]));setContacts(camelArr(cts2.contacts||[]));setOpps(camelArr(ops2.opportunities||[]).map(o=>({...o,techTags:o.techTags||[],contactIds:o.contactIds||[],notes:o.notes||[]})));setTasks(camelArr(tks2.tasks||[]));setAtosTeam(camelArr(ats2.team||[]));setInteractions(camelArr(ints2.interactions||[]).map(i=>({...i,at:i.at||i.createdAt})));}catch{}
+          };seedMissing();}
         }else if(localCount>0){
           // Neon is empty but local has data — seed Neon from localStorage (with ID mapping)
           const pushAll=async()=>{
@@ -739,9 +746,17 @@ const App = function(){
     },2000);
   },[contacts,companies,opps,tasks,atosTeam,interactions]);
 
+  // ── Wait for DB ready (max 15s) ──
+  const waitForDb=()=>new Promise(resolve=>{
+    if(dbReady.current)return resolve();
+    const iv=setInterval(()=>{if(dbReady.current){clearInterval(iv);resolve();}},200);
+    setTimeout(()=>{clearInterval(iv);resolve();},15000);
+  });
+
   // ── Server-first create helper ──
   const serverCreate=async(endpoint,data)=>{
-    if(!dbReady.current||!authUser?.token)return null;
+    await waitForDb();
+    if(!authUser?.token)return null;
     try{
       const resp=await fetch('/api/'+endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(snakeObj(data))});
       if(resp.ok){const j=await resp.json();const rec=j.company||j.contact||j.opportunity||j.task||j.member||j.interaction;return rec?camelObj(rec):null;}
@@ -1511,8 +1526,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           {mfShowNewCt&&<div style={{display:'flex',gap:5,marginTop:6}}><input style={inp} value={mfNewCt} onChange={e=>setMfNewCt(e.target.value)} placeholder={tx.fullName+'...'} onKeyDown={e=>e.key==='Enter'&&inlineAddCt()}/><button onClick={inlineAddCt} style={{...btnP,padding:'6px 12px',fontSize:11}}>{tx.createContact}</button></div>}
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
-          <div><label style={lbl}>{tx.value} (€)</label><input type="number" style={inp} value={f.value||0} onChange={e=>sf({...f,value:+e.target.value})}/></div>
-          <div><label style={lbl}>{tx.chance} (%)</label><input type="number" min="0" max="100" style={inp} value={f.probability||20} onChange={e=>sf({...f,probability:+e.target.value})}/></div>
+          <div><label style={lbl}>{tx.value} (€)</label><input type="number" style={inp} value={f.value??0} onChange={e=>sf({...f,value:+e.target.value})}/></div>
+          <div><label style={lbl}>{tx.chance} (%)</label><input type="number" min="0" max="100" style={inp} value={f.probability??20} onChange={e=>sf({...f,probability:+e.target.value})}/></div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
           {/* FIX: s.l is {nl,en} object — use s.l[lang] */}
