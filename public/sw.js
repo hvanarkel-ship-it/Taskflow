@@ -1,4 +1,4 @@
-const CACHE = 'dpm-crm-v20';
+const CACHE = 'dpm-crm-v21';
 const STATIC = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -13,12 +13,9 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // API calls: network-first, fallback to cache
+  // API calls: always network-only — never serve stale cached data
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/.netlify/')) {
-    e.respondWith(fetch(e.request).then(r => {
-      if (e.request.method === 'GET' && r.ok) { const c = r.clone(); caches.open(CACHE).then(ca => ca.put(e.request, c)); }
-      return r;
-    }).catch(() => caches.match(e.request)));
+    e.respondWith(fetch(e.request));
     return;
   }
   // HTML navigation: network-first so updates always arrive
