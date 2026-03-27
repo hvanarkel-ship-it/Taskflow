@@ -45,7 +45,7 @@ const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-dig
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
 const linkify=(text)=>{if(!text)return '';const urlRe=/(https?:\/\/[^\s<]+)/g;const parts=text.split(urlRe);return parts.map((p,i)=>/^https?:\/\//.test(p)?React.createElement('a',{key:i,href:p,target:'_blank',rel:'noopener noreferrer',style:{color:'#007AFF',textDecoration:'underline',wordBreak:'break-all'}},p):p);};
-const APP_VERSION='17';
+const APP_VERSION='18';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -604,17 +604,17 @@ const App = function(){
     const headers={'Authorization':'Bearer '+token};
     const load=async()=>{
       try{
-        const h=await fetch('/api/health',{signal:AbortSignal.timeout(4000)});
+        let h;try{h=await fetch('/api/health',{signal:AbortSignal.timeout(8000)});}catch{try{h=await fetch('/api/health',{signal:AbortSignal.timeout(10000)});}catch{h={ok:false};}}
         if(!h.ok){setDataSource('offline');dbReady.current=true;return;}
         neonLoaded.current=true;
         // Fetch all data — check HTTP status before trusting response
         const resps=await Promise.all([
-          fetch('/api/companies',{headers}),
-          fetch('/api/contacts',{headers}),
-          fetch('/api/opportunities',{headers}),
-          fetch('/api/tasks',{headers}),
-          fetch('/api/atos',{headers}),
-          fetch('/api/interactions',{headers}),
+          fetch('/api/companies',{headers,signal:AbortSignal.timeout(10000)}),
+          fetch('/api/contacts',{headers,signal:AbortSignal.timeout(10000)}),
+          fetch('/api/opportunities',{headers,signal:AbortSignal.timeout(10000)}),
+          fetch('/api/tasks',{headers,signal:AbortSignal.timeout(10000)}),
+          fetch('/api/atos',{headers,signal:AbortSignal.timeout(10000)}),
+          fetch('/api/interactions',{headers,signal:AbortSignal.timeout(10000)}),
         ]);
         // If any API returned an error, don't trust the data — keep localStorage
         if(resps.some(r=>!r.ok)){console.warn('Neon: some APIs failed, keeping local data');setDataSource('offline');dbReady.current=true;return;}
