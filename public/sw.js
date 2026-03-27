@@ -1,4 +1,4 @@
-const CACHE = 'dpm-crm-v22';
+const CACHE = 'dpm-crm-v23';
 const STATIC = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {

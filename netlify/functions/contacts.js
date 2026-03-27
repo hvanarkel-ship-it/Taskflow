@@ -29,7 +29,8 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'PUT') {
       const b = parseBody(event);
       if (!b.id) return err(400, 'ID vereist');
-      const [ct] = await sql`UPDATE contacts SET name=COALESCE(${b.name||null},name), email=COALESCE(${b.email},email), phone=COALESCE(${b.phone},phone), company_id=${b.company_id!==undefined||b.companyId!==undefined?(b.company_id||b.companyId||null):null}, role=COALESCE(${b.role},role), tags=COALESCE(${JSON.stringify(b.tags||[])},tags), category=COALESCE(${b.category||null},category), updated_at=NOW() WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
+      const hasCompany = b.company_id !== undefined || b.companyId !== undefined ? 1 : 0;
+      const [ct] = await sql`UPDATE contacts SET name=COALESCE(${b.name||null},name), email=COALESCE(${b.email!==undefined?b.email:null},email), phone=COALESCE(${b.phone!==undefined?b.phone:null},phone), company_id=CASE WHEN ${hasCompany}=1 THEN ${b.company_id||b.companyId||null}::integer ELSE company_id END, role=COALESCE(${b.role!==undefined?b.role:null},role), tags=COALESCE(${b.tags?JSON.stringify(b.tags):null}::jsonb,tags), category=COALESCE(${b.category||null},category), updated_at=NOW() WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
       return ok({ contact: ct });
     }
 
