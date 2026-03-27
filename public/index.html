@@ -45,7 +45,7 @@ const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-dig
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
 const linkify=(text)=>{if(!text)return '';const urlRe=/(https?:\/\/[^\s<]+)/g;const parts=text.split(urlRe);return parts.map((p,i)=>/^https?:\/\//.test(p)?React.createElement('a',{key:i,href:p,target:'_blank',rel:'noopener noreferrer',style:{color:'#007AFF',textDecoration:'underline',wordBreak:'break-all'}},p):p);};
-const APP_VERSION='16';
+const APP_VERSION='17';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -566,6 +566,7 @@ const App = function(){
   const syncQueue=useRef([]);
   const syncTimer=useRef(null);
   const dbReady=useRef(false);
+  const[dataSource,setDataSource]=useState('local');
 
   const flushSync=useCallback(async()=>{
     if(!dbReady.current||syncQueue.current.length===0)return;
@@ -576,7 +577,7 @@ const App = function(){
       try{
         if(op.method==='DELETE')await fetch('/api/'+op.endpoint+'?id='+op.id,{method:'DELETE',headers});
         else await fetch('/api/'+op.endpoint,{method:op.method,headers,body:JSON.stringify(op.body)});
-      }catch(e){console.error('Sync error:',e);}
+      }catch(e){console.error('Sync error:',e);toast(lang==='nl'?'Sync fout':'Sync error','info');}
     }
   },[authUser]);
 
@@ -604,7 +605,7 @@ const App = function(){
     const load=async()=>{
       try{
         const h=await fetch('/api/health',{signal:AbortSignal.timeout(4000)});
-        if(!h.ok)return;
+        if(!h.ok){setDataSource('offline');dbReady.current=true;return;}
         neonLoaded.current=true;
         // Fetch all data — check HTTP status before trusting response
         const resps=await Promise.all([
@@ -616,7 +617,7 @@ const App = function(){
           fetch('/api/interactions',{headers}),
         ]);
         // If any API returned an error, don't trust the data — keep localStorage
-        if(resps.some(r=>!r.ok)){console.warn('Neon: some APIs failed, keeping local data');dbReady.current=true;return;}
+        if(resps.some(r=>!r.ok)){console.warn('Neon: some APIs failed, keeping local data');setDataSource('offline');dbReady.current=true;return;}
         const[cos,cts,ops,tks,ats,ints]=await Promise.all(resps.map(r=>r.json()));
         const cc=camelArr(cos.companies||cos.data||[]);
         const ct=camelArr(cts.contacts||cts.data||[]);
@@ -631,7 +632,7 @@ const App = function(){
           // Safety backup: save current localStorage before overwriting
           try{localStorage.setItem('pf_backup_before_neon',JSON.stringify({contacts,companies,opps,tasks,atosTeam,interactions,ts:new Date().toISOString()}));}catch{}
           setCompanies(cc);setContacts(ct);setOpps(op);setTasks(tk);setAtosTeam(at);setInteractions(it);
-          toast(lang==='nl'?'Data geladen uit database':'Data loaded from database');
+          setDataSource('neon');
         }else if(localCount>0){
           // Neon is empty but local has data — seed Neon from localStorage
           const pushAll=async()=>{
@@ -641,12 +642,11 @@ const App = function(){
             for(const tk of tasks)await apiCall('tasks','POST',snakeObj(tk)).catch(()=>{});
             for(const a of atosTeam)await apiCall('atos','POST',snakeObj(a)).catch(()=>{});
             for(const i of interactions)await apiCall('interactions','POST',snakeObj(i)).catch(()=>{});
-            toast(lang==='nl'?'Lokale data naar database gesynchroniseerd':'Local data synced to database');
           };
-          pushAll();
-        }
+          pushAll();setDataSource('neon');
+        }else{setDataSource('neon');}
         dbReady.current=true;
-      }catch(e){console.error('Neon load error:',e);dbReady.current=true;}
+      }catch(e){console.error('Neon load error:',e);setDataSource('offline');dbReady.current=true;}
     };
     load();
   },[authUser]);
@@ -1543,7 +1543,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?tx.editTask:tx.newTask}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
       <div style={{padding:'16px 24px'}}>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.tasks2}</label><input style={inp} value={f.title||''} onChange={e=>sf({...f,title:e.target.value})} placeholder={tx.taskDescPlaceholder}/></div>
-        <div style={{marginBottom:12}}><label style={lbl}>{tx.contact}</label><select style={{...inp,cursor:'pointer'}} value={f.contactId||''} onChange={e=>sf({...f,contactId:e.target.value})}><option value="">{tx.optional}</option>{contacts.map(c=><option key={c.id} value={c.id}>{c.name}{compName(c.companyId)?' — '+compName(c.companyId):''}</option>)}</select></div>
+        <div style={{marginBottom:12}}><label style={lbl}>{tx.contact}</label><SearchSelect t={t} lang={lang} value={f.contactId||''} onChange={v=>sf({...f,contactId:v})} placeholder={tx.optional} options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)||(c.role||'')}))}/></div>
         <div style={{marginBottom:12}}><label style={lbl}>Deal / Opportunity</label><select style={{...inp,cursor:'pointer'}} value={f.oppId||''} onChange={e=>{const opp=opps.find(o=>o.id===e.target.value);sf({...f,oppId:e.target.value,contactId:opp?.contactId||f.contactId});}}><option value="">{tx.dealNotLinked}</option>{opps.filter(o=>o.stage!=='won'&&o.stage!=='lost').map(o=><option key={o.id} value={o.id}>{o.title} — {eur(o.value)} ({stageC(o.stage,lang).l})</option>)}</select></div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:12}}>
           <div><label style={lbl}>{tx.date}</label><input type="date" style={inp} value={f.dueDate||''} onChange={e=>sf({...f,dueDate:e.target.value})}/></div>
@@ -1886,6 +1886,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             {dbStatus==='connected'?`${tx.neonConnected}${dbMs?' ('+dbMs+'ms)':''}`:dbStatus==='checking'?tx.connecting:tx.localStorage2}
           </div>
           <div style={{fontSize:9,color:t.muted,marginTop:6,letterSpacing:1}}>v{APP_VERSION}</div>
+          <div style={{fontSize:8,marginTop:2,display:'flex',alignItems:'center',gap:3}}><div style={{width:5,height:5,borderRadius:'50%',background:dataSource==='neon'?t.green:dataSource==='offline'?t.orange:t.muted}}/><span style={{color:dataSource==='neon'?t.green:dataSource==='offline'?t.orange:t.muted}}>{dataSource==='neon'?'Neon':dataSource==='offline'?'Offline':'Local'}</span></div>
         </div>
       </aside>
 
