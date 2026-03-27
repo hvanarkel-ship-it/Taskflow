@@ -45,7 +45,7 @@ const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-dig
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
 const linkify=(text)=>{if(!text)return '';const urlRe=/(https?:\/\/[^\s<]+)/g;const parts=text.split(urlRe);return parts.map((p,i)=>/^https?:\/\//.test(p)?React.createElement('a',{key:i,href:p,target:'_blank',rel:'noopener noreferrer',style:{color:'#007AFF',textDecoration:'underline',wordBreak:'break-all'}},p):p);};
-const APP_VERSION='18';
+const APP_VERSION='19';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -617,8 +617,10 @@ const App = function(){
           fetch('/api/interactions',{headers,signal:AbortSignal.timeout(10000)}),
         ]);
         // If any API returned an error, don't trust the data — keep localStorage
-        if(resps.some(r=>!r.ok)){console.warn('Neon: some APIs failed, keeping local data');setDataSource('offline');dbReady.current=true;return;}
-        const[cos,cts,ops,tks,ats,ints]=await Promise.all(resps.map(r=>r.json()));
+        const failedCount=resps.filter(r=>!r.ok).length;
+        if(failedCount===resps.length){console.warn('Neon: all APIs failed');setDataSource('offline');dbReady.current=true;return;}
+        if(failedCount>0)console.warn(`Neon: ${failedCount} API(s) failed, loading available data`);
+        const[cos,cts,ops,tks,ats,ints]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
         const cc=camelArr(cos.companies||cos.data||[]);
         const ct=camelArr(cts.contacts||cts.data||[]);
         const op=camelArr(ops.opportunities||ops.data||[]).map(o=>({...o,techTags:o.techTags||[],contactIds:o.contactIds||[],notes:o.notes||[]}));
