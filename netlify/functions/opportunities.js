@@ -53,7 +53,7 @@ exports.handler = async (event) => {
         closed_reason=COALESCE(${b.closed_reason||b.closedReason||null},closed_reason),
         closed_note=COALESCE(${b.closed_note||b.closedNote||null},closed_note),
         deal_notes=COALESCE(${b.deal_notes||b.dealNotes||null},deal_notes),
-        closed_at=${(b.stage==='won'||b.stage==='lost'||b.stage==='dropped')?'NOW()':null},
+        closed_at=${(b.stage==='won'||b.stage==='lost'||b.stage==='dropped')?new Date().toISOString():null},
         updated_at=NOW()
       WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
       if (b.addNote) await sql`INSERT INTO opp_notes (opp_id,text) VALUES (${b.id},${b.addNote})`;

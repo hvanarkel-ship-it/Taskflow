@@ -45,7 +45,7 @@ const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-dig
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
 const linkify=(text)=>{if(!text)return '';const urlRe=/(https?:\/\/[^\s<]+)/g;const parts=text.split(urlRe);return parts.map((p,i)=>/^https?:\/\//.test(p)?React.createElement('a',{key:i,href:p,target:'_blank',rel:'noopener noreferrer',style:{color:'#007AFF',textDecoration:'underline',wordBreak:'break-all'}},p):p);};
-const APP_VERSION='21';
+const APP_VERSION='22';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -631,12 +631,19 @@ const App = function(){
         const it=camelArr(ints.interactions||ints.data||[]).map(i=>({...i,at:i.at||i.createdAt}));
         const localCount=contacts.length+companies.length+opps.length+tasks.length;
         const neonCount=cc.length+ct.length+op.length+tk.length;
-        // Neon has data — use it as source of truth
+        // Neon has data — use as source of truth, but per-entity: only overwrite if Neon has data for that type
         if(neonCount>0){
-          // Safety backup: save current localStorage before overwriting
           try{localStorage.setItem('pf_backup_before_neon',JSON.stringify({contacts,companies,opps,tasks,atosTeam,interactions,ts:new Date().toISOString()}));}catch{}
-          setCompanies(cc);setContacts(ct);setOpps(op);setTasks(tk);setAtosTeam(at);setInteractions(it);
+          if(cc.length>0)setCompanies(cc); if(ct.length>0)setContacts(ct); if(op.length>0)setOpps(op); if(tk.length>0)setTasks(tk); if(at.length>0)setAtosTeam(at); if(it.length>0)setInteractions(it);
           setDataSource('neon');
+          // Seed any local-only entities that are missing in Neon
+          const seedMissing=async()=>{
+            if(cc.length===0&&companies.length>0)for(const c of companies)await apiCall('companies','POST',snakeObj(c)).catch(()=>{});
+            if(ct.length===0&&contacts.length>0)for(const c of contacts)await apiCall('contacts','POST',snakeObj(c)).catch(()=>{});
+            if(op.length===0&&opps.length>0)for(const o of opps)await apiCall('opportunities','POST',snakeObj(o)).catch(()=>{});
+            if(tk.length===0&&tasks.length>0)for(const t of tasks)await apiCall('tasks','POST',snakeObj(t)).catch(()=>{});
+          };
+          seedMissing();
         }else if(localCount>0){
           // Neon is empty but local has data — seed Neon from localStorage (with ID mapping)
           const pushAll=async()=>{
