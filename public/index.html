@@ -45,7 +45,7 @@ const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-dig
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
 const linkify=(text)=>{if(!text)return '';const urlRe=/(https?:\/\/[^\s<]+)/g;const parts=text.split(urlRe);return parts.map((p,i)=>/^https?:\/\//.test(p)?React.createElement('a',{key:i,href:p,target:'_blank',rel:'noopener noreferrer',style:{color:'#007AFF',textDecoration:'underline',wordBreak:'break-all'}},p):p);};
-const APP_VERSION='23';
+const APP_VERSION='25';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -469,26 +469,9 @@ const App = function(){
         const session={token:d.token,email:authEmail.trim().toLowerCase(),name:d.name||authName.trim(),expiresAt:new Date(Date.now()+14*24*60*60*1000).toISOString()};
         LS.set('auth_session',session);setAuthUser(session);
       }else if(r.status===409){setAuthErr(tx.emailInUse);}
-      else if(r.status>=500){useLocal=true;}
+      else if(r.status>=500){setAuthErr(lang==='nl'?'Server niet bereikbaar. Probeer het later opnieuw.':'Server unavailable. Please try again later.');}
       else{setAuthErr(authMode==='login'?tx.loginError:tx.registerError);}
-    }catch{useLocal=true;}
-    if(useLocal){
-      // Offline/error fallback: local auth
-      const accounts=LS.get('local_accounts',{});
-      if(authMode==='register'){
-        if(accounts[authEmail.toLowerCase()]){setAuthErr(tx.emailInUse);setAuthLoad(false);return;}
-        accounts[authEmail.toLowerCase()]={pass:btoa(authPass),name:authName.trim()};
-        LS.set('local_accounts',accounts);
-        const session={email:authEmail.toLowerCase(),name:authName.trim(),expiresAt:new Date(Date.now()+14*24*60*60*1000).toISOString(),local:true};
-        LS.set('auth_session',session);setAuthUser(session);
-      }else{
-        const acc=accounts[authEmail.toLowerCase()];
-        if(acc&&atob(acc.pass)===authPass){
-          const session={email:authEmail.toLowerCase(),name:acc.name,expiresAt:new Date(Date.now()+14*24*60*60*1000).toISOString(),local:true};
-          LS.set('auth_session',session);setAuthUser(session);
-        }else{setAuthErr(tx.loginError);}
-      }
-    }
+    }catch{setAuthErr(lang==='nl'?'Geen verbinding met de server.':'Cannot connect to server.');}
     setAuthLoad(false);
   };
 
@@ -564,39 +547,17 @@ const App = function(){
   const[aiLoad,setAiLoad]=useState(false);
   const aiEnd=useRef(null);
 
-  // ── Neon sync: save to localStorage + queue API write ──
-  const syncQueue=useRef([]);
-  const syncTimer=useRef(null);
+  // ── Neon-first data layer: ALL writes go to server, state updated only on success ──
   const dbReady=useRef(false);
   const[dataSource,setDataSource]=useState('local');
 
-  const flushSync=useCallback(async()=>{
-    if(!dbReady.current||syncQueue.current.length===0)return;
-    const batch=[...syncQueue.current];syncQueue.current=[];
-    const token=authUser?.token;if(!token)return;
-    const headers={'Content-Type':'application/json','Authorization':'Bearer '+token};
-    for(const op of batch){
-      try{
-        if(op.method==='DELETE')await fetch('/api/'+op.endpoint+'?id='+op.id,{method:'DELETE',headers});
-        else await fetch('/api/'+op.endpoint,{method:op.method,headers,body:JSON.stringify(op.body)});
-      }catch(e){console.error('Sync error:',e);toast(lang==='nl'?'Sync fout':'Sync error','info');}
-    }
-  },[authUser]);
-
-  const queueSync=(endpoint,method,body,id)=>{
-    syncQueue.current.push({endpoint,method,body:body?snakeObj(body):null,id});
-    if(syncTimer.current)clearTimeout(syncTimer.current);
-    syncTimer.current=setTimeout(flushSync,500);
-  };
-
-  // Save to localStorage — never overwrite existing data with empty arrays
-  const lsGuard=(k,v)=>{if(v.length>0||!LS.has(k)||LS.get(k,[]).length===0)LS.set(k,v);};
-  useEffect(()=>{lsGuard('contacts',contacts);},[contacts]);
-  useEffect(()=>{lsGuard('companies',companies);},[companies]);
-  useEffect(()=>{lsGuard('opps',opps);},[opps]);
-  useEffect(()=>{lsGuard('tasks',tasks);},[tasks]);
-  useEffect(()=>{lsGuard('atos',atosTeam);},[atosTeam]);
-  useEffect(()=>{lsGuard('interactions',interactions);},[interactions]);
+  // Save to localStorage as cache (for faster initial render before Neon loads)
+  useEffect(()=>{LS.set('contacts',contacts);},[contacts]);
+  useEffect(()=>{LS.set('companies',companies);},[companies]);
+  useEffect(()=>{LS.set('opps',opps);},[opps]);
+  useEffect(()=>{LS.set('tasks',tasks);},[tasks]);
+  useEffect(()=>{LS.set('atos',atosTeam);},[atosTeam]);
+  useEffect(()=>{LS.set('interactions',interactions);},[interactions]);
 
   // ── Load data from Neon on login ──
   const neonLoaded=useRef(false);
@@ -629,43 +590,9 @@ const App = function(){
         const tk=camelArr(tks.tasks||tks.data||[]);
         const at=camelArr(ats.team||ats.data||[]);
         const it=camelArr(ints.interactions||ints.data||[]).map(i=>({...i,at:i.at||i.createdAt}));
-        const localCount=contacts.length+companies.length+opps.length+tasks.length;
-        const neonCount=cc.length+ct.length+op.length+tk.length;
-        // Neon has data — use as source of truth, but per-entity: only overwrite if Neon has data for that type
-        if(neonCount>0){
-          try{localStorage.setItem('pf_backup_before_neon',JSON.stringify({contacts,companies,opps,tasks,atosTeam,interactions,ts:new Date().toISOString()}));}catch{}
-          if(cc.length>0)setCompanies(cc); if(ct.length>0)setContacts(ct); if(op.length>0)setOpps(op); if(tk.length>0)setTasks(tk); if(at.length>0)setAtosTeam(at); if(it.length>0)setInteractions(it);
-          setDataSource('neon');
-          // Seed any local-only entities that are missing in Neon (with ID mapping)
-          const needsSeed=(cc.length===0&&companies.length>0)||(ct.length===0&&contacts.length>0)||(op.length===0&&opps.length>0)||(tk.length===0&&tasks.length>0);
-          if(needsSeed){const seedMissing=async()=>{
-            const idMap={};
-            // Build map from Neon entities that already exist (server ID = server ID)
-            cc.forEach(c=>{idMap[c.id]=c.id;});ct.forEach(c=>{idMap[c.id]=c.id;});at.forEach(a=>{idMap[a.id]=a.id;});
-            // Seed missing entity types in dependency order
-            if(cc.length===0&&companies.length>0)for(const c of companies){try{const r=await apiCall('companies','POST',snakeObj(c));if(r.company)idMap[c.id]=r.company.id;}catch{}}
-            if(at.length===0&&atosTeam.length>0)for(const a of atosTeam){try{const r=await apiCall('atos','POST',snakeObj(a));if(r.member)idMap[a.id]=r.member.id;}catch{}}
-            if(ct.length===0&&contacts.length>0)for(const c of contacts){const d=snakeObj(c);if(d.company_id&&idMap[d.company_id])d.company_id=idMap[d.company_id];try{const r=await apiCall('contacts','POST',d);if(r.contact)idMap[c.id]=r.contact.id;}catch{}}
-            if(op.length===0&&opps.length>0)for(const o of opps){const d=snakeObj(o);if(d.company_id&&idMap[d.company_id])d.company_id=idMap[d.company_id];if(d.contact_id&&idMap[d.contact_id])d.contact_id=idMap[d.contact_id];if(d.atos_sales_id&&idMap[d.atos_sales_id])d.atos_sales_id=idMap[d.atos_sales_id];if(d.atos_delivery_id&&idMap[d.atos_delivery_id])d.atos_delivery_id=idMap[d.atos_delivery_id];if(Array.isArray(d.contact_ids))d.contact_ids=JSON.stringify(d.contact_ids.map(x=>idMap[x]||x));try{const r=await apiCall('opportunities','POST',d);if(r.opportunity)idMap[o.id]=r.opportunity.id;}catch{}}
-            if(tk.length===0&&tasks.length>0)for(const t of tasks){const d=snakeObj(t);if(d.contact_id&&idMap[d.contact_id])d.contact_id=idMap[d.contact_id];if(d.opp_id&&idMap[d.opp_id])d.opp_id=idMap[d.opp_id];try{await apiCall('tasks','POST',d);}catch{}}
-            // Reload ALL from server to get consistent integer IDs
-            try{const[cos2,cts2,ops2,tks2,ats2,ints2]=await Promise.all([fetch('/api/companies',{headers}).then(r=>r.json()),fetch('/api/contacts',{headers}).then(r=>r.json()),fetch('/api/opportunities',{headers}).then(r=>r.json()),fetch('/api/tasks',{headers}).then(r=>r.json()),fetch('/api/atos',{headers}).then(r=>r.json()),fetch('/api/interactions',{headers}).then(r=>r.json())]);setCompanies(camelArr(cos2.companies||[]));setContacts(camelArr(cts2.contacts||[]));setOpps(camelArr(ops2.opportunities||[]).map(o=>({...o,techTags:o.techTags||[],contactIds:o.contactIds||[],notes:o.notes||[]})));setTasks(camelArr(tks2.tasks||[]));setAtosTeam(camelArr(ats2.team||[]));setInteractions(camelArr(ints2.interactions||[]).map(i=>({...i,at:i.at||i.createdAt})));}catch{}
-          };seedMissing();}
-        }else if(localCount>0){
-          // Neon is empty but local has data — seed Neon from localStorage (with ID mapping)
-          const pushAll=async()=>{
-            const idMap={};
-            for(const c of companies){try{const r=await apiCall('companies','POST',snakeObj(c));if(r.company)idMap[c.id]=r.company.id;}catch{}}
-            for(const a of atosTeam){try{const r=await apiCall('atos','POST',snakeObj(a));if(r.member)idMap[a.id]=r.member.id;}catch{}}
-            for(const c of contacts){const d=snakeObj(c);if(d.company_id&&idMap[d.company_id])d.company_id=idMap[d.company_id];try{const r=await apiCall('contacts','POST',d);if(r.contact)idMap[c.id]=r.contact.id;}catch{}}
-            for(const o of opps){const d=snakeObj(o);if(d.company_id&&idMap[d.company_id])d.company_id=idMap[d.company_id];if(d.contact_id&&idMap[d.contact_id])d.contact_id=idMap[d.contact_id];if(d.atos_sales_id&&idMap[d.atos_sales_id])d.atos_sales_id=idMap[d.atos_sales_id];if(d.atos_delivery_id&&idMap[d.atos_delivery_id])d.atos_delivery_id=idMap[d.atos_delivery_id];if(Array.isArray(d.contact_ids))d.contact_ids=JSON.stringify(d.contact_ids.map(id=>idMap[id]||id));try{const r=await apiCall('opportunities','POST',d);if(r.opportunity)idMap[o.id]=r.opportunity.id;}catch{}}
-            for(const tk of tasks){const d=snakeObj(tk);if(d.contact_id&&idMap[d.contact_id])d.contact_id=idMap[d.contact_id];if(d.opp_id&&idMap[d.opp_id])d.opp_id=idMap[d.opp_id];try{await apiCall('tasks','POST',d);}catch{}}
-            for(const i of interactions){const d=snakeObj(i);if(d.contact_id&&idMap[d.contact_id])d.contact_id=idMap[d.contact_id];if(d.opp_id&&idMap[d.opp_id])d.opp_id=idMap[d.opp_id];try{await apiCall('interactions','POST',d);}catch{}}
-            // Reload from server to get consistent IDs
-            try{const[cos2,cts2,ops2,tks2,ats2,ints2]=await Promise.all([fetch('/api/companies',{headers}).then(r=>r.json()),fetch('/api/contacts',{headers}).then(r=>r.json()),fetch('/api/opportunities',{headers}).then(r=>r.json()),fetch('/api/tasks',{headers}).then(r=>r.json()),fetch('/api/atos',{headers}).then(r=>r.json()),fetch('/api/interactions',{headers}).then(r=>r.json())]);setCompanies(camelArr(cos2.companies||[]));setContacts(camelArr(cts2.contacts||[]));setOpps(camelArr(ops2.opportunities||[]).map(o=>({...o,techTags:o.techTags||[],contactIds:o.contactIds||[],notes:o.notes||[]})));setTasks(camelArr(tks2.tasks||[]));setAtosTeam(camelArr(ats2.team||[]));setInteractions(camelArr(ints2.interactions||[]).map(i=>({...i,at:i.at||i.createdAt})));}catch{}
-          };
-          pushAll();setDataSource('neon');
-        }else{setDataSource('neon');}
+        // Neon is the single source of truth — always use server data
+        setCompanies(cc); setContacts(ct); setOpps(op); setTasks(tk); setAtosTeam(at); setInteractions(it);
+        setDataSource('neon');
         // Only mark as loaded AFTER successful data fetch
         neonLoaded.current=true;
         dbReady.current=true;
@@ -753,34 +680,55 @@ const App = function(){
     setTimeout(()=>{clearInterval(iv);resolve();},15000);
   });
 
-  // ── Server-first create helper ──
+  // ── Server API helpers: ALL data must go through Neon ──
   const serverCreate=async(endpoint,data)=>{
     await waitForDb();
+    if(!authUser?.token){toast(lang==='nl'?'Niet ingelogd':'Not logged in','info');return null;}
+    const resp=await fetch('/api/'+endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(snakeObj(data))});
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'Server error');}
+    const j=await resp.json();const rec=j.company||j.contact||j.opportunity||j.task||j.member||j.interaction;return rec?camelObj(rec):null;
+  };
+  const serverUpdate=async(endpoint,data)=>{
+    await waitForDb();
     if(!authUser?.token)return null;
-    try{
-      const resp=await fetch('/api/'+endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(snakeObj(data))});
-      if(resp.ok){const j=await resp.json();const rec=j.company||j.contact||j.opportunity||j.task||j.member||j.interaction;return rec?camelObj(rec):null;}
-    }catch(e){console.error('Server create error:',e);}
-    return null;
+    const resp=await fetch('/api/'+endpoint,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(snakeObj(data))});
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'Server error');}
+    const j=await resp.json();const rec=j.company||j.contact||j.opportunity||j.task||j.member||j.interaction;return rec?camelObj(rec):null;
+  };
+  const serverDelete=async(endpoint,id)=>{
+    await waitForDb();
+    if(!authUser?.token)return false;
+    const resp=await fetch('/api/'+endpoint+'?id='+id,{method:'DELETE',headers:{'Authorization':'Bearer '+authUser.token}});
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'Server error');}
+    return true;
   };
 
-  // ── Synced CRUD helpers (server-first creates, queued updates/deletes) ──
-  const addOpp=async(o)=>{const s=await serverCreate('opportunities',o);const saved=s?{...s,notes:s.notes||[],techTags:s.techTags||[],contactIds:s.contactIds||[]}:o;setOpps(p=>[...p,saved]);return saved;};
-  const updateOpp=(id,fields)=>{setOpps(p=>p.map(x=>x.id===id?{...x,...fields}:x));queueSync('opportunities','PUT',{id,...fields});};
-  const deleteOpp=(id)=>{setOpps(p=>p.filter(x=>x.id!==id));queueSync('opportunities','DELETE',null,id);};
-  const addContact_=async(c)=>{const s=await serverCreate('contacts',c);const saved=s||c;setContacts(p=>[...p,saved]);return saved;};
-  const updateContact_=(id,fields)=>{setContacts(p=>p.map(x=>x.id===id?{...x,...fields}:x));queueSync('contacts','PUT',{id,...fields});};
-  const deleteContact_=(id)=>{setContacts(p=>p.filter(x=>x.id!==id));queueSync('contacts','DELETE',null,id);};
-  const addCompany_=async(c)=>{const s=await serverCreate('companies',c);const saved=s||c;setCompanies(p=>[...p,saved]);return saved;};
-  const updateCompany_=(id,fields)=>{setCompanies(p=>p.map(x=>x.id===id?{...x,...fields}:x));queueSync('companies','PUT',{id,...fields});};
-  const deleteCompany_=(id)=>{setCompanies(p=>p.filter(x=>x.id!==id));queueSync('companies','DELETE',null,id);};
-  const addTask_=async(t)=>{const s=await serverCreate('tasks',t);const saved=s||t;setTasks(p=>[...p,saved]);return saved;};
-  const updateTask_=(id,fields)=>{setTasks(p=>p.map(x=>x.id===id?{...x,...fields}:x));queueSync('tasks','PUT',{id,...fields});};
-  const deleteTask_=(id)=>{setTasks(p=>p.filter(x=>x.id!==id));queueSync('tasks','DELETE',null,id);};
-  const addAtos_=async(a)=>{const s=await serverCreate('atos',a);const saved=s||a;setAtosTeam(p=>[...p,saved]);return saved;};
-  const updateAtos_=(id,fields)=>{setAtosTeam(p=>p.map(x=>x.id===id?{...x,...fields}:x));queueSync('atos','PUT',{id,...fields});};
-  const deleteAtos_=(id)=>{setAtosTeam(p=>p.filter(x=>x.id!==id));queueSync('atos','DELETE',null,id);};
-  const addInteraction_=async(i)=>{const s=await serverCreate('interactions',i);const saved=s?{...s,at:s.at||s.createdAt}:i;setInteractions(p=>[saved,...p]);return saved;};
+  // ── CRUD helpers: server-first, state only updated on success ──
+  const saveFail=()=>toast(lang==='nl'?'Opslaan mislukt':'Save failed','info');
+  const updFail=()=>toast(lang==='nl'?'Bijwerken mislukt':'Update failed','info');
+  const delFail=()=>toast(lang==='nl'?'Verwijderen mislukt':'Delete failed','info');
+
+  // Creates: server-first, only add to state on success
+  const addOpp=async(o)=>{try{const s=await serverCreate('opportunities',o);if(!s){saveFail();return null;}const saved={...s,notes:s.notes||[],techTags:s.techTags||[],contactIds:s.contactIds||[]};setOpps(p=>[...p,saved]);return saved;}catch(e){console.error('addOpp:',e);saveFail();return null;}};
+  const addContact_=async(c)=>{try{const s=await serverCreate('contacts',c);if(!s){saveFail();return null;}setContacts(p=>[...p,s]);return s;}catch(e){console.error('addContact:',e);saveFail();return null;}};
+  const addCompany_=async(c)=>{try{const s=await serverCreate('companies',c);if(!s){saveFail();return null;}setCompanies(p=>[...p,s]);return s;}catch(e){console.error('addCompany:',e);saveFail();return null;}};
+  const addTask_=async(t)=>{try{const s=await serverCreate('tasks',t);if(!s){saveFail();return null;}setTasks(p=>[...p,s]);return s;}catch(e){console.error('addTask:',e);saveFail();return null;}};
+  const addAtos_=async(a)=>{try{const s=await serverCreate('atos',a);if(!s){saveFail();return null;}setAtosTeam(p=>[...p,s]);return s;}catch(e){console.error('addAtos:',e);saveFail();return null;}};
+  const addInteraction_=async(i)=>{try{const s=await serverCreate('interactions',i);if(!s){saveFail();return null;}const saved={...s,at:s.at||s.createdAt};setInteractions(p=>[saved,...p]);return saved;}catch(e){console.error('addInteraction:',e);saveFail();return null;}};
+
+  // Updates: optimistic UI + server persist (toast on failure, but don't rollback to avoid jarring UX)
+  const updateOpp=(id,fields)=>{setOpps(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('opportunities',{id,...fields}).catch(e=>{console.error('updateOpp:',e);updFail();});};
+  const updateContact_=(id,fields)=>{setContacts(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('contacts',{id,...fields}).catch(e=>{console.error('updateContact:',e);updFail();});};
+  const updateCompany_=(id,fields)=>{setCompanies(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('companies',{id,...fields}).catch(e=>{console.error('updateCompany:',e);updFail();});};
+  const updateTask_=(id,fields)=>{setTasks(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('tasks',{id,...fields}).catch(e=>{console.error('updateTask:',e);updFail();});};
+  const updateAtos_=(id,fields)=>{setAtosTeam(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('atos',{id,...fields}).catch(e=>{console.error('updateAtos:',e);updFail();});};
+
+  // Deletes: server-first, only remove from state on success
+  const deleteOpp=async(id)=>{try{await serverDelete('opportunities',id);setOpps(p=>p.filter(x=>x.id!==id));}catch(e){console.error('deleteOpp:',e);delFail();}};
+  const deleteContact_=async(id)=>{try{await serverDelete('contacts',id);setContacts(p=>p.filter(x=>x.id!==id));}catch(e){console.error('deleteContact:',e);delFail();}};
+  const deleteCompany_=async(id)=>{try{await serverDelete('companies',id);setCompanies(p=>p.filter(x=>x.id!==id));}catch(e){console.error('deleteCompany:',e);delFail();}};
+  const deleteTask_=async(id)=>{try{await serverDelete('tasks',id);setTasks(p=>p.filter(x=>x.id!==id));}catch(e){console.error('deleteTask:',e);delFail();}};
+  const deleteAtos_=async(id)=>{try{await serverDelete('atos',id);setAtosTeam(p=>p.filter(x=>x.id!==id));}catch(e){console.error('deleteAtos:',e);delFail();}};
 
   // ── iCal export for tasks (Outlook/Google Calendar/Apple Calendar) ──
   const exportTasksIcal=(taskList)=>{
@@ -882,7 +830,7 @@ const App = function(){
   const oppName=id=>opps.find(o=>o.id===id)?.title||'';
   const atosName=id=>atosTeam.find(a=>a.id===id)?.name||'';
 
-  const logInteraction=(contactId,oppId,type,text)=>{addInteraction_({id:uid(),contactId,oppId,type,text,at:new Date().toISOString()});};
+  const logInteraction=async(contactId,oppId,type,text)=>{return await addInteraction_({contactId,oppId,type,text});};
   const getInteractions=(contactId,oppId)=>interactions.filter(i=>(contactId&&i.contactId===contactId)||(oppId&&i.oppId===oppId)).slice(0,20);
 
   // Complete task — if it matches a deal's nextAction, clear it
@@ -1290,15 +1238,15 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       const cTasks=tasks.filter(t=>t.contactId===c.id);
       return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:500,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
         <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
-          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'contact',data:c})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={()=>{deleteContact_(c.id);setDetail(null);toast(tx.contactDeleted,'info');}} style={btnD}>🗑</button></div></div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'contact',data:c})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={async()=>{await deleteContact_(c.id);setDetail(null);toast(tx.contactDeleted,'info');}} style={btnD}>🗑</button></div></div>
           <div style={{display:'flex',alignItems:'center',gap:14}}><div style={{width:56,height:56,borderRadius:'50%',background:`linear-gradient(135deg,${t.accent},${t.purple})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:'#fff'}}>{c.avatar}</div><div><div style={{fontSize:20,fontWeight:700}}>{c.name}</div><div style={{fontSize:13,color:t.dim}}>{c.role}{c.category&&<span style={{marginLeft:6,fontSize:10,padding:'1px 6px',borderRadius:4,background:t.purpleS,color:t.purple,fontWeight:600}}>{c.category}</span>}{c.companyId&&<span> · <span onClick={e=>{e.stopPropagation();setDetail({type:'company',id:c.companyId});}} style={{color:t.accent,cursor:'pointer'}}>{compName(c.companyId)}</span></span>}</div></div></div>
           <div style={{display:'flex',gap:8,marginTop:14,flexWrap:'wrap'}}>
             {c.email&&<a href={`mailto:${c.email}`} style={{...btnG,padding:'6px 12px',fontSize:12,textDecoration:'none'}}>📧 {c.email}</a>}
             {c.phone&&<a href={`tel:${c.phone}`} style={{...btnG,padding:'6px 12px',fontSize:12,textDecoration:'none'}}>📱 {c.phone}</a>}
           </div>
           <div style={{display:'flex',gap:4,marginTop:12,flexWrap:'wrap',alignItems:'center'}}>
-            {(c.tags||[]).map(tag=><span key={tag} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{tag}<span onClick={()=>{removeTagFrom(contacts,setContacts,c.id,tag,(id,f)=>queueSync('contacts','PUT',{id,...f}));toast(tx.tagRemoved,'info');}} style={{cursor:'pointer',fontSize:12}}>✕</span></span>)}
-            <span onClick={()=>{const tg=prompt(tx.addTagPrompt);if(tg){addTagTo(contacts,setContacts,c.id,tg,(id,f)=>queueSync('contacts','PUT',{id,...f}));toast(tx.tagAdded);}}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.border}`,color:t.muted,cursor:'pointer'}}>+ tag</span>
+            {(c.tags||[]).map(tag=><span key={tag} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{tag}<span onClick={()=>{removeTagFrom(contacts,setContacts,c.id,tag,(id,f)=>serverUpdate('contacts',{id,...f}).catch(()=>updFail()));toast(tx.tagRemoved,'info');}} style={{cursor:'pointer',fontSize:12}}>✕</span></span>)}
+            <span onClick={()=>{const tg=prompt(tx.addTagPrompt);if(tg){addTagTo(contacts,setContacts,c.id,tg,(id,f)=>serverUpdate('contacts',{id,...f}).catch(()=>updFail()));toast(tx.tagAdded);}}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.border}`,color:t.muted,cursor:'pointer'}}>+ tag</span>
           </div>
         </div>
         <div style={{padding:24}}>
@@ -1347,7 +1295,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
 
       return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:540,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
         <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
-          <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'opp',data:o})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={()=>{deleteOpp(o.id);setDetail(null);toast(tx.dealDeleted,'info');}} style={btnD}>🗑</button></div></div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'opp',data:o})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={async()=>{await deleteOpp(o.id);setDetail(null);toast(tx.dealDeleted,'info');}} style={btnD}>🗑</button></div></div>
           <div style={{fontSize:22,fontWeight:700,marginBottom:6}}>{o.title}</div>
           <div style={{marginBottom:10}}>
             <div style={{fontSize:11,color:t.muted,fontWeight:600,marginBottom:4}}>{tx.contactPersonsUpper}</div>
@@ -1429,7 +1377,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       const coVal=coOpps.filter(o=>o.stage!=='lost').reduce((s,o)=>s+(o.value||0),0);
       return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
         <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
-          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'company',data:co})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={()=>{deleteCompany_(co.id);setDetail(null);toast(tx.companyDeleted,'info');}} style={btnD}>🗑</button></div></div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'company',data:co})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={async()=>{await deleteCompany_(co.id);setDetail(null);toast(tx.companyDeleted,'info');}} style={btnD}>🗑</button></div></div>
           <div style={{display:'flex',alignItems:'center',gap:14}}>
             <div style={{width:56,height:56,borderRadius:14,background:`linear-gradient(135deg,${t.teal},${t.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:800,color:'#fff'}}>{co.name.charAt(0)}</div>
             <div><div style={{fontSize:20,fontWeight:700}}>{co.name}</div><div style={{fontSize:13,color:t.dim}}>{co.industry}{co.size&&' · '+co.size+' '+tx.employees}{co.address&&' · '+co.address}</div></div>
@@ -1441,8 +1389,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </div>
           {co.notes&&<div style={{marginTop:12,padding:'10px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',fontSize:13,color:t.dim,borderLeft:`3px solid ${t.teal}`}}>{co.notes}</div>}
           <div style={{display:'flex',gap:4,marginTop:10,flexWrap:'wrap',alignItems:'center'}}>
-            {(co.tags||[]).map(tg=><span key={tg} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{tg}<span onClick={()=>{removeTagFrom(companies,setCompanies,co.id,tg,(id,f)=>queueSync('companies','PUT',{id,...f}));toast(tx.tagRemoved,'info');}} style={{cursor:'pointer',fontSize:12}}>✕</span></span>)}
-            <span onClick={()=>{const tg=prompt(tx.addTagPrompt);if(tg){addTagTo(companies,setCompanies,co.id,tg,(id,f)=>queueSync('companies','PUT',{id,...f}));toast(tx.tagAdded);}}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.border}`,color:t.muted,cursor:'pointer'}}>+ tag</span>
+            {(co.tags||[]).map(tg=><span key={tg} style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>{tg}<span onClick={()=>{removeTagFrom(companies,setCompanies,co.id,tg,(id,f)=>serverUpdate('companies',{id,...f}).catch(()=>updFail()));toast(tx.tagRemoved,'info');}} style={{cursor:'pointer',fontSize:12}}>✕</span></span>)}
+            <span onClick={()=>{const tg=prompt(tx.addTagPrompt);if(tg){addTagTo(companies,setCompanies,co.id,tg,(id,f)=>serverUpdate('companies',{id,...f}).catch(()=>updFail()));toast(tx.tagAdded);}}} style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:`1px dashed ${t.border}`,color:t.muted,cursor:'pointer'}}>+ tag</span>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginTop:16}}>
             <div style={{...card,padding:'10px 12px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:700}}>{coContacts.length}</div><div style={{fontSize:10,color:t.muted}}>{tx.contacts}</div></div>
@@ -1482,7 +1430,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
   };
 
   const renderContactModal=()=>{const d=modal?.data;const f=mf;const sf=setMf;
-  const inlineAddCo2=async()=>{if(!mfNewCo.trim())return;const nco={id:uid(),name:mfNewCo.trim(),website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],createdAt:new Date().toISOString()};const saved=await addCompany_(nco);sf({...f,companyId:saved.id});setMfNewCo('');setMfShowNewCo(false);toast(tx.companyCreated);};
+  const inlineAddCo2=async()=>{if(!mfNewCo.trim())return;const saved=await addCompany_({name:mfNewCo.trim()});if(!saved)return;sf({...f,companyId:saved.id});setMfNewCo('');setMfShowNewCo(false);toast(tx.companyCreated);};
   return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
     <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:460,maxHeight:'90vh',overflowY:'auto'}}>
       <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?tx.editContact:tx.newContact}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
@@ -1499,15 +1447,15 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         <div style={{marginBottom:12}}><label style={lbl}>{tx.tags}</label><div style={{display:'flex',gap:5}}><input style={inp} value={mfTag} onChange={e=>setMfTag(e.target.value)} placeholder={tx.addTag} onKeyDown={e=>{if(e.key==='Enter'&&mfTag.trim()){sf({...f,tags:[...new Set([...(f.tags||[]),mfTag.trim().toLowerCase()])]});setMfTag('');}}}/><button onClick={()=>{if(mfTag.trim()){sf({...f,tags:[...new Set([...(f.tags||[]),mfTag.trim().toLowerCase()])]});setMfTag('');}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
           {(f.tags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.tags.map((t2,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,display:'flex',alignItems:'center',gap:4}}>{t2}<span onClick={()=>sf({...f,tags:f.tags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}</div>
       </div>
-      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!f.name?.trim()){toast(tx.fillName,'info');return;}const av=f.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);if(d?.id){updateContact_(d.id,{...f,avatar:av});toast(tx.contactUpdated);}else{const saved=await addContact_({...f,id:uid(),avatar:av,createdAt:new Date().toISOString()});if(d?._linkToOpp){updateOpp(d._linkToOpp,{contactId:saved.id,contactIds:[...(opps.find(o=>o.id===d._linkToOpp)?.contactIds||[]),saved.id],companyId:f.companyId||opps.find(o=>o.id===d._linkToOpp)?.companyId||''});}toast(tx.contactAdded);}setModal(null);}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!f.name?.trim()){toast(tx.fillName,'info');return;}const av=f.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);if(d?.id){updateContact_(d.id,{...f,avatar:av});toast(tx.contactUpdated);setModal(null);}else{const saved=await addContact_({...f,avatar:av});if(saved){if(d?._linkToOpp){updateOpp(d._linkToOpp,{contactId:saved.id,contactIds:[...(opps.find(o=>o.id===d._linkToOpp)?.contactIds||[]),saved.id],companyId:f.companyId||opps.find(o=>o.id===d._linkToOpp)?.companyId||''});}toast(tx.contactAdded);setModal(null);}}}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
     </div>
   </div>;};
 
   const renderOppModal=()=>{const d=modal?.data;const f=mf;const sf=setMf;
     const addTech=(tag)=>{if(tag&&!(f.techTags||[]).includes(tag))sf({...f,techTags:[...(f.techTags||[]),tag]});setMfTechIn('');};
-    const inlineAddCo=async()=>{if(!mfNewCo.trim())return;const co={id:uid(),name:mfNewCo.trim(),website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],createdAt:new Date().toISOString()};const saved=await addCompany_(co);sf({...f,companyId:saved.id});setMfNewCo('');setMfShowNewCo(false);toast(tx.companyCreated);};
-    const inlineAddCt=async()=>{if(!mfNewCt.trim())return;const av=mfNewCt.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const ct={id:uid(),name:mfNewCt.trim(),email:'',phone:'',companyId:f.companyId||'',role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};const saved=await addContact_(ct);sf({...f,contactId:saved.id,contactIds:[...(f.contactIds||[]),saved.id]});setMfNewCt('');setMfShowNewCt(false);toast(tx.contactCreated);};
-    const inlineAddAtos=async()=>{if(!mfNewAtosName.trim())return;const a={id:uid(),name:mfNewAtosName.trim(),role:mfNewAtosRole,email:'',phone:''};const saved=await addAtos_(a);if(mfNewAtosRole==='sales')sf({...f,atosSalesId:saved.id});else sf({...f,atosDeliveryId:saved.id});setMfNewAtosName('');setMfShowAtosAdd(false);toast(tx.atosContactAdded);};
+    const inlineAddCo=async()=>{if(!mfNewCo.trim())return;const saved=await addCompany_({name:mfNewCo.trim()});if(!saved)return;sf({...f,companyId:saved.id});setMfNewCo('');setMfShowNewCo(false);toast(tx.companyCreated);};
+    const inlineAddCt=async()=>{if(!mfNewCt.trim())return;const saved=await addContact_({name:mfNewCt.trim(),companyId:f.companyId||''});if(!saved)return;sf({...f,contactId:saved.id,contactIds:[...(f.contactIds||[]),saved.id]});setMfNewCt('');setMfShowNewCt(false);toast(tx.contactCreated);};
+    const inlineAddAtos=async()=>{if(!mfNewAtosName.trim())return;const saved=await addAtos_({name:mfNewAtosName.trim(),role:mfNewAtosRole});if(!saved)return;if(mfNewAtosRole==='sales')sf({...f,atosSalesId:saved.id});else sf({...f,atosDeliveryId:saved.id});setMfNewAtosName('');setMfShowAtosAdd(false);toast(tx.atosContactAdded);};
     const addContactToOpp=(cid)=>{if(!cid||((f.contactIds||[]).includes(cid)))return;const ct=contacts.find(c=>c.id===cid);sf({...f,contactId:f.contactId||cid,contactIds:[...(f.contactIds||[]),cid],companyId:ct?.companyId||f.companyId});};
   return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
     <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:540,maxHeight:'90vh',overflowY:'auto'}}>
@@ -1577,7 +1525,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       </div>
       <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!f.title?.trim()){toast(tx.fillTitle,'info');return;}const now=new Date().toISOString();
         const saveData={...f};delete saveData._pendingTasks;delete saveData._taskInput;
-        if(d?.id){updateOpp(d.id,{...saveData,updatedAt:now});for(const pt of(f._pendingTasks||[])){await addTask_({id:uid(),title:pt.title,contactId:f.contactId||(f.contactIds||[])[0]||'',oppId:d.id,dueDate:pt.dueDate||td(),dueTime:'',done:false,priority:f.priority||'medium',reminder:true,reminderMin:15,createdAt:now});}toast(tx.dealUpdated);}else{const saved=await addOpp({...saveData,id:uid(),notes:[],createdAt:now,updatedAt:now,closedAt:null});for(const pt of(f._pendingTasks||[])){await addTask_({id:uid(),title:pt.title,contactId:f.contactId||(f.contactIds||[])[0]||'',oppId:saved.id,dueDate:pt.dueDate||td(),dueTime:'',done:false,priority:f.priority||'medium',reminder:true,reminderMin:15,createdAt:now});}toast(tx.dealAdded);}setModal(null);}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
+        if(d?.id){updateOpp(d.id,{...saveData,updatedAt:now});for(const pt of(f._pendingTasks||[])){await addTask_({title:pt.title,contactId:f.contactId||(f.contactIds||[])[0]||'',oppId:d.id,dueDate:pt.dueDate||td(),dueTime:'',done:false,priority:f.priority||'medium',reminder:true,reminderMin:15});}toast(tx.dealUpdated);setModal(null);}else{const saved=await addOpp({...saveData,notes:[]});if(!saved){return;}for(const pt of(f._pendingTasks||[])){await addTask_({title:pt.title,contactId:f.contactId||(f.contactIds||[])[0]||'',oppId:saved.id,dueDate:pt.dueDate||td(),dueTime:'',done:false,priority:f.priority||'medium',reminder:true,reminderMin:15});}toast(tx.dealAdded);setModal(null);}}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
     </div>
   </div>;};
 
@@ -1606,7 +1554,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </div>}
         </div>
       </div>
-      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!f.title?.trim()){toast(tx.fillTask,'info');return;}if(d?.id){updateTask_(d.id,f);toast(tx.taskUpdated);}else{await addTask_({...f,id:uid(),done:false,createdAt:new Date().toISOString()});toast(tx.taskAdded);}setModal(null);}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!f.title?.trim()){toast(tx.fillTask,'info');return;}if(d?.id){updateTask_(d.id,f);toast(tx.taskUpdated);setModal(null);}else{const saved=await addTask_({...f,done:false});if(saved){toast(tx.taskAdded);setModal(null);}}}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
     </div>
   </div>;};
 
@@ -1621,7 +1569,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         <div style={{marginBottom:12}}><label style={lbl}>{tx.tags}</label><div style={{display:'flex',gap:5}}><input style={inp} value={mfTag} onChange={e=>setMfTag(e.target.value)} placeholder={tx.addTag} onKeyDown={e=>{if(e.key==='Enter'&&mfTag.trim()){sf({...f,tags:[...(f.tags||[]),mfTag.trim().toLowerCase()]});setMfTag('');}}}/><button onClick={()=>{if(mfTag.trim()){sf({...f,tags:[...(f.tags||[]),mfTag.trim().toLowerCase()]});setMfTag('');}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
           {(f.tags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.tags.map((tg,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,display:'flex',alignItems:'center',gap:4}}>{tg}<span onClick={()=>sf({...f,tags:f.tags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}</div>
       </div>
-      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!f.name?.trim()){toast(tx.fillCompanyName,'info');return;}if(d?.id){updateCompany_(d.id,f);toast(tx.companyUpdated);}else{const saved=await addCompany_({...f,id:uid(),createdAt:new Date().toISOString()});if(d?._linkToOpp){updateOpp(d._linkToOpp,{companyId:saved.id});}toast(tx.companyAdded);}setModal(null);}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!f.name?.trim()){toast(tx.fillCompanyName,'info');return;}if(d?.id){updateCompany_(d.id,f);toast(tx.companyUpdated);setModal(null);}else{const saved=await addCompany_({...f});if(saved){if(d?._linkToOpp){updateOpp(d._linkToOpp,{companyId:saved.id});}toast(tx.companyAdded);setModal(null);}}}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
     </div>
   </div>;};
 
@@ -1656,9 +1604,9 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
       for(const row of impData){const g=col=>col?row[impCols.indexOf(col)]||'':'';
         const title=g(impMapping.title);if(!title){skipped++;continue;}
         let coId='';const coName=g(impMapping.company);
-        if(coName){const ex=companies.find(c=>c.name.toLowerCase()===coName.toLowerCase())||coCache[coName.toLowerCase()];if(ex)coId=ex.id;else{const nco={id:uid(),name:coName,website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],createdAt:new Date().toISOString()};const saved=await addCompany_(nco);coId=saved.id;coCache[coName.toLowerCase()]=saved;companiesAdded++;}}
+        if(coName){const ex=companies.find(c=>c.name.toLowerCase()===coName.toLowerCase())||coCache[coName.toLowerCase()];if(ex)coId=ex.id;else{const saved=await addCompany_({name:coName});if(saved){coId=saved.id;coCache[coName.toLowerCase()]=saved;companiesAdded++;}}}
         let ctId='';const ctName=g(impMapping.contact);
-        if(ctName){const ex=contacts.find(c=>c.name.toLowerCase()===ctName.toLowerCase())||ctCache[ctName.toLowerCase()];if(ex)ctId=ex.id;else{const av=ctName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const nct={id:uid(),name:ctName,email:'',phone:'',companyId:coId,role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};const saved=await addContact_(nct);ctId=saved.id;ctCache[ctName.toLowerCase()]=saved;contactsAdded++;}}
+        if(ctName){const ex=contacts.find(c=>c.name.toLowerCase()===ctName.toLowerCase())||ctCache[ctName.toLowerCase()];if(ex)ctId=ex.id;else{const saved=await addContact_({name:ctName,companyId:coId});if(saved){ctId=saved.id;ctCache[ctName.toLowerCase()]=saved;contactsAdded++;}}}
         const rawStage=(g(impMapping.stage)||'').toLowerCase();const stage=stageMap[rawStage]||'lead';
         const rawVal=(g(impMapping.value)||'0').replace(/[€$£\s]/g,'').trim();
         const val=Math.round(parseFloat(rawVal.replace(/\.(?=\d{3})/g,'').replace(',','.'))||0);
@@ -1669,7 +1617,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
         if(closeRaw){const dp=new Date(closeRaw.replace(/(\d{2})-(\d{2})-(\d{4})/,'$3-$2-$1'));if(!isNaN(dp))expClose=dp.toISOString().slice(0,10);}
         if(!expClose){const d=new Date();d.setMonth(d.getMonth()+3);expClose=d.toISOString().slice(0,10);}
         const now=new Date().toISOString();
-        await addOpp({id:uid(),title,contactId:ctId,contactIds:ctId?[ctId]:[],companyId:coId,stage,value:val,probability:prob,priority:pri,nextAction:g(impMapping.nextAction),nextActionDate:'',expectedCloseDate:expClose,techTags:tech,atosSalesId:'',atosDeliveryId:'',notes:[],createdAt:now,updatedAt:now,closedAt:null});added++;
+        const saved=await addOpp({title,contactId:ctId,contactIds:ctId?[ctId]:[],companyId:coId,stage,value:val,probability:prob,priority:pri,nextAction:g(impMapping.nextAction),expectedCloseDate:expClose,techTags:tech,notes:[]});if(saved)added++;
       }
       setImpResult({added,skipped,companiesAdded,contactsAdded});setImpStep(3);
     };
@@ -1987,7 +1935,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
             {[{k:'name',l:tx.name,p:tx.fullName},{k:'email',l:tx.email,p:'name@atos.net'},{k:'phone',l:tx.phone,p:'+31...'}].map(x=><div key={x.k} style={{marginBottom:12}}><label style={lbl}>{x.l}</label><input style={inp} value={atModal[x.k]||''} onChange={e=>setAtModal({...atModal,[x.k]:e.target.value})} placeholder={x.p}/></div>)}
             <div style={{marginBottom:12}}><label style={lbl}>{tx.roleLabel}</label><div style={{display:'flex',gap:6}}>{['sales','delivery'].map(r=><button key={r} onClick={()=>setAtModal({...atModal,role:r})} style={{flex:1,padding:'8px',borderRadius:8,fontSize:13,fontWeight:600,border:`1.5px solid ${atModal.role===r?(r==='sales'?t.accent:t.green):'transparent'}`,background:atModal.role===r?(r==='sales'?t.accentS:t.greenS):(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:atModal.role===r?(r==='sales'?t.accent:t.green):t.dim,cursor:'pointer',fontFamily:'inherit'}}>{r==='sales'?'🔵 Sales':'🟢 Delivery'}</button>)}</div></div>
           </div>
-          <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setAtModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!atModal.name?.trim()){toast(tx.fillName,'info');return;}if(atModal.id){updateAtos_(atModal.id,atModal);toast(tx.updated);}else{await addAtos_({...atModal,id:uid()});toast(tx.teamAdded);}setAtModal(null);}} style={btnP}>{atModal.id?tx.save:tx.add}</button></div>
+          <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setAtModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!atModal.name?.trim()){toast(tx.fillName,'info');return;}if(atModal.id){updateAtos_(atModal.id,atModal);toast(tx.updated);setAtModal(null);}else{const saved=await addAtos_({...atModal});if(saved){toast(tx.teamAdded);setAtModal(null);}}}} style={btnP}>{atModal.id?tx.save:tx.add}</button></div>
         </div>
       </div>}
       <div style={{position:'fixed',bottom:20,right:20,zIndex:9999,display:'flex',flexDirection:'column',gap:6}}>{toasts.map(x=><div key={x.id} style={{padding:'10px 16px',background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:12,fontSize:13,boxShadow:t.shadow,animation:'fadeIn .3s',borderLeft:`3px solid ${x.ty==='ok'?t.green:t.accent}`}}>{x.ty==='ok'?'✓':'ℹ'} {x.m}</div>)}</div>
@@ -2005,8 +1953,8 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
                 <button onClick={()=>setIntModal({...intModal,_showNew:!intModal._showNew})} style={{...btnG,padding:'8px 10px',fontSize:11,whiteSpace:'nowrap'}}>{intModal._showNew?'✕':'+ '+tx.newContact.split(' ').pop()}</button>
               </div>
               {intModal._showNew&&<div style={{display:'flex',gap:5,marginTop:6}}>
-                <input style={inp} value={intModal._newName||''} onChange={e=>setIntModal({...intModal,_newName:e.target.value})} placeholder={tx.newContactName} onKeyDown={e=>{if(e.key==='Enter'&&intModal._newName?.trim()){const av=intModal._newName.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const opp=intModal.oppId?opps.find(o=>o.id===intModal.oppId):null;const ct={id:uid(),name:intModal._newName.trim(),email:'',phone:'',companyId:opp?.companyId||'',role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};addContact_(ct);if(intModal.oppId){updateOpp(intModal.oppId,{contactIds:[...(opp?.contactIds||[]),ct.id],contactId:opp?.contactId||ct.id});}setIntModal({...intModal,contactId:ct.id,_newName:'',_showNew:false});toast(tx.contactAdded);}}}/>
-                <button onClick={()=>{if(!intModal._newName?.trim())return;const av=intModal._newName.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const opp=intModal.oppId?opps.find(o=>o.id===intModal.oppId):null;const ct={id:uid(),name:intModal._newName.trim(),email:'',phone:'',companyId:opp?.companyId||'',role:'',tags:[],avatar:av,createdAt:new Date().toISOString()};addContact_(ct);if(intModal.oppId){updateOpp(intModal.oppId,{contactIds:[...(opp?.contactIds||[]),ct.id],contactId:opp?.contactId||ct.id});}setIntModal({...intModal,contactId:ct.id,_newName:'',_showNew:false});toast(tx.contactAdded);}} style={{...btnP,padding:'6px 12px',fontSize:11}}>{tx.createContact}</button>
+                <input style={inp} value={intModal._newName||''} onChange={e=>setIntModal({...intModal,_newName:e.target.value})} placeholder={tx.newContactName} onKeyDown={async e=>{if(e.key==='Enter'&&intModal._newName?.trim()){const opp=intModal.oppId?opps.find(o=>o.id===intModal.oppId):null;const saved=await addContact_({name:intModal._newName.trim(),companyId:opp?.companyId||''});if(!saved)return;if(intModal.oppId){updateOpp(intModal.oppId,{contactIds:[...(opp?.contactIds||[]),saved.id],contactId:opp?.contactId||saved.id});}setIntModal({...intModal,contactId:saved.id,_newName:'',_showNew:false});toast(tx.contactAdded);}}}/>
+                <button onClick={async()=>{if(!intModal._newName?.trim())return;const opp=intModal.oppId?opps.find(o=>o.id===intModal.oppId):null;const saved=await addContact_({name:intModal._newName.trim(),companyId:opp?.companyId||''});if(!saved)return;if(intModal.oppId){updateOpp(intModal.oppId,{contactIds:[...(opp?.contactIds||[]),saved.id],contactId:opp?.contactId||saved.id});}setIntModal({...intModal,contactId:saved.id,_newName:'',_showNew:false});toast(tx.contactAdded);}} style={{...btnP,padding:'6px 12px',fontSize:11}}>{tx.createContact}</button>
               </div>}
             </div>
             <div style={{marginBottom:12}}><label style={lbl}>Type</label><div style={{display:'flex',gap:4}}>{INT_TYPES.map(it=><button key={it.id} onClick={()=>setIntModal({...intModal,type:it.id})} style={{flex:1,padding:'6px',borderRadius:8,fontSize:12,fontWeight:600,border:`1.5px solid ${intModal.type===it.id?t.accent:'transparent'}`,background:intModal.type===it.id?t.accentS:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:intModal.type===it.id?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{it.ic} {it.l}</button>)}</div></div>
@@ -2017,7 +1965,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
               <div><label style={lbl}>{tx.date}</label><input type="date" style={inp} value={intModal.taskDate||td()} onChange={e=>setIntModal({...intModal,taskDate:e.target.value})}/></div>
             </div>}
           </div>
-          <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setIntModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!intText.trim()){toast(tx.fillDesc,'info');return;}logInteraction(intModal.contactId||'',intModal.oppId||'',intModal.type,intText.trim());if(intModal.createTask&&intModal.taskTitle?.trim()){await addTask_({id:uid(),title:intModal.taskTitle.trim(),contactId:intModal.contactId||'',oppId:intModal.oppId||'',dueDate:intModal.taskDate||td(),dueTime:'',done:false,priority:'medium',reminder:true,reminderMin:15,createdAt:new Date().toISOString()});toast(tx.intAndTask);}else{toast(`${INT_TYPES.find(x=>x.id===intModal.type)?.l} ${tx.intLogged}`);}setIntModal(null);}} style={btnP}>{tx.save}</button></div>
+          <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setIntModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!intText.trim()){toast(tx.fillDesc,'info');return;}const saved=await logInteraction(intModal.contactId||'',intModal.oppId||'',intModal.type,intText.trim());if(!saved)return;if(intModal.createTask&&intModal.taskTitle?.trim()){await addTask_({title:intModal.taskTitle.trim(),contactId:intModal.contactId||'',oppId:intModal.oppId||'',dueDate:intModal.taskDate||td(),dueTime:'',done:false,priority:'medium',reminder:true,reminderMin:15});toast(tx.intAndTask);}else{toast(`${INT_TYPES.find(x=>x.id===intModal.type)?.l} ${tx.intLogged}`);}setIntModal(null);}} style={btnP}>{tx.save}</button></div>
         </div>
       </div>}
       {reasonModal&&<div onClick={()=>setReasonModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
@@ -2031,7 +1979,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
           </div>
           <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}>
             <button onClick={()=>setReasonModal(null)} style={btnG}>{tx.cancel}</button>
-            <button onClick={()=>{if(!reasonModal.selected){toast(tx.pleaseSelectReason,'info');return;}const now=new Date().toISOString();updateOpp(reasonModal.oppId,{stage:reasonModal.stage,closedAt:now,closedReason:reasonModal.selected,closedNote:reasonModal.note||'',probability:0,stageChangedAt:now,updatedAt:now});if(reasonModal.stage==='won'){updateOpp(reasonModal.oppId,{probability:100});toast('🏆 '+tx.won);}else if(reasonModal.stage==='lost')toast(tx.lost,'info');else toast(tx.dropped,'info');setReasonModal(null);}} style={btnP}>{tx.save}</button>
+            <button onClick={()=>{if(!reasonModal.selected){toast(tx.pleaseSelectReason,'info');return;}const now=new Date().toISOString();const prob=reasonModal.stage==='won'?100:0;updateOpp(reasonModal.oppId,{stage:reasonModal.stage,closedAt:now,closedReason:reasonModal.selected,closedNote:reasonModal.note||'',probability:prob,stageChangedAt:now,updatedAt:now});if(reasonModal.stage==='won')toast('🏆 '+tx.won);else if(reasonModal.stage==='lost')toast(tx.lost,'info');else toast(tx.dropped,'info');setReasonModal(null);}} style={btnP}>{tx.save}</button>
           </div>
         </div>
       </div>}
