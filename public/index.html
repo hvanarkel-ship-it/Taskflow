@@ -981,13 +981,15 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
   const[period,setPeriod]=useState('all');
   const[customFrom,setCustomFrom]=useState('');
   const[customTo,setCustomTo]=useState('');
-  const periodFilter=(dateStr)=>{
-    if(period==='all'||!dateStr)return true;
-    const d=new Date(dateStr);const now=new Date();
-    if(period==='week'){const w=new Date();w.setDate(w.getDate()-7);return d>=w;}
-    if(period==='month'){const m=new Date();m.setMonth(m.getMonth()-1);return d>=m;}
-    if(period==='quarter'){const q=new Date();q.setMonth(q.getMonth()-3);return d>=q;}
-    if(period==='year'){const y=new Date();y.setFullYear(y.getFullYear()-1);return d>=y;}
+  const periodFilter=(o)=>{
+    if(period==='all')return true;
+    const dateStr=o.expectedCloseDate;
+    if(!dateStr)return true;
+    const d=new Date(dateStr);const now=new Date();now.setHours(0,0,0,0);
+    if(period==='week'){const w=new Date(now);w.setDate(w.getDate()+7);return d>=now&&d<=w;}
+    if(period==='month'){const m=new Date(now.getFullYear(),now.getMonth()+1,now.getDate());return d>=now&&d<=m;}
+    if(period==='quarter'){const q=new Date(now);q.setMonth(q.getMonth()+3);return d>=now&&d<=q;}
+    if(period==='year'){const y=new Date(now);y.setFullYear(y.getFullYear()+1);return d>=now&&d<=y;}
     if(period==='custom'){return(!customFrom||d>=new Date(customFrom))&&(!customTo||d<=new Date(customTo+'T23:59:59'));}
     return true;
   };
@@ -1000,7 +1002,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
     const activeStages=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost'&&s.id!=='dropped');
     const now=new Date();const weekEnd=new Date(now);weekEnd.setDate(weekEnd.getDate()+7);const monthEnd=new Date(now.getFullYear(),now.getMonth()+1,0);const qMonth=Math.floor(now.getMonth()/3)*3+3;const qEnd=new Date(now.getFullYear(),qMonth,0);
     const matchCloseP=(o)=>{if(!filtCloseP)return true;const d=o.expectedCloseDate;if(!d)return filtCloseP==='none';if(filtCloseP==='overdue')return d<td();if(filtCloseP==='thisWeek')return d>=td()&&d<=weekEnd.toISOString().slice(0,10);if(filtCloseP==='thisMonth')return d>=td()&&d<=monthEnd.toISOString().slice(0,10);if(filtCloseP==='thisQuarter')return d>=td()&&d<=qEnd.toISOString().slice(0,10);return true;};
-    const filteredOpps=opps.filter(o=>{if(filtCompany&&o.companyId!==filtCompany)return false;if(filtContact&&o.contactId!==filtContact&&!(o.contactIds||[]).includes(filtContact))return false;if(filtTech&&!(o.techTags||[]).includes(filtTech))return false;if(filtPhase&&o.stage!==filtPhase)return false;if(!matchCloseP(o))return false;if(!periodFilter(o.updatedAt||o.createdAt))return false;return true;});
+    const filteredOpps=opps.filter(o=>{if(filtCompany&&o.companyId!==filtCompany)return false;if(filtContact&&o.contactId!==filtContact&&!(o.contactIds||[]).includes(filtContact))return false;if(filtTech&&!(o.techTags||[]).includes(filtTech))return false;if(filtPhase&&o.stage!==filtPhase)return false;if(!matchCloseP(o))return false;if(!periodFilter(o))return false;return true;});
     const fActive=filteredOpps.filter(o=>activeStages.some(s=>s.id===o.stage));
     const fWon=filteredOpps.filter(o=>o.stage==='won');
     const fTotal=fActive.reduce((s,o)=>s+(o.value||0),0);
@@ -1214,7 +1216,7 @@ Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
   };
 
   const renderDash=()=>{
-    const pOpps=opps.filter(o=>periodFilter(o.createdAt));
+    const pOpps=opps.filter(o=>periodFilter(o));
     const pActive=pOpps.filter(o=>o.stage!=='won'&&o.stage!=='lost'&&o.stage!=='dropped');
     const pWon=pOpps.filter(o=>o.stage==='won');
     const pPipeline=pActive.reduce((s,o)=>s+(o.value||0),0);
