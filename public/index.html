@@ -721,7 +721,7 @@ const App = function(){
       if(mt==='import'){setImpData([]);setImpCols([]);setImpMapping({title:'',company:'',contact:'',value:'',stage:'',probability:'',priority:'',tech:'',nextAction:'',closeDate:''});setImpStep(1);setImpResult(null);}
       if(mt==='opp'){
         if(md?.id){setMf({...md,_pendingTasks:[],_taskInput:''});}
-        else{const base={title:'',contactId:'',contactIds:[],companyId:'',stage:'lead',value:0,probability:10,priority:'medium',expectedCloseDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',dealNotes:'',notes:[],_pendingTasks:[],_taskInput:'',...(md||{})};if(base.contactId&&!base.contactIds.includes(base.contactId))base.contactIds=[...base.contactIds,base.contactId];setMf(base);}
+        else{const base={title:'',contactId:'',contactIds:[],companyId:'',stage:'lead',value:0,probability:10,priority:'medium',expectedCloseDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',dealNotes:'',salesforceUrl:'',notes:[],_pendingTasks:[],_taskInput:'',...(md||{})};if(base.contactId&&!base.contactIds.includes(base.contactId))base.contactIds=[...base.contactIds,base.contactId];setMf(base);}
       }else if(mt==='contact'){
         setMf(md?.id?{...md}:{name:'',email:'',phone:'',companyId:md?.companyId||'',role:'',category:'',tags:[],...(md||{})});
       }else if(mt==='task'){
@@ -1189,6 +1189,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
                   <div style={{fontSize:13,fontWeight:600,flex:1}}>{opp.title}</div>
                   <span style={{fontSize:9,padding:'1px 6px',borderRadius:5,color:isStale?t.red:t.muted,fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{age}{lang==='nl'?'d':'d'}</span>
                 </div>
+                {opp.salesforceUrl&&<a href={opp.salesforceUrl} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{fontSize:10,color:t.accent,textDecoration:'none',display:'flex',alignItems:'center',gap:3,marginBottom:3,fontWeight:500}}>☁ Salesforce <span style={{fontSize:8,opacity:.6}}>↗</span></a>}
                 <div style={{fontSize:11,color:t.dim,marginBottom:3}}>{oppWho(opp)}{oppOrg(opp)&&oppWho(opp)?' · '+oppOrg(opp):oppOrg(opp)}</div>
                 {(opp.techTags||[]).length>0&&<div style={{display:'flex',gap:3,flexWrap:'wrap',marginBottom:4}}>{opp.techTags.map(tt=><span key={tt} style={{fontSize:9,padding:'1px 6px',borderRadius:5,background:t.purpleS,color:t.purple,fontWeight:600}}>{tt}</span>)}</div>}
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -1245,7 +1246,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             const isSel=tblSel.includes(opp.id);
             return <tr key={opp.id} style={{background:isSel?t.accentS:isE(null)?t.accentS:'transparent'}}>
               <td style={{...cellS,padding:'6px 6px'}}><div onClick={()=>toggleSel(opp.id)} style={{width:18,height:18,borderRadius:4,border:`2px solid ${isSel?t.accent:t.muted}`,background:isSel?t.accent:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:10,color:'#fff',fontWeight:700}}>{isSel&&'✓'}</div></td>
-              <td style={cellS} onClick={()=>!isE('title')&&setEditCell({id:opp.id,f:'title'})}>{isE('title')?<input autoFocus style={{...inp,padding:'4px 8px',fontSize:13}} defaultValue={opp.title} onBlur={e=>saveCell('title',e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('title',e.target.value);if(e.key==='Escape')setEditCell(null);}}/>:<span style={{fontWeight:600}}>{opp.title}</span>}</td>
+              <td style={cellS} onClick={()=>!isE('title')&&setEditCell({id:opp.id,f:'title'})}>{isE('title')?<input autoFocus style={{...inp,padding:'4px 8px',fontSize:13}} defaultValue={opp.title} onBlur={e=>saveCell('title',e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('title',e.target.value);if(e.key==='Escape')setEditCell(null);}}/>:<span style={{fontWeight:600,display:'flex',alignItems:'center',gap:5}}>{opp.title}{opp.salesforceUrl&&<a href={opp.salesforceUrl} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{color:t.accent,fontSize:10,textDecoration:'none',flexShrink:0}} title="Salesforce">☁↗</a>}</span>}</td>
               <td style={cellS} onClick={()=>setDetail({type:'opp',id:opp.id})}><span style={{color:t.dim}}>{compName(opp.companyId)||'—'}</span></td>
               <td style={cellS} onClick={()=>setDetail({type:'opp',id:opp.id})}><span style={{color:t.dim}}>{oppWho(opp)||'—'}</span></td>
               <td style={cellS} onClick={()=>!isE('stage')&&setEditCell({id:opp.id,f:'stage'})}>{isE('stage')?<select autoFocus style={{...inp,padding:'4px 8px',fontSize:12}} value={opp.stage} onChange={e=>{saveCell('stage',e.target.value);}} onBlur={()=>setEditCell(null)}>{STAGES.map(s=><option key={s.id} value={s.id}>{s.l[lang]||s.l.nl}</option>)}</select>:<span style={{fontSize:11,padding:'2px 8px',borderRadius:8,background:`${stg.c}20`,color:stg.c,fontWeight:600}}>{stg.l[lang]}</span>}</td>
@@ -1684,7 +1685,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:540,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
         <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
           <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'opp',data:o})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={async()=>{await deleteOpp(o.id);setDetail(null);toast(tx.dealDeleted,'info');}} style={btnD}>🗑</button></div></div>
-          <div style={{fontSize:22,fontWeight:700,marginBottom:6}}>{o.title}</div>
+          <div style={{fontSize:22,fontWeight:700,marginBottom:4}}>{o.title}</div>
+          {o.salesforceUrl&&<a href={o.salesforceUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:t.accent,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4,marginBottom:8,fontWeight:500,padding:'3px 10px',borderRadius:8,background:t.accentS}}>☁ Salesforce <span style={{fontSize:10,opacity:.6}}>↗</span></a>}
           <div style={{marginBottom:10}}>
             <div style={{fontSize:11,color:t.muted,fontWeight:600,marginBottom:4}}>{tx.contactPersonsUpper}</div>
             {allOppContacts.length>0?<div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:6}}>
@@ -1884,6 +1886,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {mfShowAtosAdd&&<div style={{display:'flex',gap:5,marginTop:6,alignItems:'center'}}><input style={{...inp,flex:1}} value={mfNewAtosName} onChange={e=>setMfNewAtosName(e.target.value)} placeholder={tx.name+'...'} onKeyDown={e=>e.key==='Enter'&&inlineAddAtos()}/><select style={{...inp,width:'auto'}} value={mfNewAtosRole} onChange={e=>setMfNewAtosRole(e.target.value)}><option value="sales">Sales</option><option value="delivery">Delivery</option></select><button onClick={inlineAddAtos} style={{...btnP,padding:'6px 12px',fontSize:11}}>+</button></div>}
         </div>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.closeDate}</label><input type="date" style={inp} value={f.expectedCloseDate||''} onChange={e=>sf({...f,expectedCloseDate:e.target.value})}/></div>
+        <div style={{marginBottom:12}}><label style={lbl}>Salesforce URL</label><input style={inp} value={f.salesforceUrl||''} onChange={e=>sf({...f,salesforceUrl:e.target.value})} placeholder="https://...salesforce.com/..."/></div>
         {/* Inline tasks */}
         <div style={{marginBottom:12}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><label style={lbl}>{tx.tasks2}</label></div>
