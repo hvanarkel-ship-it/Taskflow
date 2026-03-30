@@ -45,7 +45,7 @@ const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-dig
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
 const linkify=(text)=>{if(!text)return '';const urlRe=/(https?:\/\/[^\s<]+)/g;const parts=text.split(urlRe);return parts.map((p,i)=>/^https?:\/\//.test(p)?React.createElement('a',{key:i,href:p,target:'_blank',rel:'noopener noreferrer',style:{color:'#007AFF',textDecoration:'underline',wordBreak:'break-all'}},p):p);};
-const APP_VERSION='25';
+const APP_VERSION='26';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -138,7 +138,7 @@ const TX={
     export:'Data exporteren',import:'Data importeren',backup:'Backup downloaden',restore:'Backup terugzetten',dark:'Donker',light:'Licht',
     overdue:'Achterstallig',today:'Vandaag',upcoming:'Komend',all:'Alle',done:'Afgerond',
     weighted:'Gewogen',deals:'Deals',closedDeals:'Afgeronde deals',
-    aiWelcome:'👋 Ik ben je AI sales assistent.\n\nIk analyseer je pipeline en help met:\n• Pipeline status & bottlenecks\n• Deal prioritering & volgende stappen\n• Contactstrategie & opvolging\n\nStel een vraag of typ "analyse".',
+    aiWelcome:'👋 Ik ben je AI sales coach — ervaren in Miller Heiman en Holden International methodologieën.\n\nIk help je met:\n• **Strategische deal-analyse** — buying influences, power base mapping\n• **Pipeline coaching** — bottlenecks, rode vlaggen, prioriteiten\n• **Concurrentiestrategie** — frontal, flanking, fragment, defend\n• **Gesprekvoorbereiding** — de juiste vragen aan de juiste personen\n\nStel een vraag, typ "analyse" voor pipeline-analyse, of vraag "coach mij op [deal naam]".',
     filterAll:'Alle',filterPhase:'Fase',filterClose:'Sluiting',thisWeek:'Deze week',thisMonth:'Deze maand',thisQuarter:'Dit kwartaal',
     dailyScan:'🔍 Dagelijkse Scan',noInteractions:'Nog geen interacties',addContact:'+ Contact koppelen...',
     toTask:'→ Taak',taskCreated:'Taak aangemaakt vanuit actie',
@@ -267,7 +267,7 @@ const TX={
     export:'Export data',import:'Import data',backup:'Download backup',restore:'Restore backup',dark:'Dark',light:'Light',
     overdue:'Overdue',today:'Today',upcoming:'Upcoming',all:'All',done:'Completed',
     weighted:'Weighted',deals:'Deals',closedDeals:'Closed deals',
-    aiWelcome:'👋 I\'m your AI sales assistant.\n\nI analyze your pipeline and help with:\n• Pipeline status & bottlenecks\n• Deal prioritization & next steps\n• Contact strategy & follow-up\n\nAsk a question or type "analyze".',
+    aiWelcome:'👋 I\'m your AI sales coach — trained in Miller Heiman and Holden International methodologies.\n\nI help you with:\n• **Strategic deal analysis** — buying influences, power base mapping\n• **Pipeline coaching** — bottlenecks, red flags, priorities\n• **Competitive strategy** — frontal, flanking, fragment, defend\n• **Call preparation** — the right questions for the right people\n\nAsk a question, type "analyze" for pipeline analysis, or ask "coach me on [deal name]".',
     filterAll:'All',filterPhase:'Phase',filterClose:'Close date',thisWeek:'This week',thisMonth:'This month',thisQuarter:'This quarter',
     dailyScan:'🔍 Daily Scan',noInteractions:'No interactions yet',addContact:'+ Link contact...',
     toTask:'→ Task',taskCreated:'Task created from action',
@@ -873,22 +873,48 @@ const App = function(){
     const byStage=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost'&&s.id!=='dropped').map(s=>({stage:s.l[lang]||s.l.nl,count:opps.filter(o=>o.stage===s.id).length,value:opps.filter(o=>o.stage===s.id).reduce((sum,o)=>sum+(o.value||0),0)}));
     const overdue=overdueTasks.map(tk=>({task:tk.title,contact:cName(tk.contactId),days:Math.round((new Date()-new Date(tk.dueDate))/(86400000))}));
     const staleDeals=activeOpps.filter(o=>{const d=new Date(o.updatedAt);return(new Date()-d)>7*86400000;}).map(o=>({deal:o.title,company:compName(o.companyId)||oppWho(o),stage:stageC(o.stage,lang).l,daysSinceUpdate:Math.round((new Date()-new Date(o.updatedAt))/86400000),value:o.value}));
-    const topDeals=[...activeOpps].sort((a,b)=>b.value-a.value).slice(0,5).map(o=>({title:o.title,value:o.value,stage:stageC(o.stage,lang).l,probability:o.probability,company:compName(o.companyId),contact:cName(o.contactId),nextAction:o.nextAction,techTags:o.techTags}));
+    // Detailed deal info for methodology-based coaching
+    const dealDetails=activeOpps.map(o=>{
+      const contactIds=[...(o.contactIds||[])];if(!contactIds.length&&o.contactId)contactIds.push(o.contactId);
+      const contactNames=contactIds.map(id=>{const c=contacts.find(ct=>ct.id===id);return c?`${c.name}${c.function?' ('+c.function+')':''}`:null;}).filter(Boolean);
+      const comp=compName(o.companyId);
+      const dealTasks=tasks.filter(tk=>tk.oppId===o.id&&!tk.done);
+      const dealInts=interactions.filter(i=>i.oppId===o.id).slice(0,3);
+      const daysInStage=o.stageChangedAt?Math.round((new Date()-new Date(o.stageChangedAt))/86400000):null;
+      const daysToClose=o.expectedCloseDate?Math.round((new Date(o.expectedCloseDate)-new Date())/86400000):null;
+      return `  • "${o.title}" | €${o.value||0} | ${stageC(o.stage,lang).l} (${o.probability||0}%) | ${comp||'geen bedrijf'}
+    Contacten: ${contactNames.length?contactNames.join(', '):'GEEN — rode vlag!'}
+    ${o.expectedCloseDate?`Verwachte sluiting: ${o.expectedCloseDate}${daysToClose!==null?' ('+daysToClose+'d)':''}`:' Geen sluitdatum — rode vlag!'}
+    ${daysInStage!==null?`Dagen in huidige fase: ${daysInStage}`:''}
+    ${o.nextAction?`Volgende actie: ${o.nextAction}`:'Geen volgende actie — rode vlag!'}
+    ${(o.techTags||[]).length?`Tags: ${o.techTags.join(', ')}`:''}
+    ${dealTasks.length?`Open taken: ${dealTasks.map(tk=>tk.title).join(', ')}`:'Geen open taken'}
+    ${dealInts.length?`Recente interacties: ${dealInts.map(i=>`${i.type}: ${(i.text||'').slice(0,60)}`).join(' | ')}`:'Geen recente interacties — rode vlag!'}`;
+    }).join('\n');
     const recentInt=interactions.slice(0,10).map(i=>({type:i.type,contact:cName(i.contactId),text:i.text,date:fds(i.at)}));
+    // Company overview for account planning
+    const companyDeals=companies.map(co=>{const coOpps=activeOpps.filter(o=>o.companyId===co.id);if(!coOpps.length)return null;return `  • ${co.name}: ${coOpps.length} deals (€${coOpps.reduce((s,o)=>s+(o.value||0),0)})`;}).filter(Boolean).join('\n');
     return `CRM Status:
 - ${ac} actieve deals, gewogen waarde €${wv}, gewonnen omzet €${wr}
 - Pipeline per fase: ${byStage.map(s=>`${s.stage}: ${s.count} deals (€${s.value})`).join(', ')}
 - ${overdue.length} achterstallige taken${overdue.length?': '+overdue.map(o=>`"${o.task}" (${o.contact}, ${o.days}d)`).join(', '):''}
 - ${staleDeals.length} deals zonder recente activiteit${staleDeals.length?': '+staleDeals.map(d=>`"${d.deal}" bij ${d.company} (${d.daysSinceUpdate}d, ${d.stage})`).join(', '):''}
-Top 5 deals: ${topDeals.map(d=>`${d.title} €${d.value} ${d.stage} ${d.probability}% [${d.company}] tech:${(d.techTags||[]).join(',')} actie:${d.nextAction||'geen'}`).join(' | ')}
+
+DEAL DETAILS (voor Miller Heiman / Holden analyse):
+${dealDetails||'Geen actieve deals'}
+
+ACCOUNTS met actieve deals:
+${companyDeals||'Geen'}
+
 Recente interacties: ${recentInt.map(i=>`${i.type} ${i.contact}: ${i.text} (${i.date})`).join(' | ')||'geen'}
-Contacten: ${contacts.length}, Bedrijven: ${companies.length}`;
+Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   };
 
   const sendAi=async()=>{if(!aiIn.trim()||aiLoad)return;const msg=aiIn;setAiIn('');setAiMsgs(p=>[...p,{id:uid(),r:'user',t:msg,time:ft()}]);setAiLoad(true);
     let resp;
     try{
-      const r=await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,context:buildCRMContext()})});
+      const aiHistory=aiMsgs.filter(m=>m.r==='user'||m.r==='bot').slice(-10).map(m=>({role:m.r==='user'?'user':'assistant',text:m.t}));
+      const r=await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({message:msg,context:buildCRMContext(),history:aiHistory})});
       const d=await r.json();resp=d.text||d.content?.[0]?.text;
     }catch{}
     if(!resp){
