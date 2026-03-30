@@ -31,7 +31,7 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'POST') {
       const b = parseBody(event);
       if (!b.title) return err(400, 'Titel vereist');
-      const [task] = await sql`INSERT INTO tasks (title, contact_id, opp_id, due_date, due_time, priority, reminder, reminder_min, user_id) VALUES (
+      const [task] = await sql`INSERT INTO tasks (title, contact_id, opp_id, due_date, due_time, priority, reminder, reminder_min, progress, user_id) VALUES (
         ${b.title},
         ${toInt(b.contact_id)},
         ${toInt(b.opp_id)},
@@ -40,6 +40,7 @@ exports.handler = async (event) => {
         ${b.priority || 'medium'},
         ${b.reminder || false},
         ${b.reminder_min || 15},
+        ${b.progress || 0},
         ${user.id}
       ) RETURNING *`;
       return ok({ task });
@@ -62,6 +63,7 @@ exports.handler = async (event) => {
         reminder=COALESCE(${b.reminder !== undefined ? b.reminder : null},reminder),
         reminder_min=COALESCE(${toNull(b.reminder_min)},reminder_min),
         done=COALESCE(${b.done !== undefined ? b.done : null},done),
+        progress=COALESCE(${b.progress !== undefined ? b.progress : null},progress),
         updated_at=NOW()
       WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
       return ok({ task });
