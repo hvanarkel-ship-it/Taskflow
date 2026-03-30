@@ -18,7 +18,8 @@ if(!location.hostname.includes('claudeusercontent')){
   const m=document.createElement('link');m.rel='manifest';m.href='/manifest.json';document.head.appendChild(m);
 }
 </script>
-<style>body{margin:0;font-family:Outfit,system-ui,-apple-system,sans-serif;}</style>
+<style>body{margin:0;font-family:Outfit,system-ui,-apple-system,sans-serif;}
+body.dark-mode select,body.dark-mode select option{background-color:#2c2c2e;color:#f5f5f7;}</style>
 </head>
 <body>
 <div id="app"></div>
@@ -266,11 +267,9 @@ const TX={
     allTasks:'Alle taken',filterByContact:'Per contact',filterByDeal:'Per deal',
     noTasksForFilter:'Geen taken voor dit filter',
     addInline:'+ Toevoegen',quickAdd:'Snel toevoegen...',
-    progress:'Voortgang',progressLabel:'{n}%',
     markDone:'Afronden',markOpen:'Heropenen',
     selectAll:'Alles selecteren',deselectAll:'Deselecteren',
-    bulkComplete:'Afronden',bulkSetProgress:'Voortgang instellen',
-    taskProgress:'Taakvoortgang',
+    bulkComplete:'Afronden',
     taskStatus:'Status',taskNotes:'Notities',taskNotesPlaceholder:'Notities toevoegen...',
     assignedTo:'Toegewezen aan',atosContact:'Atos contact',companyContact:'Bedrijfscontact',
     waitingOn:'Wachtend op',
@@ -417,11 +416,9 @@ const TX={
     allTasks:'All tasks',filterByContact:'By contact',filterByDeal:'By deal',
     noTasksForFilter:'No tasks for this filter',
     addInline:'+ Add',quickAdd:'Quick add...',
-    progress:'Progress',progressLabel:'{n}%',
     markDone:'Complete',markOpen:'Reopen',
     selectAll:'Select all',deselectAll:'Deselect',
-    bulkComplete:'Complete',bulkSetProgress:'Set progress',
-    taskProgress:'Task progress',
+    bulkComplete:'Complete',
     taskStatus:'Status',taskNotes:'Notes',taskNotesPlaceholder:'Add notes...',
     assignedTo:'Assigned to',atosContact:'Atos contact',companyContact:'Company contact',
     waitingOn:'Waiting on',
@@ -496,6 +493,7 @@ const App = function(){
   const[pipePhase,setPipePhase]=useState('');
   const[installPrompt,setInstallPrompt]=useState(null);
   const t=dark?DARK:LIGHT;
+  useEffect(()=>{document.body.classList.toggle('dark-mode',dark);},[dark]);
 
   // ── AUTH ──────────────────────────────────────────────
   const[authUser,setAuthUser]=useState(()=>{
@@ -1260,10 +1258,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     const togglePanelAll=()=>setTaskPanelSel(allPanelSel?[]:allPanelIds);
     const bulkPanelComplete=()=>{for(const id of taskPanelSel)completeTask(id);setTaskPanelSel([]);};
     const bulkPanelDel=async()=>{if(!confirm(`${taskPanelSel.length} ${tx.confirmDeleteN}`))return;for(const id of taskPanelSel)await deleteTask_(id);setTaskPanelSel([]);};
-    const bulkPanelProgress=(val)=>{for(const id of taskPanelSel)updateTask_(id,{progress:val});if(val>=100)for(const id of taskPanelSel)completeTask(id);setTaskPanelSel([]);};
-    // Progress summary
     const totalTasks=panelTasks.length;
-    const avgProgress=totalTasks?Math.round(panelTasks.reduce((s,tk)=>s+(tk.progress||0),0)/totalTasks):0;
     const doneTasks=tasks.filter(tk=>tk.done&&(taskPanelFilter==='all'||
       (taskPanelFilter==='contact'&&taskPanelContactId?tk.contactId===taskPanelContactId:true)&&
       (taskPanelFilter==='opp'&&taskPanelOppId?tk.oppId===taskPanelOppId:true))).length;
@@ -1274,18 +1269,14 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         <div style={{fontSize:15,fontWeight:700}}>☑ {tx.taskPanel}</div>
         <button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'4px 10px',fontSize:11,minHeight:28,minWidth:28}}>+ {tx.addTask}</button>
       </div>
-      {/* Progress summary bar */}
+      {/* Completion summary */}
       <div style={{marginBottom:12,padding:'8px 10px',borderRadius:10,background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-          <span style={{fontSize:10,fontWeight:600,color:t.muted,textTransform:'uppercase',letterSpacing:.5}}>{tx.taskProgress}</span>
-          <span style={{fontSize:12,fontWeight:700,color:completionPct>=80?t.green:completionPct>=50?t.orange:t.accent}}>{completionPct}%</span>
+          <span style={{fontSize:10,fontWeight:600,color:t.muted,textTransform:'uppercase',letterSpacing:.5}}>{tx.taskPanel}</span>
+          <span style={{fontSize:12,fontWeight:700,color:completionPct>=80?t.green:completionPct>=50?t.orange:t.accent}}>{doneTasks}/{totalAll}</span>
         </div>
         <div style={{height:6,borderRadius:3,background:dark?'rgba(118,118,128,0.2)':'rgba(118,118,128,0.12)',overflow:'hidden'}}>
           <div style={{height:'100%',borderRadius:3,background:completionPct>=80?t.green:completionPct>=50?t.orange:t.accent,width:`${completionPct}%`,transition:'width .3s ease'}}/>
-        </div>
-        <div style={{display:'flex',justifyContent:'space-between',marginTop:4,fontSize:10,color:t.dim}}>
-          <span>{doneTasks}/{totalAll} {tx.done.toLowerCase()}</span>
-          {totalTasks>0&&<span>{tx.progress}: {avgProgress}%</span>}
         </div>
       </div>
       <div style={{display:'flex',gap:3,marginBottom:10,flexWrap:'wrap'}}>
@@ -1311,19 +1302,12 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       </div>}
       <div style={{display:'flex',flexDirection:'column',gap:5}}>
         {panelTasks.length===0&&<div style={{textAlign:'center',padding:20,color:t.muted,fontSize:12}}>{tx.noTasksForFilter}</div>}
-        {panelTasks.map(tk=>{const isOverdue=tk.dueDate&&tk.dueDate<td();const isSel=taskPanelSel.includes(tk.id);const prog=tk.progress||0;const tks=TASK_STATUSES.find(s=>s.k===(tk.status||'todo'))||TASK_STATUSES[0];const atosName=atosTeam.find(a=>a.id===tk.atosId)?.name;return <div key={tk.id} style={{padding:'8px 10px',borderRadius:10,background:isSel?(dark?'rgba(10,132,255,0.12)':'rgba(0,122,255,0.08)'):(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),borderLeft:`3px solid ${tks.c}`,display:'flex',alignItems:'flex-start',gap:6,transition:'background .1s'}}>
+        {panelTasks.map(tk=>{const isOverdue=tk.dueDate&&tk.dueDate<td();const isSel=taskPanelSel.includes(tk.id);const tks=TASK_STATUSES.find(s=>s.k===(tk.status||'todo'))||TASK_STATUSES[0];const atosName=atosTeam.find(a=>a.id===tk.atosId)?.name;return <div key={tk.id} style={{padding:'8px 10px',borderRadius:10,background:isSel?(dark?'rgba(10,132,255,0.12)':'rgba(0,122,255,0.08)'):(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),borderLeft:`3px solid ${tks.c}`,display:'flex',alignItems:'flex-start',gap:6,transition:'background .1s'}}>
           <div onClick={()=>togglePanelSel(tk.id)} style={{width:14,height:14,borderRadius:3,border:`2px solid ${isSel?t.accent:t.muted}`,background:isSel?t.accent:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:8,color:'#fff',fontWeight:700,flexShrink:0,marginTop:2}}>{isSel&&'✓'}</div>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:12,fontWeight:500,display:'flex',alignItems:'center',gap:5}}>
               <span style={{flex:1}}>{tk.title}</span>
               <span style={{fontSize:8,padding:'1px 5px',borderRadius:4,background:tks.c+'20',color:tks.c,fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{tks.ic} {tks.l[lang]}</span>
-            </div>
-            {/* Progress bar */}
-            <div style={{display:'flex',alignItems:'center',gap:6,marginTop:3}}>
-              <div style={{flex:1,height:4,borderRadius:2,background:dark?'rgba(118,118,128,0.2)':'rgba(118,118,128,0.12)',overflow:'hidden',cursor:'pointer'}} onClick={e=>{const rect=e.currentTarget.getBoundingClientRect();const pct=Math.round(Math.min(100,Math.max(0,(e.clientX-rect.left)/rect.width*100))/10)*10;updateTask_(tk.id,{progress:pct});if(pct>=100)completeTask(tk.id);}}>
-                <div style={{height:'100%',borderRadius:2,background:prog>=80?t.green:prog>=50?t.orange:t.accent,width:`${prog}%`,transition:'width .15s ease'}}/>
-              </div>
-              <span style={{fontSize:9,color:prog>=80?t.green:prog>=50?t.orange:t.dim,fontWeight:600,minWidth:24,textAlign:'right'}}>{prog}%</span>
             </div>
             <div style={{fontSize:10,color:t.dim,display:'flex',gap:5,marginTop:2,flexWrap:'wrap',alignItems:'center'}}>
               {tk.contactId&&<span style={{color:t.accent,cursor:'pointer'}} onClick={()=>setDetail({type:'contact',id:tk.contactId})}>👤 {cName(tk.contactId)}</span>}
@@ -1452,12 +1436,6 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {tk.contactId&&compName(contacts.find(c=>c.id===tk.contactId)?.companyId)&&<span onClick={e=>{e.stopPropagation();const ct=contacts.find(c=>c.id===tk.contactId);if(ct?.companyId)setDetail({type:'company',id:ct.companyId});}} style={{color:t.teal,cursor:'pointer'}}>🏢 {compName(contacts.find(c=>c.id===tk.contactId)?.companyId)}</span>}
         </div>
         {tk.notes&&<div style={{fontSize:11,color:t.dim,marginTop:2,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📝 {tk.notes.slice(0,80)}{tk.notes.length>80?'...':''}</div>}
-        {!tk.done&&<div style={{display:'flex',alignItems:'center',gap:4,marginTop:4}}>
-          <div style={{flex:1,maxWidth:120,height:4,borderRadius:2,background:dark?'rgba(118,118,128,0.2)':'rgba(118,118,128,0.12)',overflow:'hidden',cursor:'pointer'}} onClick={e=>{e.stopPropagation();const rect=e.currentTarget.getBoundingClientRect();const pct=Math.round(Math.min(100,Math.max(0,(e.clientX-rect.left)/rect.width*100))/10)*10;updateTask_(tk.id,{progress:pct});if(pct>=100)completeTask(tk.id);}}>
-            <div style={{height:'100%',borderRadius:2,background:(tk.progress||0)>=80?t.green:(tk.progress||0)>=50?t.orange:t.accent,width:`${tk.progress||0}%`,transition:'width .15s ease'}}/>
-          </div>
-          <span style={{fontSize:9,color:(tk.progress||0)>=80?t.green:(tk.progress||0)>=50?t.orange:t.dim,fontWeight:600}}>{tk.progress||0}%</span>
-        </div>}
       </div>
       {!tk.done&&<button onClick={()=>setModal({type:'task',data:tk})} style={{...btnG,padding:'4px 10px',fontSize:11}}>✎</button>}
       <button onClick={()=>{deleteTask_(tk.id);toast(tx.removed,'info');}} style={{background:'none',border:'none',color:t.red,cursor:'pointer',fontSize:14}}>✕</button>
@@ -1470,7 +1448,6 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         {key:'contact',l:tx.contact,sort:(a,b)=>(cName(a.contactId)||'').localeCompare(cName(b.contactId)||'')},
         {key:'deal',l:tx.deal,sort:(a,b)=>(oppName(a.oppId)||'').localeCompare(oppName(b.oppId)||'')},
         {key:'priority',l:tx.priority,sort:(a,b)=>{const pi={high:0,medium:1,low:2};return (pi[a.priority]??1)-(pi[b.priority]??1);}},
-        {key:'progress',l:tx.progress,sort:(a,b)=>(a.progress||0)-(b.progress||0)},
         {key:'dueDate',l:tx.dueDate,sort:(a,b)=>(a.dueDate||'9').localeCompare(b.dueDate||'9')},
         {key:'status',l:tx.status,sort:(a,b)=>{const si=s=>TASK_STATUSES.findIndex(x=>x.k===s);return si(a.status||'todo')-si(b.status||'todo');}},
       ];
@@ -1510,7 +1487,6 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
               <td style={cellS} onClick={()=>tk.contactId&&setDetail({type:'contact',id:tk.contactId})}><span style={{color:tk.contactId?t.accent:t.muted,fontSize:12}}>{cName(tk.contactId)||'—'}</span></td>
               <td style={cellS} onClick={()=>tk.oppId&&setDetail({type:'opp',id:tk.oppId})}><span style={{color:tk.oppId?t.accent:t.muted,fontSize:12}}>{oppName(tk.oppId)||'—'}</span></td>
               <td style={cellS} onClick={()=>!isE('priority')&&setEditCellTk({id:tk.id,f:'priority'})}>{isE('priority')?<select autoFocus style={{...inp,padding:'4px 8px',fontSize:12}} value={tk.priority||'medium'} onChange={e=>saveCell('priority',e.target.value)} onBlur={()=>setEditCellTk(null)}>{PRIS.map(p=><option key={p.id} value={p.id}>{p.l[lang]||p.l.nl}</option>)}</select>:<span style={{color:(PRIS.find(p=>p.id===tk.priority)||PRIS[1]).c,fontWeight:600,fontSize:11}}>{pl(tk.priority)}</span>}</td>
-              <td style={cellS}>{(()=>{const prog=tk.done?100:(tk.progress||0);return <div style={{display:'flex',alignItems:'center',gap:6,minWidth:80}}><div style={{flex:1,height:6,borderRadius:3,background:dark?'rgba(118,118,128,0.2)':'rgba(118,118,128,0.12)',overflow:'hidden',cursor:'pointer'}} onClick={e=>{e.stopPropagation();const rect=e.currentTarget.getBoundingClientRect();const pct=Math.round(Math.min(100,Math.max(0,(e.clientX-rect.left)/rect.width*100))/10)*10;updateTask_(tk.id,{progress:pct});if(pct>=100)completeTask(tk.id);}}><div style={{height:'100%',borderRadius:3,background:prog>=80?t.green:prog>=50?t.orange:t.accent,width:`${prog}%`,transition:'width .15s ease'}}/></div><span style={{fontSize:10,color:prog>=80?t.green:prog>=50?t.orange:t.dim,fontWeight:600,minWidth:24}}>{prog}%</span></div>;})()}</td>
               <td style={cellS} onClick={()=>!isE('dueDate')&&setEditCellTk({id:tk.id,f:'dueDate'})}>{isE('dueDate')?<input autoFocus type="date" style={{...inp,padding:'4px 8px',fontSize:12}} defaultValue={tk.dueDate||''} onBlur={e=>saveCell('dueDate',e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('dueDate',e.target.value);if(e.key==='Escape')setEditCellTk(null);}}/>:<span style={{fontSize:12,color:isOverdue?t.red:t.dim,fontWeight:isOverdue?600:400}}>{tk.dueDate?fds(tk.dueDate):'—'}</span>}</td>
               <td style={cellS} onClick={()=>!isE('status')&&setEditCellTk({id:tk.id,f:'status'})}>{(()=>{const tks=TASK_STATUSES.find(s=>s.k===(tk.status||'todo'))||TASK_STATUSES[0];return isE('status')?<select autoFocus style={{...inp,padding:'4px 8px',fontSize:11}} value={tk.status||'todo'} onChange={e=>{const ns=e.target.value;updateTask_(tk.id,{status:ns,done:ns==='done'||ns==='cancelled'});setEditCellTk(null);}} onBlur={()=>setEditCellTk(null)}>{TASK_STATUSES.map(s=><option key={s.k} value={s.k}>{s.ic} {s.l[lang]}</option>)}</select>:<span style={{fontSize:10,padding:'2px 7px',borderRadius:6,background:tks.c+'20',color:tks.c,fontWeight:600,whiteSpace:'nowrap'}}>{tks.ic} {tks.l[lang]}</span>;})()}</td>
               <td style={{...cellS,padding:'6px 6px',textAlign:'center'}}><span onClick={async(e)=>{e.stopPropagation();if(confirm(lang==='nl'?`"${tk.title}" verwijderen?`:`Delete "${tk.title}"?`))await deleteTask_(tk.id);}} style={{cursor:'pointer',color:t.red,fontSize:14,opacity:.6,transition:'opacity .15s'}} onMouseOver={e=>e.target.style.opacity=1} onMouseOut={e=>e.target.style.opacity=.6}>✕</span></td>
