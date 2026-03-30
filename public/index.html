@@ -121,7 +121,7 @@ const LOSS_REASONS=['reasonCompetitor','reasonPrice','reasonTiming','reasonFit',
 const dealAge=(opp)=>{const d=opp.stageChangedAt||opp.updatedAt||opp.createdAt;if(!d)return 0;return Math.floor((Date.now()-new Date(d).getTime())/(1000*60*60*24));};
 const stageC=(id,lang='nl')=>{const s=STAGES.find(s=>s.id===id)||STAGES[0];return{...s,l:s.l[lang]||s.l.nl};};
 
-const PRIS=[{id:'high',l:{nl:'Hoog',en:'High'},c:'#FF453A'},{id:'medium',l:{nl:'Midden',en:'Medium'},c:'#FF9F0A'},{id:'low',l:{nl:'Laag',en:'Low'},c:'#30D158'}];
+const PRIS=[{id:'urgent',l:{nl:'Urgent',en:'Urgent'},c:'#FF2D55'},{id:'high',l:{nl:'Hoog',en:'High'},c:'#FF453A'},{id:'medium',l:{nl:'Midden',en:'Medium'},c:'#FF9F0A'},{id:'low',l:{nl:'Laag',en:'Low'},c:'#30D158'}];
 
 const TX={
   nl:{
@@ -488,7 +488,7 @@ const App = function(){
   const INT_TYPES=INT_TYPES_I18N.map(it=>({...it,l:it.l[lang]||it.l.nl}));
   const CONTACT_CATS=CONTACT_CATS_I18N[lang]||CONTACT_CATS_I18N.nl;
   const sl=(id)=>stageC(id,lang);
-  const pl=(p)=>(PRIS.find(x=>x.id===p)||PRIS[1]).l[lang]||PRIS[1].l.nl;
+  const pl=(p)=>(PRIS.find(x=>x.id===p)||PRIS.find(x=>x.id==='medium')).l[lang];
   const[pipeFilter,setPipeFilter]=useState('all');
   const[pipePhase,setPipePhase]=useState('');
   const[installPrompt,setInstallPrompt]=useState(null);
@@ -846,6 +846,34 @@ const App = function(){
     toast(lang==='nl'?`${ts.length} taken geëxporteerd naar agenda`:`${ts.length} tasks exported to calendar`);
   };
 
+  const taskIcs=(tk)=>{
+    const pad=(n)=>String(n).padStart(2,'0');
+    const icsDate=(d,tm)=>{const dt=new Date(d);const y=dt.getFullYear();const m=pad(dt.getMonth()+1);const dd=pad(dt.getDate());if(tm){const[hh,mm]=tm.split(':');return`${y}${m}${dd}T${pad(hh)}${pad(mm)}00`;}return`${y}${m}${dd}`;};
+    const esc=(s)=>(s||'').replace(/[\\;,\n]/g,c=>c==='\n'?'\\n':'\\'+c);
+    const contact=cName(tk.contactId);const deal=oppName(tk.oppId);
+    const desc=[(contact?`Contact: ${contact}`:''),(deal?`Deal: ${deal}`:''),(tk.priority?`Priority: ${tk.priority}`:''),(tk.notes?`Notes: ${tk.notes}`:'')].filter(Boolean).join('\\n');
+    let ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//DPM CRM//Tasks//NL\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\n';
+    ics+=`UID:${tk.id}@dpm-crm\r\n`;
+    ics+=`DTSTAMP:${icsDate(new Date().toISOString().slice(0,10),'00:00')}\r\n`;
+    const d=tk.dueDate||new Date().toISOString().slice(0,10);
+    if(tk.dueTime){ics+=`DTSTART:${icsDate(d,tk.dueTime)}\r\nDTEND:${icsDate(d,tk.dueTime.split(':').map((v,i)=>i===0?pad((+v+1)%24):v).join(':'))}\r\n`;}
+    else{ics+=`DTSTART;VALUE=DATE:${icsDate(d)}\r\nDTEND;VALUE=DATE:${icsDate(d)}\r\n`;}
+    ics+=`SUMMARY:${esc(tk.title)}\r\n`;
+    if(desc)ics+=`DESCRIPTION:${desc}\r\n`;
+    if(tk.reminder){ics+='BEGIN:VALARM\r\nTRIGGER:-PT'+(tk.reminderMin||15)+'M\r\nACTION:DISPLAY\r\nDESCRIPTION:Reminder\r\nEND:VALARM\r\n';}
+    ics+='END:VEVENT\r\nEND:VCALENDAR\r\n';
+    return ics;
+  };
+
+  const onTaskDragStart=(e,tk)=>{
+    const ics=taskIcs(tk);
+    const blob=new Blob([ics],{type:'text/calendar'});
+    const url=URL.createObjectURL(blob);
+    e.dataTransfer.setData('text/uri-list',url);
+    e.dataTransfer.setData('text/plain',tk.title);
+    e.dataTransfer.setData('DownloadURL',`text/calendar:${(tk.title||'task').replace(/[^a-zA-Z0-9 ]/g,'')}.ics:${url}`);
+  };
+
   // ── Unified backup: export current state as JSON ──
   const doBackup=async()=>{
     try{
@@ -1183,7 +1211,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {key:'stage',l:tx.phase,sort:(a,b)=>{const si=s=>STAGES.findIndex(x=>x.id===s);return si(a.stage)-si(b.stage);}},
           {key:'value',l:tx.value,sort:(a,b)=>(a.value||0)-(b.value||0)},
           {key:'probability',l:tx.chance+'%',sort:(a,b)=>(a.probability||0)-(b.probability||0)},
-          {key:'priority',l:tx.priority,sort:(a,b)=>{const pi={high:0,medium:1,low:2};return (pi[a.priority]??1)-(pi[b.priority]??1);}},
+          {key:'priority',l:tx.priority,sort:(a,b)=>{const pi={urgent:0,high:1,medium:2,low:3};return (pi[a.priority]??2)-(pi[b.priority]??2);}},
           {key:'nextAction',l:tx.nextAction,sort:(a,b)=>(a.nextAction||'').localeCompare(b.nextAction||'')},
           {key:'expectedCloseDate',l:tx.closeDate,sort:(a,b)=>(a.expectedCloseDate||'9').localeCompare(b.expectedCloseDate||'9')},
         ];
@@ -1223,7 +1251,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
               <td style={cellS} onClick={()=>!isE('stage')&&setEditCell({id:opp.id,f:'stage'})}>{isE('stage')?<select autoFocus style={{...inp,padding:'4px 8px',fontSize:12}} value={opp.stage} onChange={e=>{saveCell('stage',e.target.value);}} onBlur={()=>setEditCell(null)}>{STAGES.map(s=><option key={s.id} value={s.id}>{s.l[lang]||s.l.nl}</option>)}</select>:<span style={{fontSize:11,padding:'2px 8px',borderRadius:8,background:`${stg.c}20`,color:stg.c,fontWeight:600}}>{stg.l[lang]}</span>}</td>
               <td style={cellS} onClick={()=>!isE('value')&&setEditCell({id:opp.id,f:'value'})}>{isE('value')?<input autoFocus type="number" style={{...inp,padding:'4px 8px',fontSize:13,width:100}} defaultValue={opp.value??0} onBlur={e=>saveCell('value',+e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('value',+e.target.value);if(e.key==='Escape')setEditCell(null);}}/>:<span style={{fontWeight:700}}>{eur(opp.value||0)}</span>}</td>
               <td style={cellS} onClick={()=>!isE('probability')&&setEditCell({id:opp.id,f:'probability'})}>{isE('probability')?<input autoFocus type="number" min="0" max="100" style={{...inp,padding:'4px 8px',fontSize:13,width:60}} defaultValue={opp.probability??0} onBlur={e=>saveCell('probability',+e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('probability',+e.target.value);if(e.key==='Escape')setEditCell(null);}}/>:<span>{opp.probability??0}%</span>}</td>
-              <td style={cellS} onClick={()=>!isE('priority')&&setEditCell({id:opp.id,f:'priority'})}>{isE('priority')?<select autoFocus style={{...inp,padding:'4px 8px',fontSize:12}} value={opp.priority||'medium'} onChange={e=>saveCell('priority',e.target.value)} onBlur={()=>setEditCell(null)}>{PRIS.map(p=><option key={p.id} value={p.id}>{p.l[lang]||p.l.nl}</option>)}</select>:<span style={{color:(PRIS.find(p=>p.id===opp.priority)||PRIS[1]).c,fontWeight:600,fontSize:11}}>{pl(opp.priority)}</span>}</td>
+              <td style={cellS} onClick={()=>!isE('priority')&&setEditCell({id:opp.id,f:'priority'})}>{isE('priority')?<select autoFocus style={{...inp,padding:'4px 8px',fontSize:12}} value={opp.priority||'medium'} onChange={e=>saveCell('priority',e.target.value)} onBlur={()=>setEditCell(null)}>{PRIS.map(p=><option key={p.id} value={p.id}>{p.l[lang]||p.l.nl}</option>)}</select>:<span style={{color:(PRIS.find(p=>p.id===opp.priority)||PRIS.find(x=>x.id==='medium')).c,fontWeight:600,fontSize:11}}>{pl(opp.priority)}</span>}</td>
               <td style={cellS} onClick={()=>!isE('nextAction')&&setEditCell({id:opp.id,f:'nextAction'})}>{isE('nextAction')?<input autoFocus style={{...inp,padding:'4px 8px',fontSize:12}} defaultValue={opp.nextAction||''} onBlur={e=>saveCell('nextAction',e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('nextAction',e.target.value);if(e.key==='Escape')setEditCell(null);}}/>:<span style={{color:opp.nextAction?t.orange:t.muted,fontSize:12}}>{opp.nextAction||'—'}</span>}</td>
               <td style={cellS} onClick={()=>!isE('expectedCloseDate')&&setEditCell({id:opp.id,f:'expectedCloseDate'})}>{isE('expectedCloseDate')?<input autoFocus type="date" style={{...inp,padding:'4px 8px',fontSize:12}} defaultValue={opp.expectedCloseDate||''} onBlur={e=>saveCell('expectedCloseDate',e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('expectedCloseDate',e.target.value);if(e.key==='Escape')setEditCell(null);}}/>:<span style={{fontSize:12,color:t.dim}}>{opp.expectedCloseDate?fds(opp.expectedCloseDate):'—'}</span>}</td>
               <td style={{...cellS,padding:'6px 6px',textAlign:'center'}}><span onClick={async(e)=>{e.stopPropagation();if(confirm(lang==='nl'?`"${opp.title}" verwijderen?`:`Delete "${opp.title}"?`))await deleteOpp(opp.id);}} style={{cursor:'pointer',color:t.red,fontSize:14,opacity:.6,transition:'opacity .15s'}} onMouseOver={e=>e.target.style.opacity=1} onMouseOut={e=>e.target.style.opacity=.6}>✕</span></td>
@@ -1302,11 +1330,11 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       </div>}
       <div style={{display:'flex',flexDirection:'column',gap:5}}>
         {panelTasks.length===0&&<div style={{textAlign:'center',padding:20,color:t.muted,fontSize:12}}>{tx.noTasksForFilter}</div>}
-        {panelTasks.map(tk=>{const isOverdue=tk.dueDate&&tk.dueDate<td();const isSel=taskPanelSel.includes(tk.id);const tks=TASK_STATUSES.find(s=>s.k===(tk.status||'todo'))||TASK_STATUSES[0];const atosName=atosTeam.find(a=>a.id===tk.atosId)?.name;return <div key={tk.id} style={{padding:'8px 10px',borderRadius:10,background:isSel?(dark?'rgba(10,132,255,0.12)':'rgba(0,122,255,0.08)'):(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),borderLeft:`3px solid ${tks.c}`,display:'flex',alignItems:'flex-start',gap:6,transition:'background .1s'}}>
+        {panelTasks.map(tk=>{const isOverdue=tk.dueDate&&tk.dueDate<td();const isSel=taskPanelSel.includes(tk.id);const tks=TASK_STATUSES.find(s=>s.k===(tk.status||'todo'))||TASK_STATUSES[0];const atosName=atosTeam.find(a=>a.id===tk.atosId)?.name;return <div key={tk.id} draggable onDragStart={e=>onTaskDragStart(e,tk)} style={{padding:'8px 10px',borderRadius:10,background:isSel?(dark?'rgba(10,132,255,0.12)':'rgba(0,122,255,0.08)'):(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),borderLeft:`3px solid ${tk.priority==='urgent'?'#FF2D55':tks.c}`,display:'flex',alignItems:'flex-start',gap:6,transition:'background .1s',cursor:'grab'}}>
           <div onClick={()=>togglePanelSel(tk.id)} style={{width:14,height:14,borderRadius:3,border:`2px solid ${isSel?t.accent:t.muted}`,background:isSel?t.accent:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:8,color:'#fff',fontWeight:700,flexShrink:0,marginTop:2}}>{isSel&&'✓'}</div>
-          <div style={{flex:1,minWidth:0}}>
+          <div style={{flex:1,minWidth:0}} onClick={()=>setModal({type:'task',data:tk})}>
             <div style={{fontSize:12,fontWeight:500,display:'flex',alignItems:'center',gap:5}}>
-              <span style={{flex:1}}>{tk.title}</span>
+              <span style={{flex:1,display:'flex',alignItems:'center',gap:4}}>{tk.priority==='urgent'&&<span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'#FF2D55',boxShadow:'0 0 5px #FF2D55',animation:'pulse 1.5s infinite',flexShrink:0}}/>}{tk.title}</span>
               <span style={{fontSize:8,padding:'1px 5px',borderRadius:4,background:tks.c+'20',color:tks.c,fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{tks.ic} {tks.l[lang]}</span>
             </div>
             <div style={{fontSize:10,color:t.dim,display:'flex',gap:5,marginTop:2,flexWrap:'wrap',alignItems:'center'}}>
@@ -1419,12 +1447,12 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
 
     const grouped=taskTab!=='done'?[...new Set(shown.map(t=>t.dueDate||'no-date'))].sort((a,b)=>a==='no-date'?1:b==='no-date'?-1:a.localeCompare(b)):[];
 
-    const renderTaskRow=(tk)=>{const isOverdue=tk.dueDate&&tk.dueDate<td()&&!tk.done;const oName=oppName(tk.oppId);const tks=TASK_STATUSES.find(s=>s.k===(tk.status||'todo'))||TASK_STATUSES[0];return <div style={{...card,padding:'12px 16px',display:'flex',alignItems:'center',gap:12,borderLeft:`3px solid ${tk.done?t.green:tks.c}`}}>
+    const renderTaskRow=(tk)=>{const isOverdue=tk.dueDate&&tk.dueDate<td()&&!tk.done;const oName=oppName(tk.oppId);const tks=TASK_STATUSES.find(s=>s.k===(tk.status||'todo'))||TASK_STATUSES[0];return <div draggable onDragStart={e=>onTaskDragStart(e,tk)} style={{...card,padding:'12px 16px',display:'flex',alignItems:'center',gap:12,borderLeft:`3px solid ${tk.done?t.green:tk.priority==='urgent'?'#FF2D55':tks.c}`,cursor:'grab'}}>
       {!tk.done?<div onClick={()=>{completeTask(tk.id);}} style={{width:20,height:20,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}/>
       :<div onClick={()=>updateTask_(tk.id,{done:false})} style={{width:20,height:20,borderRadius:'50%',background:t.green,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#fff',fontWeight:700,cursor:'pointer',flexShrink:0}}>✓</div>}
       <div style={{flex:1,minWidth:0}}>
         <div style={{display:'flex',alignItems:'center',gap:6}}>
-          <span style={{fontSize:14,fontWeight:500,textDecoration:tk.done?'line-through':'none',opacity:tk.done?.5:1,flex:1}}>{tk.title}</span>
+          <span style={{fontSize:14,fontWeight:500,textDecoration:tk.done?'line-through':'none',opacity:tk.done?.5:1,flex:1,display:'flex',alignItems:'center',gap:6}}>{tk.priority==='urgent'&&!tk.done&&<span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:'#FF2D55',boxShadow:'0 0 6px #FF2D55',animation:'pulse 1.5s infinite',flexShrink:0}}/>}{tk.title}</span>
           {!tk.done&&<span style={{fontSize:9,padding:'2px 7px',borderRadius:5,background:tks.c+'20',color:tks.c,fontWeight:600,whiteSpace:'nowrap'}}>{tks.ic} {tks.l[lang]}</span>}
         </div>
         <div style={{fontSize:11,color:t.dim,display:'flex',gap:8,marginTop:3,flexWrap:'wrap',alignItems:'center'}}>
@@ -1447,7 +1475,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         {key:'title',l:tx.task,sort:(a,b)=>(a.title||'').localeCompare(b.title||'')},
         {key:'contact',l:tx.contact,sort:(a,b)=>(cName(a.contactId)||'').localeCompare(cName(b.contactId)||'')},
         {key:'deal',l:tx.deal,sort:(a,b)=>(oppName(a.oppId)||'').localeCompare(oppName(b.oppId)||'')},
-        {key:'priority',l:tx.priority,sort:(a,b)=>{const pi={high:0,medium:1,low:2};return (pi[a.priority]??1)-(pi[b.priority]??1);}},
+        {key:'priority',l:tx.priority,sort:(a,b)=>{const pi={urgent:0,high:1,medium:2,low:3};return (pi[a.priority]??2)-(pi[b.priority]??2);}},
         {key:'dueDate',l:tx.dueDate,sort:(a,b)=>(a.dueDate||'9').localeCompare(b.dueDate||'9')},
         {key:'status',l:tx.status,sort:(a,b)=>{const si=s=>TASK_STATUSES.findIndex(x=>x.k===s);return si(a.status||'todo')-si(b.status||'todo');}},
       ];
@@ -1473,7 +1501,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           <thead><tr>
             <th style={{padding:'8px 6px',borderBottom:`1.5px solid ${t.border}`,width:32}}><div onClick={toggleAll} style={{width:18,height:18,borderRadius:4,border:`2px solid ${allSel?t.accent:t.muted}`,background:allSel?t.accent:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:10,color:'#fff',fontWeight:700}}>{allSel&&'✓'}</div></th>
             {tkCols.map(c=><th key={c.key} onClick={()=>doSort(c.key)} style={{padding:'8px 10px',textAlign:'left',borderBottom:`1.5px solid ${t.border}`,fontSize:11,color:tkTblSort.col===c.key?t.accent:t.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:.5,whiteSpace:'nowrap',cursor:'pointer',userSelect:'none'}}>{c.l}{sortIc(c.key)}</th>)}
-            <th style={{padding:'8px 6px',borderBottom:`1.5px solid ${t.border}`,width:32}}></th>
+            <th style={{padding:'8px 6px',borderBottom:`1.5px solid ${t.border}`,width:64}}></th>
           </tr></thead>
           <tbody>{sorted.map(tk=>{
             const ec=editCellTk;const isE=(f)=>ec?.id===tk.id&&ec?.f===f;
@@ -1481,15 +1509,15 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             const cellS={padding:'6px 10px',borderBottom:`0.5px solid ${t.border}`,cursor:'pointer',transition:'background .1s'};
             const isSel=tkTblSel.includes(tk.id);
             const isOverdue=tk.dueDate&&tk.dueDate<td()&&!tk.done;
-            return <tr key={tk.id} style={{background:isSel?t.accentS:'transparent',opacity:tk.done?.6:1}}>
+            return <tr key={tk.id} draggable onDragStart={e=>onTaskDragStart(e,tk)} style={{background:isSel?t.accentS:'transparent',opacity:tk.done?.6:1,cursor:'grab'}}>
               <td style={{...cellS,padding:'6px 6px'}}><div onClick={()=>toggleSel(tk.id)} style={{width:18,height:18,borderRadius:4,border:`2px solid ${isSel?t.accent:t.muted}`,background:isSel?t.accent:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:10,color:'#fff',fontWeight:700}}>{isSel&&'✓'}</div></td>
-              <td style={cellS} onClick={()=>!isE('title')&&setEditCellTk({id:tk.id,f:'title'})}>{isE('title')?<input autoFocus style={{...inp,padding:'4px 8px',fontSize:13}} defaultValue={tk.title} onBlur={e=>saveCell('title',e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('title',e.target.value);if(e.key==='Escape')setEditCellTk(null);}}/>:<span style={{fontWeight:500,textDecoration:tk.done?'line-through':'none'}}>{tk.title}</span>}</td>
+              <td style={cellS} onClick={()=>!isE('title')&&setEditCellTk({id:tk.id,f:'title'})}>{isE('title')?<input autoFocus style={{...inp,padding:'4px 8px',fontSize:13}} defaultValue={tk.title} onBlur={e=>saveCell('title',e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('title',e.target.value);if(e.key==='Escape')setEditCellTk(null);}}/>:<span style={{fontWeight:500,textDecoration:tk.done?'line-through':'none',display:'flex',alignItems:'center',gap:6}}>{tk.priority==='urgent'&&<span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:'#FF2D55',boxShadow:'0 0 6px #FF2D55',animation:'pulse 1.5s infinite',flexShrink:0}}/>}{tk.title}</span>}</td>
               <td style={cellS} onClick={()=>tk.contactId&&setDetail({type:'contact',id:tk.contactId})}><span style={{color:tk.contactId?t.accent:t.muted,fontSize:12}}>{cName(tk.contactId)||'—'}</span></td>
               <td style={cellS} onClick={()=>tk.oppId&&setDetail({type:'opp',id:tk.oppId})}><span style={{color:tk.oppId?t.accent:t.muted,fontSize:12}}>{oppName(tk.oppId)||'—'}</span></td>
-              <td style={cellS} onClick={()=>!isE('priority')&&setEditCellTk({id:tk.id,f:'priority'})}>{isE('priority')?<select autoFocus style={{...inp,padding:'4px 8px',fontSize:12}} value={tk.priority||'medium'} onChange={e=>saveCell('priority',e.target.value)} onBlur={()=>setEditCellTk(null)}>{PRIS.map(p=><option key={p.id} value={p.id}>{p.l[lang]||p.l.nl}</option>)}</select>:<span style={{color:(PRIS.find(p=>p.id===tk.priority)||PRIS[1]).c,fontWeight:600,fontSize:11}}>{pl(tk.priority)}</span>}</td>
+              <td style={cellS} onClick={()=>!isE('priority')&&setEditCellTk({id:tk.id,f:'priority'})}>{isE('priority')?<select autoFocus style={{...inp,padding:'4px 8px',fontSize:12}} value={tk.priority||'medium'} onChange={e=>saveCell('priority',e.target.value)} onBlur={()=>setEditCellTk(null)}>{PRIS.map(p=><option key={p.id} value={p.id}>{p.l[lang]||p.l.nl}</option>)}</select>:<span style={{color:(PRIS.find(p=>p.id===tk.priority)||PRIS.find(x=>x.id==='medium')).c,fontWeight:600,fontSize:11}}>{pl(tk.priority)}</span>}</td>
               <td style={cellS} onClick={()=>!isE('dueDate')&&setEditCellTk({id:tk.id,f:'dueDate'})}>{isE('dueDate')?<input autoFocus type="date" style={{...inp,padding:'4px 8px',fontSize:12}} defaultValue={tk.dueDate||''} onBlur={e=>saveCell('dueDate',e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('dueDate',e.target.value);if(e.key==='Escape')setEditCellTk(null);}}/>:<span style={{fontSize:12,color:isOverdue?t.red:t.dim,fontWeight:isOverdue?600:400}}>{tk.dueDate?fds(tk.dueDate):'—'}</span>}</td>
               <td style={cellS} onClick={()=>!isE('status')&&setEditCellTk({id:tk.id,f:'status'})}>{(()=>{const tks=TASK_STATUSES.find(s=>s.k===(tk.status||'todo'))||TASK_STATUSES[0];return isE('status')?<select autoFocus style={{...inp,padding:'4px 8px',fontSize:11}} value={tk.status||'todo'} onChange={e=>{const ns=e.target.value;updateTask_(tk.id,{status:ns,done:ns==='done'||ns==='cancelled'});setEditCellTk(null);}} onBlur={()=>setEditCellTk(null)}>{TASK_STATUSES.map(s=><option key={s.k} value={s.k}>{s.ic} {s.l[lang]}</option>)}</select>:<span style={{fontSize:10,padding:'2px 7px',borderRadius:6,background:tks.c+'20',color:tks.c,fontWeight:600,whiteSpace:'nowrap'}}>{tks.ic} {tks.l[lang]}</span>;})()}</td>
-              <td style={{...cellS,padding:'6px 6px',textAlign:'center'}}><span onClick={async(e)=>{e.stopPropagation();if(confirm(lang==='nl'?`"${tk.title}" verwijderen?`:`Delete "${tk.title}"?`))await deleteTask_(tk.id);}} style={{cursor:'pointer',color:t.red,fontSize:14,opacity:.6,transition:'opacity .15s'}} onMouseOver={e=>e.target.style.opacity=1} onMouseOut={e=>e.target.style.opacity=.6}>✕</span></td>
+              <td style={{...cellS,padding:'6px 6px',textAlign:'center',whiteSpace:'nowrap'}}><span onClick={()=>setModal({type:'task',data:tk})} style={{cursor:'pointer',color:t.accent,fontSize:13,opacity:.6,transition:'opacity .15s',marginRight:6}} onMouseOver={e=>e.target.style.opacity=1} onMouseOut={e=>e.target.style.opacity=.6}>✎</span><span onClick={async(e)=>{e.stopPropagation();if(confirm(lang==='nl'?`"${tk.title}" verwijderen?`:`Delete "${tk.title}"?`))await deleteTask_(tk.id);}} style={{cursor:'pointer',color:t.red,fontSize:14,opacity:.6,transition:'opacity .15s'}} onMouseOver={e=>e.target.style.opacity=1} onMouseOut={e=>e.target.style.opacity=.6}>✕</span></td>
             </tr>;})}</tbody>
         </table>
       </div>;
@@ -1502,7 +1530,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       <div style={{display:'flex',gap:4,marginBottom:16,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:10,padding:3}}>
         {[{id:'today',l:`${tx.taskToday} (${overdue.length+today.length})`},{id:'upcoming',l:`${tx.taskUpcoming} (${upcoming.length})`},{id:'all',l:`${tx.all} (${allOpen.length})`},{id:'done',l:`${tx.taskDone} (${done.length})`}].map(tab=><button key={tab.id} onClick={()=>setTaskTab(tab.id)} style={{flex:1,padding:'7px 12px',borderRadius:8,fontSize:12,fontWeight:taskTab===tab.id?600:400,border:'none',background:taskTab===tab.id?t.accent:'transparent',color:taskTab===tab.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',transition:`all .15s ${sp}`}}>{tab.l}</button>)}
       </div>
-      <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginBottom:12}}><button onClick={()=>exportTasksIcal()} style={{...btnG,fontSize:12}}>📅 {tx.exportCalendar||'Export'}</button></div>
+      <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:8,marginBottom:12}}><span style={{fontSize:10,color:t.muted}}>{lang==='nl'?'Sleep taken naar Outlook':'Drag tasks to Outlook'} 📅</span><button onClick={()=>exportTasksIcal()} style={{...btnG,fontSize:12}}>📅 {tx.exportCalendar||'Export'}</button></div>
       {tasksView==='table'?renderTasksTable():<>
       {taskTab!=='done'?<div style={{display:'flex',flexDirection:'column',gap:4}}>
         {grouped.map(date=>{const dateTasks=shown.filter(t=>(t.dueDate||'no-date')===date);const isOverdueGroup=date!=='no-date'&&date<td();const isTodayGroup=date===td();return <div key={date}>
