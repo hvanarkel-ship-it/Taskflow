@@ -133,6 +133,8 @@ async function setup() {
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS closed_reason VARCHAR(100) DEFAULT ''", v: '16' },
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS closed_note TEXT DEFAULT ''", v: '16' },
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS deal_notes TEXT DEFAULT ''", v: '16' },
+    // v29: task progress tracking
+    { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS progress INTEGER DEFAULT 0", v: '29' },
   ];
 
   let migrated = 0;
