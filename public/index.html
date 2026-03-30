@@ -261,6 +261,11 @@ const TX={
     // Tasks table
     task:'Taak',contact:'Contact',deal:'Deal',dueDate:'Deadline',status:'Status',
     open:'Open',
+    // Task side panel
+    taskPanel:'Taken',showTasks:'Taken tonen',hideTasks:'Taken verbergen',
+    allTasks:'Alle taken',filterByContact:'Per contact',filterByDeal:'Per deal',
+    noTasksForFilter:'Geen taken voor dit filter',
+    addInline:'+ Toevoegen',quickAdd:'Snel toevoegen...',
   },
   en:{
     pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',atos:'Atos Team',tasks:'Tasks',reports:'Reports',
@@ -399,6 +404,11 @@ const TX={
     // Tasks table
     task:'Task',contact:'Contact',deal:'Deal',dueDate:'Due date',status:'Status',
     open:'Open',
+    // Task side panel
+    taskPanel:'Tasks',showTasks:'Show tasks',hideTasks:'Hide tasks',
+    allTasks:'All tasks',filterByContact:'By contact',filterByDeal:'By deal',
+    noTasksForFilter:'No tasks for this filter',
+    addInline:'+ Add',quickAdd:'Quick add...',
   }
 };
 
@@ -650,6 +660,12 @@ const App = function(){
   const[editCellCt,setEditCellCt]=useState(null);
   const[editCellCo,setEditCellCo]=useState(null);
   const[editCellTk,setEditCellTk]=useState(null);
+  const[taskPanelOpen,setTaskPanelOpen]=useState(false);
+  const[taskPanelFilter,setTaskPanelFilter]=useState('all');
+  const[taskPanelContactId,setTaskPanelContactId]=useState('');
+  const[taskPanelOppId,setTaskPanelOppId]=useState('');
+  const[quickAddCt,setQuickAddCt]=useState('');
+  const[quickAddCo,setQuickAddCo]=useState('');
   const[atQ,setAtQ]=useState('');
   const[atModal,setAtModal]=useState(null);
   const[mf,setMf]=useState({});
@@ -1205,6 +1221,54 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     </div>;
   };
 
+  const renderTaskPanel=()=>{
+    const activeStages=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost'&&s.id!=='dropped');
+    const panelTasks=tasks.filter(tk=>{
+      if(tk.done)return false;
+      if(taskPanelFilter==='contact'&&taskPanelContactId){
+        return tk.contactId===taskPanelContactId;
+      }
+      if(taskPanelFilter==='opp'&&taskPanelOppId){
+        return tk.oppId===taskPanelOppId;
+      }
+      return true;
+    }).sort((a,b)=>(a.dueDate||'9').localeCompare(b.dueDate||'9'));
+    const panelContactIds=[...new Set(tasks.filter(tk=>!tk.done&&tk.contactId).map(tk=>tk.contactId))];
+    const panelOppIds=[...new Set(tasks.filter(tk=>!tk.done&&tk.oppId).map(tk=>tk.oppId))];
+    return <div style={{width:340,flexShrink:0,background:t.card,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:14,padding:16,boxShadow:t.shadow,overflowY:'auto',maxHeight:'calc(100vh - 160px)',alignSelf:'flex-start',position:'sticky',top:0}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+        <div style={{fontSize:15,fontWeight:700}}>☑ {tx.taskPanel}</div>
+        <button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'4px 10px',fontSize:11,minHeight:28,minWidth:28}}>+ {tx.addTask}</button>
+      </div>
+      <div style={{display:'flex',gap:3,marginBottom:12,flexWrap:'wrap'}}>
+        {[{id:'all',l:tx.allTasks},{id:'contact',l:tx.filterByContact},{id:'opp',l:tx.filterByDeal}].map(f=><button key={f.id} onClick={()=>{setTaskPanelFilter(f.id);if(f.id==='all'){setTaskPanelContactId('');setTaskPanelOppId('');}}} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:taskPanelFilter===f.id?600:400,border:`1.5px solid ${taskPanelFilter===f.id?t.accent:'transparent'}`,background:taskPanelFilter===f.id?t.accentS:'transparent',color:taskPanelFilter===f.id?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:28,minWidth:0}}>{f.l}</button>)}
+      </div>
+      {taskPanelFilter==='contact'&&<select value={taskPanelContactId} onChange={e=>setTaskPanelContactId(e.target.value)} style={{...inp,padding:'6px 10px',fontSize:12,marginBottom:10,minHeight:32}}>
+        <option value="">{tx.allTasks}</option>
+        {panelContactIds.map(id=><option key={id} value={id}>{cName(id)}</option>)}
+      </select>}
+      {taskPanelFilter==='opp'&&<select value={taskPanelOppId} onChange={e=>setTaskPanelOppId(e.target.value)} style={{...inp,padding:'6px 10px',fontSize:12,marginBottom:10,minHeight:32}}>
+        <option value="">{tx.allTasks}</option>
+        {panelOppIds.map(id=><option key={id} value={id}>{oppName(id)}</option>)}
+      </select>}
+      <div style={{display:'flex',flexDirection:'column',gap:5}}>
+        {panelTasks.length===0&&<div style={{textAlign:'center',padding:20,color:t.muted,fontSize:12}}>{tx.noTasksForFilter}</div>}
+        {panelTasks.map(tk=>{const isOverdue=tk.dueDate&&tk.dueDate<td();return <div key={tk.id} style={{padding:'8px 10px',borderRadius:10,background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)',borderLeft:`3px solid ${isOverdue?t.red:PRIS.find(p=>p.id===tk.priority)?.c||t.accent}`,display:'flex',alignItems:'flex-start',gap:8}}>
+          <div onClick={()=>completeTask(tk.id)} style={{width:16,height:16,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',flexShrink:0,marginTop:2}}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:500}}>{tk.title}</div>
+            <div style={{fontSize:10,color:t.dim,display:'flex',gap:6,marginTop:2,flexWrap:'wrap'}}>
+              {tk.contactId&&<span style={{color:t.accent,cursor:'pointer'}} onClick={()=>setDetail({type:'contact',id:tk.contactId})}>👤 {cName(tk.contactId)}</span>}
+              {tk.oppId&&<span style={{color:t.accent,cursor:'pointer'}} onClick={()=>setDetail({type:'opp',id:tk.oppId})}>📊 {oppName(tk.oppId)}</span>}
+              {tk.dueDate&&<span style={{color:isOverdue?t.red:t.dim}}>{fds(tk.dueDate)}</span>}
+            </div>
+          </div>
+          <span onClick={()=>{deleteTask_(tk.id);toast(tx.removed,'info');}} style={{cursor:'pointer',color:t.red,fontSize:12,opacity:.5,flexShrink:0}}>✕</span>
+        </div>;})}
+      </div>
+    </div>;
+  };
+
   const renderContacts=()=>{
     const filtered=contacts.filter(c=>{if(!search)return true;const q=search.toLowerCase();return c.name.toLowerCase().includes(q)||compName(c.companyId).toLowerCase().includes(q)||c.email.toLowerCase().includes(q)||(c.tags||[]).some(t=>t.includes(q));});
     const renderContactsList=()=><div style={{display:'flex',flexDirection:'column',gap:6}}>
@@ -1266,6 +1330,15 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
               <td style={cellS} onClick={()=>setDetail({type:'contact',id:c.id})}>{(c.tags||[]).length>0?<div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{c.tags.map(tag=><span key={tag} style={{fontSize:10,padding:'1px 6px',borderRadius:5,background:t.accentS,color:t.accent,fontWeight:500}}>{tag}</span>)}</div>:<span style={{color:t.muted}}>—</span>}</td>
               <td style={{...cellS,padding:'6px 6px',textAlign:'center'}}><span onClick={async(e)=>{e.stopPropagation();if(confirm(lang==='nl'?`"${c.name}" verwijderen?`:`Delete "${c.name}"?`))await deleteContact_(c.id);}} style={{cursor:'pointer',color:t.red,fontSize:14,opacity:.6,transition:'opacity .15s'}} onMouseOver={e=>e.target.style.opacity=1} onMouseOut={e=>e.target.style.opacity=.6}>✕</span></td>
             </tr>;})}</tbody>
+          <tfoot><tr>
+            <td colSpan={ctCols.length+2} style={{padding:'6px 10px',borderTop:`1px solid ${t.border}`}}>
+              <form onSubmit={async e=>{e.preventDefault();const v=quickAddCt.trim();if(!v)return;await addContact_({name:v,email:'',phone:'',role:'',tags:[]});setQuickAddCt('');}} style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{color:t.green,fontSize:16,fontWeight:700}}>+</span>
+                <input value={quickAddCt} onChange={e=>setQuickAddCt(e.target.value)} placeholder={tx.quickAdd} style={{flex:1,background:'none',border:'none',color:t.text,fontFamily:'inherit',fontSize:13,outline:'none',padding:'4px 0'}}/>
+                {quickAddCt.trim()&&<button type="submit" style={{padding:'3px 10px',borderRadius:6,border:'none',background:t.accent,color:'#fff',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:24,minWidth:0}}>{tx.add}</button>}
+              </form>
+            </td>
+          </tr></tfoot>
         </table>
       </div>;
     };
@@ -2069,6 +2142,15 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
               <td style={cellS} onClick={()=>setDetail({type:'company',id:co.id})}>{(co.tags||[]).length>0?<div style={{display:'flex',gap:3,flexWrap:'wrap'}}>{co.tags.map(tg=><span key={tg} style={{fontSize:10,padding:'1px 6px',borderRadius:5,background:t.accentS,color:t.accent,fontWeight:500}}>{tg}</span>)}</div>:<span style={{color:t.muted}}>—</span>}</td>
               <td style={{...cellS,padding:'6px 6px',textAlign:'center'}}><span onClick={async(e)=>{e.stopPropagation();if(confirm(lang==='nl'?`"${co.name}" verwijderen?`:`Delete "${co.name}"?`))await deleteCompany_(co.id);}} style={{cursor:'pointer',color:t.red,fontSize:14,opacity:.6,transition:'opacity .15s'}} onMouseOver={e=>e.target.style.opacity=1} onMouseOut={e=>e.target.style.opacity=.6}>✕</span></td>
             </tr>;})}</tbody>
+          <tfoot><tr>
+            <td colSpan={coCols.length+2} style={{padding:'6px 10px',borderTop:`1px solid ${t.border}`}}>
+              <form onSubmit={async e=>{e.preventDefault();const v=quickAddCo.trim();if(!v)return;await addCompany_({name:v,industry:'',address:'',website:'',tags:[]});setQuickAddCo('');}} style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{color:t.green,fontSize:16,fontWeight:700}}>+</span>
+                <input value={quickAddCo} onChange={e=>setQuickAddCo(e.target.value)} placeholder={tx.quickAdd} style={{flex:1,background:'none',border:'none',color:t.text,fontFamily:'inherit',fontSize:13,outline:'none',padding:'4px 0'}}/>
+                {quickAddCo.trim()&&<button type="submit" style={{padding:'3px 10px',borderRadius:6,border:'none',background:t.accent,color:'#fff',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:24,minWidth:0}}>{tx.add}</button>}
+              </form>
+            </td>
+          </tr></tfoot>
         </table>
       </div>;
     };
@@ -2168,7 +2250,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         <header style={{padding:'10px 16px',borderBottom:`0.5px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexWrap:'wrap',background:t.bg}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}><button className="ham" onClick={()=>setSb(true)} style={{display:'none',width:36,height:36,border:'none',background:t.elev,borderRadius:10,cursor:'pointer',color:t.text,fontSize:18,alignItems:'center',justifyContent:'center'}}>☰</button><h1 style={{fontSize:20,fontWeight:800,letterSpacing:-.5}}>{titles[view]}</h1></div>
           <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
-            {view==='pipeline'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'kanban',l:tx.kanbanView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setPipeView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:pipeView===v.id?600:400,border:'none',background:pipeView===v.id?t.accent:'transparent',color:pipeView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div><button onClick={()=>setModal({type:'import'})} style={{...btnG,padding:'6px 10px',fontSize:11}}>📥</button><button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button></>}
+            {view==='pipeline'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'kanban',l:tx.kanbanView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setPipeView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:pipeView===v.id?600:400,border:'none',background:pipeView===v.id?t.accent:'transparent',color:pipeView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div><button onClick={()=>setTaskPanelOpen(!taskPanelOpen)} style={{...btnG,padding:'6px 10px',fontSize:11,background:taskPanelOpen?t.accentS:t.glass,color:taskPanelOpen?t.accent:t.dim,border:`0.5px solid ${taskPanelOpen?t.accent+'44':t.border}`}}>☑ {tx.taskPanel}</button><button onClick={()=>setModal({type:'import'})} style={{...btnG,padding:'6px 10px',fontSize:11}}>📥</button><button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button></>}
             {view==='contacts'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setContactsView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:contactsView===v.id?600:400,border:'none',background:contactsView===v.id?t.accent:'transparent',color:contactsView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div><button onClick={()=>setModal({type:'contact'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addContact2}</button></>}
             {view==='companies'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setCompaniesView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:companiesView===v.id?600:400,border:'none',background:companiesView===v.id?t.accent:'transparent',color:companiesView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div><button onClick={()=>setModal({type:'company'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addCompany}</button></>}
             {view==='tasks'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setTasksView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:tasksView===v.id?600:400,border:'none',background:tasksView===v.id?t.accent:'transparent',color:tasksView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div><button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addTask}</button></>}
@@ -2188,7 +2270,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           </div>}
           {dbStatus==='checking'&&!location.hostname.includes('claudeusercontent')&&<div style={{padding:'8px 16px',marginBottom:16,borderRadius:12,background:t.accentS,fontSize:12,color:t.accent,animation:'pulse 1.5s infinite'}}>{tx.connecting2}</div>}
           {view==='dashboard'&&renderDash()}
-          {view==='pipeline'&&renderPipeline()}
+          {view==='pipeline'&&<div style={{display:'flex',gap:16}}><div style={{flex:1,minWidth:0}}>{renderPipeline()}</div>{taskPanelOpen&&renderTaskPanel()}</div>}
           {view==='companies'&&renderCompanies()}
           {view==='contacts'&&renderContacts()}
           {view==='atos'&&renderAtosView()}
