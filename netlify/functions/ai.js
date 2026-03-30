@@ -101,9 +101,12 @@ exports.handler = async (event) => {
     });
 
     if (!response.ok) {
-      console.error('Anthropic API error:', response.status);
+      const errBody = await response.text().catch(() => '');
+      console.error('Anthropic API error:', response.status, errBody);
       if (response.status === 429) return err(429, 'AI rate limit — probeer later');
-      return err(502, 'AI tijdelijk niet beschikbaar');
+      if (response.status === 401) return err(502, 'Ongeldige API key');
+      if (response.status === 400) return err(502, 'AI request error: ' + (errBody.slice(0, 200)));
+      return err(502, 'AI fout (' + response.status + ')');
     }
 
     const data = await response.json();
