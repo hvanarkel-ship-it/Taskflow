@@ -921,9 +921,9 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     try{
       const aiHistory=aiMsgs.filter(m=>m.r==='user'||m.r==='bot').slice(-10).map(m=>({role:m.r==='user'?'user':'assistant',text:m.t}));
       const r=await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(authUser?.token||'')},body:JSON.stringify({message:msg,context:buildCRMContext(),history:aiHistory})});
-      if(r.ok){const d=await r.json();resp=d.text;}else{const e=await r.json().catch(()=>({}));console.error('AI API error:',r.status,e);resp=null;}
-    }catch(ex){console.error('AI fetch error:',ex);}
-    if(!resp)resp=lang==='nl'?'⚠️ AI niet beschikbaar. Controleer of ANTHROPIC_API_KEY is ingesteld in Netlify.':'⚠️ AI unavailable. Check if ANTHROPIC_API_KEY is set in Netlify.';
+      if(r.ok){const d=await r.json();resp=d.text;}else{const e=await r.json().catch(()=>({}));console.error('AI API error:',r.status,e);resp='⚠️ Error '+r.status+': '+(e.error||e.message||JSON.stringify(e));}
+    }catch(ex){console.error('AI fetch error:',ex);resp='⚠️ Network error: '+ex.message;}
+    if(!resp)resp='⚠️ Geen antwoord ontvangen.';
     setAiMsgs(p=>[...p,{id:uid(),r:'bot',t:resp,time:ft()}]);setAiLoad(false);
   };
 
