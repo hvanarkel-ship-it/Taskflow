@@ -139,6 +139,7 @@ async function setup() {
     { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''", v: '29' },
     { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS atos_id INTEGER", v: '29' },
     { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS company_contact_id INTEGER", v: '29' },
+    { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS salesforce_url TEXT DEFAULT ''", v: '30' },
   ];
 
   let migrated = 0;
