@@ -45,7 +45,7 @@ const ft=()=>new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-dig
 const td=()=>new Date().toISOString().split('T')[0];
 const sp='cubic-bezier(0.25,0.46,0.45,0.94)';
 const linkify=(text)=>{if(!text)return '';const urlRe=/(https?:\/\/[^\s<]+)/g;const parts=text.split(urlRe);return parts.map((p,i)=>/^https?:\/\//.test(p)?React.createElement('a',{key:i,href:p,target:'_blank',rel:'noopener noreferrer',style:{color:'#007AFF',textDecoration:'underline',wordBreak:'break-all'}},p):p);};
-const APP_VERSION='27';
+const APP_VERSION='28';
 const LS={
   get:(k,fb)=>{try{const v=localStorage.getItem('pf_'+k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem('pf_'+k,JSON.stringify(v));}catch{}},
@@ -138,7 +138,7 @@ const TX={
     export:'Data exporteren',import:'Data importeren',backup:'Backup downloaden',restore:'Backup terugzetten',dark:'Donker',light:'Licht',
     overdue:'Achterstallig',today:'Vandaag',upcoming:'Komend',all:'Alle',done:'Afgerond',
     weighted:'Gewogen',deals:'Deals',closedDeals:'Afgeronde deals',
-    aiWelcome:'👋 Ik ben je AI sales coach — ervaren in Miller Heiman en Holden International methodologieën.\n\nIk help je met:\n• **Strategische deal-analyse** — buying influences, power base mapping\n• **Pipeline coaching** — bottlenecks, rode vlaggen, prioriteiten\n• **Concurrentiestrategie** — frontal, flanking, fragment, defend\n• **Gesprekvoorbereiding** — de juiste vragen aan de juiste personen\n\nStel een vraag, typ "analyse" voor pipeline-analyse, of vraag "coach mij op [deal naam]".',
+    aiWelcome:'Hey! Ik ben je sales collega — altijd beschikbaar om mee te sparren.\n\nVraag me alles: deal strategie, wie je moet bellen, hoe je een gesprek aanpakt, of ik check even je pipeline op risico\'s.\n\nKies hieronder een snelle actie of stel gewoon je vraag.',
     filterAll:'Alle',filterPhase:'Fase',filterClose:'Sluiting',thisWeek:'Deze week',thisMonth:'Deze maand',thisQuarter:'Dit kwartaal',
     dailyScan:'🔍 Dagelijkse Scan',noInteractions:'Nog geen interacties',addContact:'+ Contact koppelen...',
     toTask:'→ Taak',taskCreated:'Taak aangemaakt vanuit actie',
@@ -268,7 +268,7 @@ const TX={
     export:'Export data',import:'Import data',backup:'Download backup',restore:'Restore backup',dark:'Dark',light:'Light',
     overdue:'Overdue',today:'Today',upcoming:'Upcoming',all:'All',done:'Completed',
     weighted:'Weighted',deals:'Deals',closedDeals:'Closed deals',
-    aiWelcome:'👋 I\'m your AI sales coach — trained in Miller Heiman and Holden International methodologies.\n\nI help you with:\n• **Strategic deal analysis** — buying influences, power base mapping\n• **Pipeline coaching** — bottlenecks, red flags, priorities\n• **Competitive strategy** — frontal, flanking, fragment, defend\n• **Call preparation** — the right questions for the right people\n\nAsk a question, type "analyze" for pipeline analysis, or ask "coach me on [deal name]".',
+    aiWelcome:'Hey! I\'m your sales colleague — always here to brainstorm with.\n\nAsk me anything: deal strategy, who to call, how to approach a meeting, or I\'ll check your pipeline for risks.\n\nPick a quick action below or just ask your question.',
     filterAll:'All',filterPhase:'Phase',filterClose:'Close date',thisWeek:'This week',thisMonth:'This month',thisQuarter:'This quarter',
     dailyScan:'🔍 Daily Scan',noInteractions:'No interactions yet',addContact:'+ Link contact...',
     toTask:'→ Task',taskCreated:'Task created from action',
@@ -549,6 +549,7 @@ const App = function(){
   const[aiMsgs,setAiMsgs]=useState([{id:1,r:'bot',t:tx.aiWelcome,time:ft()}]);
   const[aiIn,setAiIn]=useState('');
   const[aiLoad,setAiLoad]=useState(false);
+  const[aiOpen,setAiOpen]=useState(false);
   const aiEnd=useRef(null);
 
   // ── Neon-first data layer: ALL writes go to server, state updated only on success ──
@@ -911,27 +912,18 @@ Recente interacties: ${recentInt.map(i=>`${i.type} ${i.contact}: ${i.text} (${i.
 Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   };
 
-  const sendAi=async()=>{if(!aiIn.trim()||aiLoad)return;const msg=aiIn;setAiIn('');setAiMsgs(p=>[...p,{id:uid(),r:'user',t:msg,time:ft()}]);setAiLoad(true);
+  const sendAi=async(autoMsg)=>{
+    const msg=autoMsg||aiIn;
+    if(!msg.trim()||aiLoad)return;
+    if(!autoMsg){setAiIn('');}
+    setAiMsgs(p=>[...p,{id:uid(),r:'user',t:msg,time:ft()}]);setAiLoad(true);
     let resp;
     try{
       const aiHistory=aiMsgs.filter(m=>m.r==='user'||m.r==='bot').slice(-10).map(m=>({role:m.r==='user'?'user':'assistant',text:m.t}));
-      const r=await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({message:msg,context:buildCRMContext(),history:aiHistory})});
-      const d=await r.json();resp=d.text||d.content?.[0]?.text;
-    }catch{}
-    if(!resp){
-      const m=msg.toLowerCase();
-      if(m.includes('analyse')||m.includes('analyz')||m.includes('status')||m.includes('pipeline')){
-        const stale=activeOpps.filter(o=>(new Date()-new Date(o.updatedAt))>7*86400000);
-        resp=`${tx.pipelineAnalysis}\n\n💰 ${activeOpps.length} ${lang==='nl'?'actieve deals':'active deals'} — €${Math.round(totalPipeline).toLocaleString(lang==='nl'?'nl-NL':'en-US')} pipeline\n📈 ${tx.weighted}: €${Math.round(weightedPipeline).toLocaleString(lang==='nl'?'nl-NL':'en-US')}\n🏆 ${wonOpps.length} ${tx.wonShort} — €${wonRevenue.toLocaleString(lang==='nl'?'nl-NL':'en-US')}\n\n${overdueTasks.length?`⚠️ ${overdueTasks.length} ${tx.overdue.toLowerCase()} ${tx.tasks2.toLowerCase()}!\n${overdueTasks.slice(0,3).map(tk=>`  • ${tk.title} (${cName(tk.contactId)})`).join('\n')}\n\n`:''}${stale.length?`🔴 ${stale.length} ${tx.staleDeals}:\n${stale.map(o=>`  • ${o.title} (${compName(o.companyId)||'?'}) — ${Math.round((new Date()-new Date(o.updatedAt))/86400000)}d`).join('\n')}\n\n`:''}${tx.focusTip}`;
-      }else if(m.includes('deal')||m.includes('priorit')){
-        const top=[...activeOpps].sort((a,b)=>(b.value*b.probability)-(a.value*a.probability)).slice(0,5);
-        resp=`${tx.topDealsWeighted}\n\n${top.map((o,i)=>`${i+1}. ${o.title} — €${o.value} (${o.probability}%) = €${Math.round(o.value*o.probability/100)}\n   ${compName(o.companyId)} · ${stageC(o.stage,lang).l}${o.nextAction?' · →'+o.nextAction:''}`).join('\n\n')}`;
-      }else if(m.includes('contact')||m.includes('opvolg')||m.includes('follow')){
-        resp=`${tx.followupAdvice}\n\n${overdueTasks.length?overdueTasks.slice(0,5).map(tk=>`⚠️ ${tk.title} — ${cName(tk.contactId)} (${Math.round((new Date()-new Date(tk.dueDate))/86400000)}d)`).join('\n'):tx.noOverdueTasks}\n\n💡 ${tx.askAnalyze}`;
-      }else{
-        resp=tx.aiHelp;
-      }
-    }
+      const r=await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(authUser?.token||'')},body:JSON.stringify({message:msg,context:buildCRMContext(),history:aiHistory})});
+      if(r.ok){const d=await r.json();resp=d.text;}else{const e=await r.json().catch(()=>({}));console.error('AI API error:',r.status,e);resp=null;}
+    }catch(ex){console.error('AI fetch error:',ex);}
+    if(!resp)resp=lang==='nl'?'⚠️ AI niet beschikbaar. Controleer of ANTHROPIC_API_KEY is ingesteld in Netlify.':'⚠️ AI unavailable. Check if ANTHROPIC_API_KEY is set in Netlify.';
     setAiMsgs(p=>[...p,{id:uid(),r:'bot',t:resp,time:ft()}]);setAiLoad(false);
   };
 
@@ -973,7 +965,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     if(noClose.length)sections.push(`📅 **${lang==='nl'?'Geen sluitdatum':'No close date'}** (${noClose.length})\n${noClose.slice(0,5).map(o=>`  → ${o.title} (${stageC(o.stage,lang).l})`).join('\n')}`);
     if(highVal.length)sections.push(`💎 **${lang==='nl'?'Grote deals':'High value deals'}** (${highVal.length})\n${highVal.slice(0,5).map(o=>`  → ${o.title} — €${o.value.toLocaleString()} (${o.probability}%, ${stageC(o.stage,lang).l})`).join('\n')}`);
     const summary=`${tx.dailyScan}\n${new Date().toLocaleDateString(lang==='nl'?'nl-NL':'en-US',{weekday:'long',day:'numeric',month:'long'})}\n\n📊 ${activeOpps.length} ${lang==='nl'?'actieve deals':'active deals'} — €${Math.round(totalPipeline).toLocaleString()} pipeline\n🏆 ${wonOpps.length} ${lang==='nl'?'gewonnen':'won'} — €${wonRevenue.toLocaleString()}\n📋 ${todayTasks.length} ${lang==='nl'?'taken vandaag':'tasks today'}${overdueTasks.length?` + ${overdueTasks.length} ${tx.overdue.toLowerCase()}`:''}\n\n${sections.length?sections.join('\n\n'):lang==='nl'?'✅ Alles op orde! Geen urgente acties.':'✅ All clear! No urgent actions.'}`;
-    setView('ai');setAiMsgs(p=>[...p,{id:uid(),r:'bot',t:summary,time:ft()}]);
+    setAiOpen(true);setAiMsgs(p=>[...p,{id:uid(),r:'bot',t:summary,time:ft()}]);
   };
   useEffect(()=>{aiEnd.current?.scrollIntoView({behavior:'smooth'});},[aiMsgs]);
   const oppWho=o=>{const ids=[...(o.contactIds||[])];if(!ids.length&&o.contactId)ids.push(o.contactId);const names=ids.map(id=>cName(id)).filter(Boolean);if(names.length)return names.join(', ');if(o.companyId)return compName(o.companyId);return '';};
@@ -1898,38 +1890,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     </div>;
   };
 
-  const aiInputRef=useRef(null);
-  const renderAiChat=()=>{
-    const handleAiKey=(e)=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAi();}};
-    const autoGrow=(e)=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,160)+'px';};
-    return <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 60px)',margin:'0 auto',width:'100%',maxWidth:800,padding:0}}>
-      <div style={{flex:1,overflowY:'auto',padding:'20px 16px',display:'flex',flexDirection:'column',gap:4}}>
-        {aiMsgs.map((m,i)=><div key={m.id} style={{display:'flex',flexDirection:'column',alignItems:m.r==='bot'?'flex-start':'flex-end',marginBottom:4}}>
-          {m.r==='bot'&&(i===0||aiMsgs[i-1]?.r!=='bot')&&<div style={{fontSize:11,fontWeight:600,color:t.accent,marginBottom:4,marginLeft:2,display:'flex',alignItems:'center',gap:5}}><div style={{width:6,height:6,borderRadius:'50%',background:t.green,animation:'pulse 2s infinite'}}/>Sales Coach</div>}
-          <div style={{maxWidth:'85%',padding:m.r==='bot'?'14px 18px':'10px 16px',borderRadius:m.r==='bot'?'2px 18px 18px 18px':'18px 18px 2px 18px',fontSize:13.5,lineHeight:1.7,background:m.r==='bot'?(dark?'rgba(118,118,128,0.1)':'rgba(118,118,128,0.05)'):t.accent,color:m.r==='bot'?t.text:'#fff',boxShadow:m.r==='bot'?'none':`0 1px 3px ${t.accent}33`}}>
-            {m.r==='bot'?<div dangerouslySetInnerHTML={{__html:parseMd(m.t)}}/>:<span style={{whiteSpace:'pre-wrap'}}>{m.t}</span>}
-          </div>
-          <div style={{fontSize:10,color:t.muted,marginTop:2,marginLeft:m.r==='bot'?4:0,marginRight:m.r==='user'?4:0}}>{m.time}</div>
-        </div>)}
-        {aiLoad&&<div style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:4}}>
-          <div style={{maxWidth:'85%',padding:'14px 20px',borderRadius:'2px 18px 18px 18px',background:dark?'rgba(118,118,128,0.1)':'rgba(118,118,128,0.05)'}}>
-            <div style={{display:'flex',gap:4,alignItems:'center'}}><div style={{width:6,height:6,borderRadius:'50%',background:t.accent,animation:'pulse .6s ease-in-out infinite'}}></div><div style={{width:6,height:6,borderRadius:'50%',background:t.accent,animation:'pulse .6s ease-in-out .2s infinite'}}></div><div style={{width:6,height:6,borderRadius:'50%',background:t.accent,animation:'pulse .6s ease-in-out .4s infinite'}}></div></div>
-          </div>
-        </div>}
-        <div ref={aiEnd}/>
-      </div>
-      <div style={{padding:'12px 16px 16px',borderTop:`0.5px solid ${t.border}`,background:t.bg}}>
-        <div style={{display:'flex',gap:8,alignItems:'flex-end',maxWidth:800,margin:'0 auto'}}>
-          <textarea ref={aiInputRef} value={aiIn} onChange={e=>{setAiIn(e.target.value);autoGrow(e);}} onKeyDown={handleAiKey} placeholder={tx.aiPlaceholder} rows={1} style={{...inp,flex:1,fontSize:14,lineHeight:1.5,padding:'10px 14px',resize:'none',minHeight:42,maxHeight:160,borderRadius:14,fontFamily:'inherit'}}/>
-          <button onClick={sendAi} disabled={aiLoad||!aiIn.trim()} style={{width:42,height:42,borderRadius:14,background:aiIn.trim()?t.accent:(dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)'),border:'none',color:aiIn.trim()?'#fff':t.muted,cursor:aiIn.trim()?'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,flexShrink:0,transition:`all .15s ${sp}`}}>↑</button>
-        </div>
-        <div style={{fontSize:10,color:t.muted,textAlign:'center',marginTop:6}}>Shift+Enter = {lang==='nl'?'nieuwe regel':'new line'}</div>
-      </div>
-    </div>;
-  };
-
-  const titles={pipeline:tx.pipeline,contacts:tx.contacts,companies:tx.companies,atos:tx.atos,tasks:tx.tasks,dashboard:tx.dashboard,reports:tx.reports,ai:tx.aiTitle};
-  const nav=[{id:'dashboard',ic:'◆',l:tx.dashboard},{id:'pipeline',ic:'📊',l:tx.pipeline},{id:'companies',ic:'🏢',l:tx.companies},{id:'contacts',ic:'👤',l:tx.contacts},{id:'atos',ic:'🔵',l:tx.atos},{id:'tasks',ic:'☑',l:tx.tasks},{id:'reports',ic:'📈',l:tx.reports},{id:'ai',ic:'✦',l:'Sales Coach'}];
+  const titles={pipeline:tx.pipeline,contacts:tx.contacts,companies:tx.companies,atos:tx.atos,tasks:tx.tasks,dashboard:tx.dashboard,reports:tx.reports};
+  const nav=[{id:'dashboard',ic:'◆',l:tx.dashboard},{id:'pipeline',ic:'📊',l:tx.pipeline},{id:'companies',ic:'🏢',l:tx.companies},{id:'contacts',ic:'👤',l:tx.contacts},{id:'atos',ic:'🔵',l:tx.atos},{id:'tasks',ic:'☑',l:tx.tasks},{id:'reports',ic:'📈',l:tx.reports}];
 
   if(!authUser){
     return <>
@@ -1982,6 +1944,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       @media(max-width:480px){
         .mc{padding:10px 8px!important}
       }
+      .aip{position:fixed;right:0;top:0;bottom:0;width:420px;z-index:200;transform:translateX(100%);transition:transform .3s ${sp}}.aip.open{transform:translateX(0)}
+      @media(max-width:768px){.aip{width:100%}}
     `}</style>
     <div style={{display:'flex',height:'100vh'}}>
       {sb&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',zIndex:150}} onClick={()=>setSb(false)}/>}
@@ -2021,12 +1985,11 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             {view==='companies'&&<button onClick={()=>setModal({type:'company'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addCompany}</button>}
             {view==='tasks'&&<button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addTask}</button>}
             {view==='dashboard'&&<button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button>}
-            {view==='ai'&&<><button onClick={newAiChat} style={{...btnG,padding:'6px 12px',fontSize:12,gap:4}}>+ {tx.aiNewChat}</button><button onClick={runDailyScan} style={{...btnG,padding:'6px 12px',fontSize:12}}>🔍 {tx.scanBtn}</button></>}
-            {view!=='ai'&&<><button onClick={runDailyScan} style={{height:32,padding:'0 10px',borderRadius:8,background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,fontFamily:'inherit',gap:3,minHeight:32,minWidth:32}} title={tx.dailyScan}>🔍</button>
-            <button onClick={()=>setView('ai')} style={{width:32,height:32,borderRadius:8,background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,color:t.accent,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,minHeight:32,minWidth:32}} title={tx.aiTitle}>✦</button></>}
+            <button onClick={runDailyScan} style={{height:32,padding:'0 10px',borderRadius:8,background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,fontFamily:'inherit',gap:3,minHeight:32,minWidth:32}} title={tx.dailyScan}>🔍</button>
+            <button onClick={()=>setAiOpen(!aiOpen)} style={{width:32,height:32,borderRadius:8,background:aiOpen?t.accentS:t.glass,backdropFilter:t.blur,border:`0.5px solid ${aiOpen?t.accent:t.border}`,color:aiOpen?t.accent:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,minHeight:32,minWidth:32}} title={tx.aiTitle}>✦</button>
           </div>
         </header>
-        <div className="mc" style={{flex:1,overflowY:view==='ai'?'hidden':'auto',padding:view==='ai'?0:'20px 24px',animation:'fadeIn .3s'}}>
+        <div className="mc" style={{flex:1,overflowY:'auto',padding:'20px 24px',animation:'fadeIn .3s'}}>
           {dbStatus==='offline'&&!location.hostname.includes('claudeusercontent')&&<div style={{padding:'12px 16px',marginBottom:16,borderRadius:12,background:t.orangeS,border:`0.5px solid ${t.orange}44`,display:'flex',alignItems:'flex-start',gap:10}}>
             <span style={{marginTop:2}}>⚠️</span>
             <div style={{flex:1}}>
@@ -2043,9 +2006,56 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {view==='atos'&&renderAtosView()}
           {view==='tasks'&&renderTasks()}
           {view==='reports'&&renderReports()}
-          {view==='ai'&&renderAiChat()}
         </div>
       </main>
+
+      {aiOpen&&<div onClick={()=>setAiOpen(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.3)',zIndex:199}}/>}
+      <aside className={`aip ${aiOpen?'open':''}`} style={{background:t.bg2,borderLeft:`0.5px solid ${t.border}`,display:'flex',flexDirection:'column',boxShadow:aiOpen?'-4px 0 24px rgba(0,0,0,.15)':'none'}}>
+        <div style={{padding:'12px 16px',borderBottom:`0.5px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${t.accent},#5856D6)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,color:'#fff',fontWeight:700}}>✦</div><div><div style={{fontWeight:700,fontSize:14}}>Sales Coach</div><div style={{fontSize:10,color:t.green,display:'flex',alignItems:'center',gap:4}}><div style={{width:5,height:5,borderRadius:'50%',background:t.green,animation:'pulse 2s infinite'}}/>Online</div></div></div>
+          <div style={{display:'flex',gap:4}}>
+            <button onClick={newAiChat} style={{width:28,height:28,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,minHeight:28,minWidth:28}} title={tx.aiNewChat}>+</button>
+            <button onClick={()=>setAiOpen(false)} style={{width:28,height:28,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,minHeight:28,minWidth:28}}>✕</button>
+          </div>
+        </div>
+
+        {aiMsgs.length<=1&&!aiLoad&&<div style={{padding:'12px 16px',borderBottom:`0.5px solid ${t.border}`}}>
+          <div style={{fontSize:11,fontWeight:600,color:t.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:8}}>{lang==='nl'?'Snel starten':'Quick start'}</div>
+          <div style={{display:'flex',flexDirection:'column',gap:4}}>
+            {[
+              {ic:'📊',l:lang==='nl'?'Analyseer mijn pipeline':'Analyze my pipeline',q:lang==='nl'?'Analyseer mijn complete pipeline. Wat zijn de risico\'s en kansen? Waar moet ik me op focussen?':'Analyze my complete pipeline. What are the risks and opportunities? Where should I focus?'},
+              {ic:'🎯',l:lang==='nl'?'Coach mij op mijn top deal':'Coach me on my top deal',q:lang==='nl'?'Coach mij op mijn grootste deal. Wie zijn de buying influences? Wat is mijn strategie?':'Coach me on my biggest deal. Who are the buying influences? What should my strategy be?'},
+              {ic:'⚡',l:lang==='nl'?'Wat moet ik vandaag doen?':'What should I do today?',q:lang==='nl'?'Kijk naar mijn taken, deals en pipeline. Wat zijn de 3 belangrijkste dingen die ik vandaag moet doen en waarom?':'Look at my tasks, deals and pipeline. What are the 3 most important things I should do today and why?'},
+              {ic:'🏢',l:lang==='nl'?'Account strategie':'Account strategy',q:lang==='nl'?'Analyseer mijn accounts. Waar zit groeipotentieel? Welke accounts hebben meer aandacht nodig?':'Analyze my accounts. Where is growth potential? Which accounts need more attention?'},
+              {ic:'⚠️',l:lang==='nl'?'Rode vlaggen check':'Red flags check',q:lang==='nl'?'Check mijn pipeline op rode vlaggen. Welke deals lopen risico? Waar mis ik informatie?':'Check my pipeline for red flags. Which deals are at risk? Where am I missing information?'},
+            ].map((s,i)=><button key={i} onClick={()=>{sendAi(s.q);}} style={{textAlign:'left',padding:'8px 10px',borderRadius:8,border:'none',background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)',color:t.text,cursor:'pointer',fontSize:12,fontFamily:'inherit',display:'flex',alignItems:'center',gap:8,minHeight:36,minWidth:0,transition:`background .15s ${sp}`}} onMouseEnter={e=>e.target.style.background=dark?'rgba(118,118,128,0.16)':'rgba(118,118,128,0.08)'} onMouseLeave={e=>e.target.style.background=dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'}><span style={{fontSize:14,flexShrink:0}}>{s.ic}</span>{s.l}</button>)}
+          </div>
+        </div>}
+
+        <div style={{flex:1,overflowY:'auto',padding:'12px 14px',display:'flex',flexDirection:'column',gap:6}}>
+          {aiMsgs.map((m,i)=><div key={m.id} style={{display:'flex',flexDirection:'column',alignItems:m.r==='bot'?'flex-start':'flex-end',marginBottom:2}}>
+            {m.r==='bot'&&(i===0||aiMsgs[i-1]?.r!=='bot')&&<div style={{fontSize:10,fontWeight:600,color:t.accent,marginBottom:3,marginLeft:2,display:'flex',alignItems:'center',gap:4}}><div style={{width:5,height:5,borderRadius:'50%',background:t.green}}/>Sales Coach</div>}
+            <div style={{maxWidth:'88%',padding:'10px 14px',borderRadius:m.r==='bot'?'2px 14px 14px 14px':'14px 14px 2px 14px',fontSize:13,lineHeight:1.65,background:m.r==='bot'?(dark?'rgba(118,118,128,0.1)':'rgba(118,118,128,0.05)'):t.accent,color:m.r==='bot'?t.text:'#fff'}}>
+              {m.r==='bot'?<div dangerouslySetInnerHTML={{__html:parseMd(m.t)}}/>:<span style={{whiteSpace:'pre-wrap'}}>{m.t}</span>}
+            </div>
+            <div style={{fontSize:9,color:t.muted,marginTop:2,paddingLeft:m.r==='bot'?2:0,paddingRight:m.r==='user'?2:0}}>{m.time}</div>
+          </div>)}
+          {aiLoad&&<div style={{display:'flex',flexDirection:'column',alignItems:'flex-start'}}>
+            <div style={{fontSize:10,fontWeight:600,color:t.accent,marginBottom:3,marginLeft:2,display:'flex',alignItems:'center',gap:4}}><div style={{width:5,height:5,borderRadius:'50%',background:t.green}}/>Sales Coach</div>
+            <div style={{padding:'12px 18px',borderRadius:'2px 14px 14px 14px',background:dark?'rgba(118,118,128,0.1)':'rgba(118,118,128,0.05)'}}>
+              <div style={{display:'flex',gap:5,alignItems:'center'}}><div className="ai-dot" style={{width:6,height:6,borderRadius:'50%',background:t.accent,animation:'pulse .6s ease-in-out infinite'}}></div><div style={{width:6,height:6,borderRadius:'50%',background:t.accent,animation:'pulse .6s ease-in-out .15s infinite'}}></div><div style={{width:6,height:6,borderRadius:'50%',background:t.accent,animation:'pulse .6s ease-in-out .3s infinite'}}></div><span style={{fontSize:11,color:t.muted,marginLeft:4}}>{lang==='nl'?'denkt na...':'thinking...'}</span></div>
+            </div>
+          </div>}
+          <div ref={aiEnd}/>
+        </div>
+
+        <div style={{padding:'10px 14px',borderTop:`0.5px solid ${t.border}`,background:t.bg}}>
+          <div style={{display:'flex',gap:6,alignItems:'flex-end'}}>
+            <textarea value={aiIn} onChange={e=>{setAiIn(e.target.value);e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px';}} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAi();}}} placeholder={tx.aiPlaceholder} rows={1} style={{...inp,flex:1,fontSize:13,lineHeight:1.4,padding:'9px 12px',resize:'none',minHeight:38,maxHeight:120,borderRadius:12,fontFamily:'inherit'}}/>
+            <button onClick={()=>sendAi()} disabled={aiLoad||!aiIn.trim()} style={{width:38,height:38,borderRadius:12,background:aiIn.trim()?t.accent:(dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)'),border:'none',color:aiIn.trim()?'#fff':t.muted,cursor:aiIn.trim()?'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0,minHeight:38,minWidth:38}}>↑</button>
+          </div>
+        </div>
+      </aside>
 
 
       {detail&&renderDetailPanel()}
