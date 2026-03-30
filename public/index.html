@@ -271,6 +271,9 @@ const TX={
     selectAll:'Alles selecteren',deselectAll:'Deselecteren',
     bulkComplete:'Afronden',bulkSetProgress:'Voortgang instellen',
     taskProgress:'Taakvoortgang',
+    taskStatus:'Status',taskNotes:'Notities',taskNotesPlaceholder:'Notities toevoegen...',
+    assignedTo:'Toegewezen aan',atosContact:'Atos contact',companyContact:'Bedrijfscontact',
+    waitingOn:'Wachtend op',
   },
   en:{
     pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',atos:'Atos Team',tasks:'Tasks',reports:'Reports',
@@ -419,10 +422,20 @@ const TX={
     selectAll:'Select all',deselectAll:'Deselect',
     bulkComplete:'Complete',bulkSetProgress:'Set progress',
     taskProgress:'Task progress',
+    taskStatus:'Status',taskNotes:'Notes',taskNotesPlaceholder:'Add notes...',
+    assignedTo:'Assigned to',atosContact:'Atos contact',companyContact:'Company contact',
+    waitingOn:'Waiting on',
   }
 };
 
 const TECH_TAGS=['Elastic','Dynatrace','Splunk','ServiceNow','AWS','Azure','GCP','Kubernetes','Terraform','Datadog','Grafana','Confluent','MongoDB','PostgreSQL','Snowflake'];
+const TASK_STATUSES=[
+  {k:'todo',l:{nl:'Te doen',en:'To Do'},c:'#6B7280',ic:'○'},
+  {k:'in_progress',l:{nl:'Bezig',en:'In Progress'},c:'#3B82F6',ic:'◔'},
+  {k:'waiting',l:{nl:'Wachtend',en:'Waiting'},c:'#F59E0B',ic:'◷'},
+  {k:'done',l:{nl:'Afgerond',en:'Done'},c:'#10B981',ic:'✓'},
+  {k:'cancelled',l:{nl:'Geannuleerd',en:'Cancelled'},c:'#EF4444',ic:'✕'},
+];
 const CONTACT_CATS_I18N={nl:['Beslisser','Technisch','Inkoop','Gebruiker','Partner','Consultant','Management','Sponsor'],en:['Decision Maker','Technical','Procurement','User','Partner','Consultant','Management','Sponsor']};
 const INT_TYPES_I18N=[{id:'call',l:{nl:'Gesprek',en:'Call'},ic:'📞'},{id:'email',l:{nl:'E-mail',en:'Email'},ic:'📧'},{id:'meeting',l:{nl:'Meeting',en:'Meeting'},ic:'📅'},{id:'note',l:{nl:'Notitie',en:'Note'},ic:'📝'}];
 
@@ -714,7 +727,7 @@ const App = function(){
       }else if(mt==='contact'){
         setMf(md?.id?{...md}:{name:'',email:'',phone:'',companyId:md?.companyId||'',role:'',category:'',tags:[],...(md||{})});
       }else if(mt==='task'){
-        setMf(md?.id?{...md}:{title:'',contactId:md?.contactId||'',oppId:md?.oppId||'',dueDate:td(),dueTime:'',done:false,priority:'medium',reminder:true,reminderMin:15,...(md||{})});
+        setMf(md?.id?{...md}:{title:'',contactId:md?.contactId||'',oppId:md?.oppId||'',dueDate:td(),dueTime:'',done:false,priority:'medium',reminder:true,reminderMin:15,status:'todo',notes:'',atosId:'',companyContactId:'',...(md||{})});
       }else if(mt==='company'){
         setMf(md?.id?{...md}:{name:'',website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],...(md||{})});
       }
@@ -913,7 +926,7 @@ const App = function(){
   // Complete task — if it matches a deal's nextAction, clear it
   const completeTask=(tkId)=>{
     const tk=tasks.find(x=>x.id===tkId);if(!tk)return;
-    updateTask_(tkId,{done:true});
+    updateTask_(tkId,{done:true,status:'done'});
     if(tk.oppId){
       const opp=opps.find(o=>o.id===tk.oppId);
       if(opp&&opp.nextAction&&opp.nextAction===tk.title){
@@ -1234,11 +1247,11 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
 
   const renderTaskPanel=()=>{
     const panelTasks=tasks.filter(tk=>{
-      if(tk.done)return false;
+      if(tk.done||tk.status==='done'||tk.status==='cancelled')return false;
       if(taskPanelFilter==='contact'&&taskPanelContactId) return tk.contactId===taskPanelContactId;
       if(taskPanelFilter==='opp'&&taskPanelOppId) return tk.oppId===taskPanelOppId;
       return true;
-    }).sort((a,b)=>(a.dueDate||'9').localeCompare(b.dueDate||'9'));
+    }).sort((a,b)=>{const si=s=>TASK_STATUSES.findIndex(x=>x.k===s);const sd=si(a.status||'todo')-si(b.status||'todo');if(sd!==0)return sd;return(a.dueDate||'9').localeCompare(b.dueDate||'9');});
     const panelContactIds=[...new Set(tasks.filter(tk=>!tk.done&&tk.contactId).map(tk=>tk.contactId))];
     const panelOppIds=[...new Set(tasks.filter(tk=>!tk.done&&tk.oppId).map(tk=>tk.oppId))];
     const allPanelIds=panelTasks.map(tk=>tk.id);
@@ -1298,25 +1311,27 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       </div>}
       <div style={{display:'flex',flexDirection:'column',gap:5}}>
         {panelTasks.length===0&&<div style={{textAlign:'center',padding:20,color:t.muted,fontSize:12}}>{tx.noTasksForFilter}</div>}
-        {panelTasks.map(tk=>{const isOverdue=tk.dueDate&&tk.dueDate<td();const isSel=taskPanelSel.includes(tk.id);const prog=tk.progress||0;return <div key={tk.id} style={{padding:'8px 10px',borderRadius:10,background:isSel?(dark?'rgba(10,132,255,0.12)':'rgba(0,122,255,0.08)'):(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),borderLeft:`3px solid ${isOverdue?t.red:PRIS.find(p=>p.id===tk.priority)?.c||t.accent}`,display:'flex',alignItems:'flex-start',gap:6,transition:'background .1s'}}>
+        {panelTasks.map(tk=>{const isOverdue=tk.dueDate&&tk.dueDate<td();const isSel=taskPanelSel.includes(tk.id);const prog=tk.progress||0;const tks=TASK_STATUSES.find(s=>s.k===(tk.status||'todo'))||TASK_STATUSES[0];const atosName=atosTeam.find(a=>a.id===tk.atosId)?.name;return <div key={tk.id} style={{padding:'8px 10px',borderRadius:10,background:isSel?(dark?'rgba(10,132,255,0.12)':'rgba(0,122,255,0.08)'):(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),borderLeft:`3px solid ${tks.c}`,display:'flex',alignItems:'flex-start',gap:6,transition:'background .1s'}}>
           <div onClick={()=>togglePanelSel(tk.id)} style={{width:14,height:14,borderRadius:3,border:`2px solid ${isSel?t.accent:t.muted}`,background:isSel?t.accent:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:8,color:'#fff',fontWeight:700,flexShrink:0,marginTop:2}}>{isSel&&'✓'}</div>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:12,fontWeight:500,display:'flex',alignItems:'center',gap:6}}>
+            <div style={{fontSize:12,fontWeight:500,display:'flex',alignItems:'center',gap:5}}>
               <span style={{flex:1}}>{tk.title}</span>
-              <div onClick={()=>completeTask(tk.id)} style={{width:14,height:14,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',flexShrink:0}} title={tx.markDone}/>
+              <span style={{fontSize:8,padding:'1px 5px',borderRadius:4,background:tks.c+'20',color:tks.c,fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{tks.ic} {tks.l[lang]}</span>
             </div>
             {/* Progress bar */}
-            <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginTop:3}}>
               <div style={{flex:1,height:4,borderRadius:2,background:dark?'rgba(118,118,128,0.2)':'rgba(118,118,128,0.12)',overflow:'hidden',cursor:'pointer'}} onClick={e=>{const rect=e.currentTarget.getBoundingClientRect();const pct=Math.round(Math.min(100,Math.max(0,(e.clientX-rect.left)/rect.width*100))/10)*10;updateTask_(tk.id,{progress:pct});if(pct>=100)completeTask(tk.id);}}>
                 <div style={{height:'100%',borderRadius:2,background:prog>=80?t.green:prog>=50?t.orange:t.accent,width:`${prog}%`,transition:'width .15s ease'}}/>
               </div>
               <span style={{fontSize:9,color:prog>=80?t.green:prog>=50?t.orange:t.dim,fontWeight:600,minWidth:24,textAlign:'right'}}>{prog}%</span>
             </div>
-            <div style={{fontSize:10,color:t.dim,display:'flex',gap:6,marginTop:2,flexWrap:'wrap'}}>
+            <div style={{fontSize:10,color:t.dim,display:'flex',gap:5,marginTop:2,flexWrap:'wrap',alignItems:'center'}}>
               {tk.contactId&&<span style={{color:t.accent,cursor:'pointer'}} onClick={()=>setDetail({type:'contact',id:tk.contactId})}>👤 {cName(tk.contactId)}</span>}
               {tk.oppId&&<span style={{color:t.accent,cursor:'pointer'}} onClick={()=>setDetail({type:'opp',id:tk.oppId})}>📊 {oppName(tk.oppId)}</span>}
+              {atosName&&<span style={{color:t.purple}}>🔵 {atosName}</span>}
               {tk.dueDate&&<span style={{color:isOverdue?t.red:t.dim}}>{fds(tk.dueDate)}</span>}
             </div>
+            {tk.notes&&<div style={{fontSize:10,color:t.dim,marginTop:2,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📝 {tk.notes.slice(0,60)}{tk.notes.length>60?'...':''}</div>}
           </div>
           <span onClick={()=>{deleteTask_(tk.id);toast(tx.removed,'info');}} style={{cursor:'pointer',color:t.red,fontSize:11,opacity:.4,flexShrink:0,marginTop:2}}>✕</span>
         </div>;})}
@@ -1420,18 +1435,23 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
 
     const grouped=taskTab!=='done'?[...new Set(shown.map(t=>t.dueDate||'no-date'))].sort((a,b)=>a==='no-date'?1:b==='no-date'?-1:a.localeCompare(b)):[];
 
-    const renderTaskRow=(tk)=>{const isOverdue=tk.dueDate&&tk.dueDate<td()&&!tk.done;const oName=oppName(tk.oppId);return <div style={{...card,padding:'12px 16px',display:'flex',alignItems:'center',gap:12,borderLeft:`3px solid ${isOverdue?t.red:tk.done?t.green:PRIS.find(p=>p.id===tk.priority)?.c||t.accent}`}}>
+    const renderTaskRow=(tk)=>{const isOverdue=tk.dueDate&&tk.dueDate<td()&&!tk.done;const oName=oppName(tk.oppId);const tks=TASK_STATUSES.find(s=>s.k===(tk.status||'todo'))||TASK_STATUSES[0];return <div style={{...card,padding:'12px 16px',display:'flex',alignItems:'center',gap:12,borderLeft:`3px solid ${tk.done?t.green:tks.c}`}}>
       {!tk.done?<div onClick={()=>{completeTask(tk.id);}} style={{width:20,height:20,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}/>
       :<div onClick={()=>updateTask_(tk.id,{done:false})} style={{width:20,height:20,borderRadius:'50%',background:t.green,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#fff',fontWeight:700,cursor:'pointer',flexShrink:0}}>✓</div>}
       <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:14,fontWeight:500,textDecoration:tk.done?'line-through':'none',opacity:tk.done?.5:1}}>{tk.title}</div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          <span style={{fontSize:14,fontWeight:500,textDecoration:tk.done?'line-through':'none',opacity:tk.done?.5:1,flex:1}}>{tk.title}</span>
+          {!tk.done&&<span style={{fontSize:9,padding:'2px 7px',borderRadius:5,background:tks.c+'20',color:tks.c,fontWeight:600,whiteSpace:'nowrap'}}>{tks.ic} {tks.l[lang]}</span>}
+        </div>
         <div style={{fontSize:11,color:t.dim,display:'flex',gap:8,marginTop:3,flexWrap:'wrap',alignItems:'center'}}>
           {tk.contactId&&<span onClick={e=>{e.stopPropagation();setDetail({type:'contact',id:tk.contactId});}} style={{color:t.accent,cursor:'pointer'}}>👤 {cName(tk.contactId)}</span>}
           {oName&&<span onClick={e=>{e.stopPropagation();setDetail({type:'opp',id:tk.oppId});}} style={{color:t.accent,cursor:'pointer',fontWeight:500}}>📊 {oName}</span>}
+          {tk.atosId&&atosTeam.find(a=>a.id===tk.atosId)&&<span style={{color:t.purple}}>🔵 {atosTeam.find(a=>a.id===tk.atosId).name}</span>}
           {tk.dueDate&&<span style={{color:isOverdue?t.red:t.dim}}>{fds(tk.dueDate)}{tk.dueTime&&' · '+tk.dueTime}</span>}
           {tk.reminder&&<span>🔔{tk.reminderMin?<span style={{fontSize:10}}>{tk.reminderMin}m</span>:null}</span>}
           {tk.contactId&&compName(contacts.find(c=>c.id===tk.contactId)?.companyId)&&<span onClick={e=>{e.stopPropagation();const ct=contacts.find(c=>c.id===tk.contactId);if(ct?.companyId)setDetail({type:'company',id:ct.companyId});}} style={{color:t.teal,cursor:'pointer'}}>🏢 {compName(contacts.find(c=>c.id===tk.contactId)?.companyId)}</span>}
         </div>
+        {tk.notes&&<div style={{fontSize:11,color:t.dim,marginTop:2,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📝 {tk.notes.slice(0,80)}{tk.notes.length>80?'...':''}</div>}
         {!tk.done&&<div style={{display:'flex',alignItems:'center',gap:4,marginTop:4}}>
           <div style={{flex:1,maxWidth:120,height:4,borderRadius:2,background:dark?'rgba(118,118,128,0.2)':'rgba(118,118,128,0.12)',overflow:'hidden',cursor:'pointer'}} onClick={e=>{e.stopPropagation();const rect=e.currentTarget.getBoundingClientRect();const pct=Math.round(Math.min(100,Math.max(0,(e.clientX-rect.left)/rect.width*100))/10)*10;updateTask_(tk.id,{progress:pct});if(pct>=100)completeTask(tk.id);}}>
             <div style={{height:'100%',borderRadius:2,background:(tk.progress||0)>=80?t.green:(tk.progress||0)>=50?t.orange:t.accent,width:`${tk.progress||0}%`,transition:'width .15s ease'}}/>
@@ -1452,7 +1472,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         {key:'priority',l:tx.priority,sort:(a,b)=>{const pi={high:0,medium:1,low:2};return (pi[a.priority]??1)-(pi[b.priority]??1);}},
         {key:'progress',l:tx.progress,sort:(a,b)=>(a.progress||0)-(b.progress||0)},
         {key:'dueDate',l:tx.dueDate,sort:(a,b)=>(a.dueDate||'9').localeCompare(b.dueDate||'9')},
-        {key:'status',l:tx.status,sort:(a,b)=>(a.done?1:0)-(b.done?1:0)},
+        {key:'status',l:tx.status,sort:(a,b)=>{const si=s=>TASK_STATUSES.findIndex(x=>x.k===s);return si(a.status||'todo')-si(b.status||'todo');}},
       ];
       const sortFn=tkCols.find(c=>c.key===tkTblSort.col)?.sort||(()=>0);
       const sorted=[...tkSearched].sort((a,b)=>{const r=sortFn(a,b);return tkTblSort.dir==='asc'?r:-r;});
@@ -1492,7 +1512,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
               <td style={cellS} onClick={()=>!isE('priority')&&setEditCellTk({id:tk.id,f:'priority'})}>{isE('priority')?<select autoFocus style={{...inp,padding:'4px 8px',fontSize:12}} value={tk.priority||'medium'} onChange={e=>saveCell('priority',e.target.value)} onBlur={()=>setEditCellTk(null)}>{PRIS.map(p=><option key={p.id} value={p.id}>{p.l[lang]||p.l.nl}</option>)}</select>:<span style={{color:(PRIS.find(p=>p.id===tk.priority)||PRIS[1]).c,fontWeight:600,fontSize:11}}>{pl(tk.priority)}</span>}</td>
               <td style={cellS}>{(()=>{const prog=tk.done?100:(tk.progress||0);return <div style={{display:'flex',alignItems:'center',gap:6,minWidth:80}}><div style={{flex:1,height:6,borderRadius:3,background:dark?'rgba(118,118,128,0.2)':'rgba(118,118,128,0.12)',overflow:'hidden',cursor:'pointer'}} onClick={e=>{e.stopPropagation();const rect=e.currentTarget.getBoundingClientRect();const pct=Math.round(Math.min(100,Math.max(0,(e.clientX-rect.left)/rect.width*100))/10)*10;updateTask_(tk.id,{progress:pct});if(pct>=100)completeTask(tk.id);}}><div style={{height:'100%',borderRadius:3,background:prog>=80?t.green:prog>=50?t.orange:t.accent,width:`${prog}%`,transition:'width .15s ease'}}/></div><span style={{fontSize:10,color:prog>=80?t.green:prog>=50?t.orange:t.dim,fontWeight:600,minWidth:24}}>{prog}%</span></div>;})()}</td>
               <td style={cellS} onClick={()=>!isE('dueDate')&&setEditCellTk({id:tk.id,f:'dueDate'})}>{isE('dueDate')?<input autoFocus type="date" style={{...inp,padding:'4px 8px',fontSize:12}} defaultValue={tk.dueDate||''} onBlur={e=>saveCell('dueDate',e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('dueDate',e.target.value);if(e.key==='Escape')setEditCellTk(null);}}/>:<span style={{fontSize:12,color:isOverdue?t.red:t.dim,fontWeight:isOverdue?600:400}}>{tk.dueDate?fds(tk.dueDate):'—'}</span>}</td>
-              <td style={cellS}><div onClick={()=>{if(tk.done)updateTask_(tk.id,{done:false});else completeTask(tk.id);}} style={{display:'inline-flex',alignItems:'center',gap:4,cursor:'pointer'}}>{tk.done?<span style={{width:16,height:16,borderRadius:'50%',background:t.green,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:8,color:'#fff',fontWeight:700}}>✓</span>:<span style={{width:16,height:16,borderRadius:'50%',border:`2px solid ${t.muted}`,display:'inline-block'}}/>}<span style={{fontSize:11,color:tk.done?t.green:t.muted}}>{tk.done?tx.done:tx.open}</span></div></td>
+              <td style={cellS} onClick={()=>!isE('status')&&setEditCellTk({id:tk.id,f:'status'})}>{(()=>{const tks=TASK_STATUSES.find(s=>s.k===(tk.status||'todo'))||TASK_STATUSES[0];return isE('status')?<select autoFocus style={{...inp,padding:'4px 8px',fontSize:11}} value={tk.status||'todo'} onChange={e=>{const ns=e.target.value;updateTask_(tk.id,{status:ns,done:ns==='done'||ns==='cancelled'});setEditCellTk(null);}} onBlur={()=>setEditCellTk(null)}>{TASK_STATUSES.map(s=><option key={s.k} value={s.k}>{s.ic} {s.l[lang]}</option>)}</select>:<span style={{fontSize:10,padding:'2px 7px',borderRadius:6,background:tks.c+'20',color:tks.c,fontWeight:600,whiteSpace:'nowrap'}}>{tks.ic} {tks.l[lang]}</span>;})()}</td>
               <td style={{...cellS,padding:'6px 6px',textAlign:'center'}}><span onClick={async(e)=>{e.stopPropagation();if(confirm(lang==='nl'?`"${tk.title}" verwijderen?`:`Delete "${tk.title}"?`))await deleteTask_(tk.id);}} style={{cursor:'pointer',color:t.red,fontSize:14,opacity:.6,transition:'opacity .15s'}} onMouseOver={e=>e.target.style.opacity=1} onMouseOut={e=>e.target.style.opacity=.6}>✕</span></td>
             </tr>;})}</tbody>
         </table>
@@ -1894,18 +1914,44 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   </div>;};
 
   const renderTaskModal=()=>{const d=modal?.data;const f=mf;const sf=setMf;
+  const tStat=TASK_STATUSES.find(s=>s.k===f.status)||TASK_STATUSES[0];
   return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:440,maxHeight:'90vh',overflowY:'auto'}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:520,maxHeight:'90vh',overflowY:'auto'}}>
       <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?tx.editTask:tx.newTask}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
       <div style={{padding:'16px 24px'}}>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.tasks2}</label><input style={inp} value={f.title||''} onChange={e=>sf({...f,title:e.target.value})} placeholder={tx.taskDescPlaceholder}/></div>
+        {/* Status selector */}
+        <div style={{marginBottom:12}}><label style={lbl}>{tx.taskStatus}</label>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{TASK_STATUSES.map(s=><button key={s.k} onClick={()=>sf({...f,status:s.k,done:s.k==='done'||s.k==='cancelled'})} style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:f.status===s.k?600:400,border:`1.5px solid ${f.status===s.k?s.c:'transparent'}`,background:f.status===s.k?s.c+'20':'transparent',color:f.status===s.k?s.c:t.dim,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4,minHeight:32}}><span>{s.ic}</span>{s.l[lang]}</button>)}</div>
+        </div>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.contact}</label><SearchSelect t={t} lang={lang} value={f.contactId||''} onChange={v=>sf({...f,contactId:v})} placeholder={tx.optional} options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)||(c.role||'')}))}/></div>
         <div style={{marginBottom:12}}><label style={lbl}>Deal / Opportunity</label><select style={{...inp,cursor:'pointer'}} value={f.oppId||''} onChange={e=>{const opp=opps.find(o=>o.id===e.target.value);sf({...f,oppId:e.target.value,contactId:opp?.contactId||f.contactId});}}><option value="">{tx.dealNotLinked}</option>{opps.filter(o=>o.stage!=='won'&&o.stage!=='lost').map(o=><option key={o.id} value={o.id}>{o.title} — {eur(o.value)} ({stageC(o.stage,lang).l})</option>)}</select></div>
+        {/* Assignees: Atos contact + Company contact */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+          <div><label style={lbl}>{tx.atosContact}</label><SearchSelect t={t} lang={lang} value={f.atosId||''} onChange={v=>sf({...f,atosId:v})} placeholder={tx.optional} options={atosTeam.map(a=>({value:a.id,label:a.name,sub:a.role==='sales'?'🔵 Sales':'🟢 Delivery'}))}/></div>
+          <div><label style={lbl}>{tx.companyContact}</label><SearchSelect t={t} lang={lang} value={f.companyContactId||''} onChange={v=>sf({...f,companyContactId:v})} placeholder={tx.optional} options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)||(c.role||'')}))}/></div>
+        </div>
+        {/* Inline add contacts */}
+        <div style={{display:'flex',gap:6,marginBottom:12}}>
+          <button onClick={()=>setMfShowAtosAdd(!mfShowAtosAdd)} style={{fontSize:11,color:t.accent,cursor:'pointer',background:'none',border:'none',fontFamily:'inherit',minHeight:28,minWidth:0,padding:0}}>{mfShowAtosAdd?tx.cancelAdd:tx.addAtosContact}</button>
+          <button onClick={()=>setMfShowNewCt(!mfShowNewCt)} style={{fontSize:11,color:t.accent,cursor:'pointer',background:'none',border:'none',fontFamily:'inherit',minHeight:28,minWidth:0,padding:0}}>{mfShowNewCt?tx.cancelAdd:'+ '+tx.newContact}</button>
+        </div>
+        {mfShowAtosAdd&&<div style={{display:'flex',gap:6,marginBottom:10,alignItems:'center'}}>
+          <input value={mfNewAtosName} onChange={e=>setMfNewAtosName(e.target.value)} placeholder={tx.name+'...'} style={{...inp,flex:1,padding:'6px 10px',fontSize:12}}/>
+          <select value={mfNewAtosRole} onChange={e=>setMfNewAtosRole(e.target.value)} style={{...inp,width:100,padding:'6px 8px',fontSize:12}}><option value="sales">Sales</option><option value="delivery">Delivery</option></select>
+          <button onClick={async()=>{if(!mfNewAtosName.trim())return;const a=await addAtos_({name:mfNewAtosName.trim(),role:mfNewAtosRole});if(a){sf({...f,atosId:a.id});setMfNewAtosName('');setMfShowAtosAdd(false);toast(tx.atosContactAdded);}}} style={{...btnP,padding:'6px 10px',fontSize:11,minHeight:32,minWidth:32}}>+</button>
+        </div>}
+        {mfShowNewCt&&<div style={{display:'flex',gap:6,marginBottom:10,alignItems:'center'}}>
+          <input value={mfNewCt} onChange={e=>setMfNewCt(e.target.value)} placeholder={tx.name+'...'} style={{...inp,flex:1,padding:'6px 10px',fontSize:12}}/>
+          <button onClick={async()=>{if(!mfNewCt.trim())return;const c=await addContact_({name:mfNewCt.trim(),email:'',phone:'',companyId:f.companyId||'',role:'',tags:[]});if(c){sf({...f,companyContactId:c.id});setMfNewCt('');setMfShowNewCt(false);toast(tx.contactCreated);}}} style={{...btnP,padding:'6px 10px',fontSize:11,minHeight:32,minWidth:32}}>+</button>
+        </div>}
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:12}}>
           <div><label style={lbl}>{tx.date}</label><input type="date" style={inp} value={f.dueDate||''} onChange={e=>sf({...f,dueDate:e.target.value})}/></div>
           <div><label style={lbl}>{lang==='nl'?'Tijd':'Time'}</label><input type="time" style={inp} value={f.dueTime||''} onChange={e=>sf({...f,dueTime:e.target.value})}/></div>
           <div><label style={lbl}>{tx.priority}</label><select style={{...inp,cursor:'pointer'}} value={f.priority||'medium'} onChange={e=>sf({...f,priority:e.target.value})}>{PRIS.map(p=><option key={p.id} value={p.id}>{p.l[lang]||p.l.nl}</option>)}</select></div>
         </div>
+        {/* Notes */}
+        <div style={{marginBottom:12}}><label style={lbl}>{tx.taskNotes}</label><textarea style={{...inp,minHeight:70,resize:'vertical'}} value={f.notes||''} onChange={e=>sf({...f,notes:e.target.value})} placeholder={tx.taskNotesPlaceholder}/></div>
         <div style={{padding:'12px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',marginBottom:8}}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:f.reminder?10:0}}>
             <div onClick={()=>sf({...f,reminder:!f.reminder})} style={{width:22,height:22,borderRadius:6,background:f.reminder?t.accent:t.elev,border:f.reminder?'none':`2px solid ${t.muted}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:12,color:'#fff',fontWeight:700,transition:`all 0.15s ${sp}`}}>{f.reminder&&'✓'}</div>
@@ -1918,7 +1964,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           </div>}
         </div>
       </div>
-      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!f.title?.trim()){toast(tx.fillTask,'info');return;}if(d?.id){updateTask_(d.id,f);toast(tx.taskUpdated);setModal(null);}else{const saved=await addTask_({...f,done:false});if(saved){toast(tx.taskAdded);setModal(null);}}}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
+      <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!f.title?.trim()){toast(tx.fillTask,'info');return;}if(d?.id){updateTask_(d.id,f);toast(tx.taskUpdated);setModal(null);}else{const saved=await addTask_({...f,done:f.status==='done'||f.status==='cancelled'});if(saved){toast(tx.taskAdded);setModal(null);}}}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
     </div>
   </div>;};
 
