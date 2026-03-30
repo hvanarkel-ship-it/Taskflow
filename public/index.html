@@ -1189,7 +1189,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
                   <div style={{fontSize:13,fontWeight:600,flex:1}}>{opp.title}</div>
                   <span style={{fontSize:9,padding:'1px 6px',borderRadius:5,color:isStale?t.red:t.muted,fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{age}{lang==='nl'?'d':'d'}</span>
                 </div>
-                {opp.salesforceUrl&&<a href={opp.salesforceUrl} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{fontSize:10,color:t.accent,textDecoration:'none',display:'flex',alignItems:'center',gap:3,marginBottom:3,fontWeight:500}}>☁ Salesforce <span style={{fontSize:8,opacity:.6}}>↗</span></a>}
+                {opp.salesforceUrl&&<a href={opp.salesforceUrl} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{fontSize:9,color:t.accent,textDecoration:'none',display:'block',marginBottom:3,fontWeight:400,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>☁ {opp.salesforceUrl.replace(/^https?:\/\//,'').slice(0,40)}{opp.salesforceUrl.replace(/^https?:\/\//,'').length>40?'...':''} ↗</a>}
                 <div style={{fontSize:11,color:t.dim,marginBottom:3}}>{oppWho(opp)}{oppOrg(opp)&&oppWho(opp)?' · '+oppOrg(opp):oppOrg(opp)}</div>
                 {(opp.techTags||[]).length>0&&<div style={{display:'flex',gap:3,flexWrap:'wrap',marginBottom:4}}>{opp.techTags.map(tt=><span key={tt} style={{fontSize:9,padding:'1px 6px',borderRadius:5,background:t.purpleS,color:t.purple,fontWeight:600}}>{tt}</span>)}</div>}
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
