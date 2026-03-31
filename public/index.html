@@ -151,6 +151,8 @@ const TX={
     logout:'Uitloggen',noAccount:'Geen account?',hasAccount:'Al een account?',
     fillEmail:'Vul een e-mailadres in',fillPassword:'Wachtwoord moet minimaal 6 tekens zijn',
     loginError:'Ongeldige inloggegevens',registerError:'Registratie mislukt',emailInUse:'E-mailadres al in gebruik',
+    pendingApproval:'Je registratie is ontvangen! Een beheerder moet je account goedkeuren voordat je kunt inloggen.',pendingLogin:'Je account wacht nog op goedkeuring door een beheerder.',backToLogin:'Terug naar inloggen',
+    adminPanel:'Gebruikersbeheer',pendingUsers:'Wachtende Gebruikers',noPendingUsers:'Geen wachtende registraties',approveUser:'Goedkeuren',rejectUser:'Afwijzen',userApproved:'Gebruiker goedgekeurd',userRejected:'Gebruiker afgewezen',registeredAt:'Geregistreerd op',
     // Interaction modal
     logAction:'Loggen',description:'Beschrijving',descPlaceholder:'Wat is er besproken of afgesproken...',
     createFollowup:'Maak een opvolgtaak aan',taskDesc:'Taak omschrijving',taskDescPlaceholder:'Wat moet er gebeuren?',
@@ -303,6 +305,8 @@ const TX={
     logout:'Log out',noAccount:'No account?',hasAccount:'Already have an account?',
     fillEmail:'Please enter an email address',fillPassword:'Password must be at least 6 characters',
     loginError:'Invalid credentials',registerError:'Registration failed',emailInUse:'Email already in use',
+    pendingApproval:'Your registration has been received! An administrator must approve your account before you can log in.',pendingLogin:'Your account is still waiting for administrator approval.',backToLogin:'Back to login',
+    adminPanel:'User Management',pendingUsers:'Pending Users',noPendingUsers:'No pending registrations',approveUser:'Approve',rejectUser:'Reject',userApproved:'User approved',userRejected:'User rejected',registeredAt:'Registered on',
     // Interaction modal
     logAction:'Log',description:'Description',descPlaceholder:'What was discussed or agreed...',
     createFollowup:'Create a follow-up task',taskDesc:'Task description',taskDescPlaceholder:'What needs to be done?',
@@ -512,6 +516,7 @@ const App = function(){
   const[authName,setAuthName]=useState('');
   const[authErr,setAuthErr]=useState('');
   const[authLoad,setAuthLoad]=useState(false);
+  const[authPending,setAuthPending]=useState(false);
 
   const doAuth=async()=>{
     setAuthErr('');
@@ -519,11 +524,12 @@ const App = function(){
     if(authPass.length<6){setAuthErr(tx.fillPassword);return;}
     if(authMode==='register'&&!authName.trim()){setAuthErr(tx.fillName);return;}
     setAuthLoad(true);
-    let useLocal=false;
     try{
       const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:authMode,email:authEmail.trim().toLowerCase(),password:authPass,name:authName.trim()})});
       const d=await r.json();
-      if(r.ok&&d.token){
+      if(r.ok&&d.pending){
+        setAuthPending(true);
+      }else if(r.ok&&d.token){
         const session={token:d.token,email:authEmail.trim().toLowerCase(),name:d.name||authName.trim(),expiresAt:new Date(Date.now()+14*24*60*60*1000).toISOString()};
         LS.set('auth_session',session);setAuthUser(session);
       }else if(r.status===409){setAuthErr(tx.emailInUse);}
@@ -2336,8 +2342,35 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     </div>;
   };
 
-  const titles={pipeline:tx.pipeline,contacts:tx.contacts,companies:tx.companies,atos:tx.atos,tasks:tx.tasks,dashboard:tx.dashboard,reports:tx.reports};
-  const nav=[{id:'dashboard',ic:'◆',l:tx.dashboard},{id:'pipeline',ic:'📊',l:tx.pipeline},{id:'companies',ic:'🏢',l:tx.companies},{id:'contacts',ic:'👤',l:tx.contacts},{id:'atos',ic:'🔵',l:tx.atos},{id:'tasks',ic:'☑',l:tx.tasks},{id:'reports',ic:'📈',l:tx.reports}];
+  const isAdmin=authUser?.email==='hvanarkel@gmail.com';
+  const titles={pipeline:tx.pipeline,contacts:tx.contacts,companies:tx.companies,atos:tx.atos,tasks:tx.tasks,dashboard:tx.dashboard,reports:tx.reports,admin:tx.adminPanel};
+  const nav=[{id:'dashboard',ic:'◆',l:tx.dashboard},{id:'pipeline',ic:'📊',l:tx.pipeline},{id:'companies',ic:'🏢',l:tx.companies},{id:'contacts',ic:'👤',l:tx.contacts},{id:'atos',ic:'🔵',l:tx.atos},{id:'tasks',ic:'☑',l:tx.tasks},{id:'reports',ic:'📈',l:tx.reports},...(isAdmin?[{id:'admin',ic:'🛡',l:tx.adminPanel}]:[])];
+
+  // Admin: pending users
+  const[pendingUsers,setPendingUsers]=useState([]);
+  const loadPendingUsers=async()=>{if(!isAdmin||!authUser?.token)return;try{const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({action:'list_pending'})});const d=await r.json();if(d.pending)setPendingUsers(d.pending);}catch(e){console.error('loadPending',e);}};
+  const approveUser=async(uid)=>{try{await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({action:'approve_user',user_id:uid})});setPendingUsers(p=>p.filter(u=>u.id!==uid));toast(tx.userApproved);}catch(e){console.error('approve',e);}};
+  const rejectUser=async(uid)=>{try{await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({action:'reject_user',user_id:uid})});setPendingUsers(p=>p.filter(u=>u.id!==uid));toast(tx.userRejected,'info');}catch(e){console.error('reject',e);}};
+  useEffect(()=>{if(isAdmin)loadPendingUsers();},[isAdmin]);
+
+  const renderAdmin=()=><div>
+    <div style={{...card,padding:'20px 24px',marginBottom:16}}>
+      <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>{tx.pendingUsers}</div>
+      {pendingUsers.length===0?<div style={{fontSize:13,color:t.muted,fontStyle:'italic',textAlign:'center',padding:20}}>{tx.noPendingUsers}</div>
+      :<div style={{display:'flex',flexDirection:'column',gap:8}}>{pendingUsers.map(u=><div key={u.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',borderRadius:12,background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)',border:`0.5px solid ${t.border}`}}>
+        <div style={{width:36,height:36,borderRadius:'50%',background:`linear-gradient(135deg,${t.orange},#FF9500)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:'#fff',flexShrink:0}}>{u.name.charAt(0)}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:14,fontWeight:600}}>{u.name}</div>
+          <div style={{fontSize:12,color:t.dim}}>{u.email}</div>
+          <div style={{fontSize:10,color:t.muted,marginTop:2}}>{tx.registeredAt} {new Date(u.created_at).toLocaleDateString(lang==='nl'?'nl-NL':'en-US',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+        <div style={{display:'flex',gap:6}}>
+          <button onClick={()=>approveUser(u.id)} style={{padding:'6px 14px',borderRadius:8,border:'none',background:t.green,color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.approveUser}</button>
+          <button onClick={()=>rejectUser(u.id)} style={{padding:'6px 14px',borderRadius:8,border:'none',background:t.red,color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.rejectUser}</button>
+        </div>
+      </div>)}</div>}
+    </div>
+  </div>;
 
   if(!authUser){
     return <>
@@ -2347,14 +2380,22 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           <div style={{textAlign:'center',marginBottom:28}}>
             <div style={{width:56,height:56,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:14,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:24,fontWeight:800,color:'#fff',marginBottom:12}}>D</div>
             <div style={{fontSize:24,fontWeight:800,letterSpacing:-.5}}>{tx.loginTitle}</div>
-            <div style={{fontSize:13,color:t.dim,marginTop:4}}>{authMode==='login'?tx.loginSub:tx.registerSub}</div>
+            <div style={{fontSize:13,color:t.dim,marginTop:4}}>{authPending?'':authMode==='login'?tx.loginSub:tx.registerSub}</div>
           </div>
+          {authPending?<div>
+            <div style={{padding:'16px 20px',borderRadius:12,background:dark?'rgba(255,149,0,0.1)':'rgba(255,149,0,0.08)',border:`1px solid rgba(255,149,0,0.3)`,marginBottom:20,textAlign:'center'}}>
+              <div style={{fontSize:28,marginBottom:8}}>⏳</div>
+              <div style={{fontSize:14,fontWeight:600,color:t.orange,marginBottom:4}}>{authMode==='register'?tx.pendingApproval:tx.pendingLogin}</div>
+            </div>
+            <button onClick={()=>{setAuthPending(false);setAuthMode('login');setAuthErr('');}} style={{width:'100%',padding:'12px',borderRadius:10,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',color:t.dim,border:'none',fontFamily:'inherit',fontSize:14,fontWeight:600,cursor:'pointer'}}>{tx.backToLogin}</button>
+          </div>:<>
           {authMode==='register'&&<div style={{marginBottom:14}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.name}</label><input value={authName} onChange={e=>setAuthName(e.target.value)} placeholder={tx.fullName} style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>}
           <div style={{marginBottom:14}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.email}</label><input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&doAuth()} placeholder={tx.emailPlaceholder} style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>
           <div style={{marginBottom:20}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.password}</label><input type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&doAuth()} placeholder="••••••••" style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>
           {authErr&&<div style={{padding:'8px 14px',borderRadius:8,background:t.redS,color:t.red,fontSize:12,marginBottom:14,fontWeight:500}}>{authErr}</div>}
           <button onClick={doAuth} disabled={authLoad} style={{width:'100%',padding:'12px',borderRadius:10,background:t.accent,color:'#fff',border:'none',fontFamily:'inherit',fontSize:14,fontWeight:600,cursor:'pointer',opacity:authLoad?.6:1}}>{authLoad?'...':(authMode==='login'?tx.login:tx.register)}</button>
           <div style={{textAlign:'center',marginTop:16,fontSize:13,color:t.dim}}>{authMode==='login'?tx.noAccount:tx.hasAccount} <span onClick={()=>{setAuthMode(authMode==='login'?'register':'login');setAuthErr('');}} style={{color:t.accent,cursor:'pointer',fontWeight:600}}>{authMode==='login'?tx.register:tx.login}</span></div>
+          </>}
           <div style={{display:'flex',justifyContent:'center',gap:12,marginTop:20}}>
             <span onClick={()=>setDark(!dark)} style={{fontSize:12,color:t.dim,cursor:'pointer'}}>{dark?'🌙':'☀️'} {tx.dark}/{tx.light}</span>
             <span onClick={()=>{const nl=lang==='nl'?'en':'nl';setLang(nl);LS.set('lang',nl);}} style={{fontSize:12,color:t.dim,cursor:'pointer'}}>🌐 {lang==='nl'?'English':'Nederlands'}</span>
@@ -2400,7 +2441,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:36,height:36,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,color:'#fff',animation:'glow 3s ease infinite'}}>D</div><div><div style={{fontSize:18,fontWeight:800,letterSpacing:-.3}}>DPM CRM</div><div style={{fontSize:9,color:t.muted,letterSpacing:2,textTransform:'uppercase',fontWeight:600}}>Sales Pipeline</div></div></div>
         </div>
         <nav style={{flex:1,padding:'12px 10px'}}>
-          {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSb(false);}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:view===n.id?t.accent:t.dim,background:view===n.id?t.accentS:'transparent',fontSize:14,fontWeight:view===n.id?600:400,marginBottom:2,transition:`all .15s ${sp}`}}><span style={{fontSize:15}}>{n.ic}</span>{n.l}</div>)}
+          {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSb(false);if(n.id==='admin')loadPendingUsers();}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:view===n.id?t.accent:t.dim,background:view===n.id?t.accentS:'transparent',fontSize:14,fontWeight:view===n.id?600:400,marginBottom:2,transition:`all .15s ${sp}`}}><span style={{fontSize:15}}>{n.ic}</span>{n.l}{n.id==='admin'&&pendingUsers.length>0&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:t.red,color:'#fff',fontWeight:700,marginLeft:'auto'}}>{pendingUsers.length}</span>}</div>)}
           <div style={{borderTop:`0.5px solid ${t.border}`,marginTop:16,paddingTop:12}}>
             <div onClick={()=>setDark(!dark)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>{dark?'🌙':'☀️'} {tx.dark}/{tx.light}</div>
             <div onClick={()=>{const nl=lang==='nl'?'en':'nl';setLang(nl);LS.set('lang',nl);}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🌐 {lang==='nl'?'English':'Nederlands'}</div>
@@ -2452,6 +2493,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {view==='atos'&&renderAtosView()}
           {view==='tasks'&&renderTasks()}
           {view==='reports'&&renderReports()}
+          {view==='admin'&&isAdmin&&renderAdmin()}
         </div>
       </main>
 
