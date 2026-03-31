@@ -40,7 +40,7 @@ exports.handler = async (event) => {
       const [opp] = await sql`INSERT INTO opportunities (
         title, contact_id, contact_ids, company_id, stage, value, probability, priority,
         next_action, next_action_date, expected_close_date, tech_tags,
-        atos_sales_id, atos_delivery_id, stage_changed_at,
+        atos_sales_id, atos_delivery_id, atos_contact_ids, stage_changed_at,
         closed_reason, closed_note, deal_notes, salesforce_url, user_id
       ) VALUES (
         ${b.title},
@@ -57,6 +57,7 @@ exports.handler = async (event) => {
         ${toJsonb(b.tech_tags)}::jsonb,
         ${toInt(b.atos_sales_id)},
         ${toInt(b.atos_delivery_id)},
+        ${toJsonb(b.atos_contact_ids)}::jsonb,
         ${toNull(b.stage_changed_at)},
         ${toNull(b.closed_reason) || ''},
         ${toNull(b.closed_note) || ''},
@@ -96,6 +97,7 @@ exports.handler = async (event) => {
         tech_tags=COALESCE(${b.tech_tags !== undefined ? toJsonb(b.tech_tags) : null}::jsonb,tech_tags),
         atos_sales_id=CASE WHEN ${hasAtosSales}=1 THEN ${toInt(b.atos_sales_id)} ELSE atos_sales_id END,
         atos_delivery_id=CASE WHEN ${hasAtosDeliv}=1 THEN ${toInt(b.atos_delivery_id)} ELSE atos_delivery_id END,
+        atos_contact_ids=COALESCE(${b.atos_contact_ids !== undefined ? toJsonb(b.atos_contact_ids) : null}::jsonb,atos_contact_ids),
         stage_changed_at=CASE WHEN ${hasStageChanged}=1 THEN ${toNull(b.stage_changed_at)}::timestamptz ELSE stage_changed_at END,
         closed_reason=COALESCE(${toNull(b.closed_reason)},closed_reason),
         closed_note=COALESCE(${toNull(b.closed_note)},closed_note),
