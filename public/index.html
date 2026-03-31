@@ -247,6 +247,7 @@ const TX={
     avgCycleTime:'Gem. Doorlooptijd',avgDaysInStage:'Gem. Dagen/Fase',daysInStage:'dagen in fase',day:'dag',days:'dagen',
     closedSummary:'Afgeronde Deals (maand)',wonDeals:'Gewonnen',lostDeals2:'Verloren',noClosedDeals:'Geen afgeronde deals deze maand',
     staleIndicator:'Inactief',dealNotes:'Deal Notities',addNote:'Notitie toevoegen...',
+    tabTasks:'Taken',tabInteractions:'Interacties',tabNotes:'Notities',showDone:'Toon afgerond',hideDone:'Verberg afgerond',interactionDeleted:'Interactie verwijderd',confirmDeleteInteraction:'Interactie verwijderen?',taskUpdated:'Taak bijgewerkt',taskDeleted:'Taak verwijderd',
     // Stage gate
     stageRequiresContact:'Voeg eerst een contact toe voor deze fase',stageRequiresValue:'Voeg eerst een waarde toe voor deze fase',stageRequiresClose:'Voeg eerst een sluitdatum toe',
     lostReengagement:'Verloren Deals',reengageFilter:'Heractiveer filter',monthsAgo:'maanden geleden',
@@ -397,6 +398,7 @@ const TX={
     avgCycleTime:'Avg. Cycle Time',avgDaysInStage:'Avg. Days/Stage',daysInStage:'days in stage',day:'day',days:'days',
     closedSummary:'Closed Deals (month)',wonDeals:'Won',lostDeals2:'Lost',noClosedDeals:'No closed deals this month',
     staleIndicator:'Stale',dealNotes:'Deal Notes',addNote:'Add note...',
+    tabTasks:'Tasks',tabInteractions:'Interactions',tabNotes:'Notes',showDone:'Show completed',hideDone:'Hide completed',interactionDeleted:'Interaction deleted',confirmDeleteInteraction:'Delete interaction?',taskUpdated:'Task updated',taskDeleted:'Task deleted',
     // Stage gate
     stageRequiresContact:'Add a contact first for this stage',stageRequiresValue:'Add a value first for this stage',stageRequiresClose:'Add a close date first',
     lostReengagement:'Lost Deals',reengageFilter:'Re-engage filter',monthsAgo:'months ago',
@@ -590,6 +592,8 @@ const App = function(){
     }
   },[]);
   const[detail,setDetail]=useState(null);
+  const[detailTab,setDetailTab]=useState('tasks');
+  const[detailShowDone,setDetailShowDone]=useState(false);
   const[search,setSearch]=useState('');
   const[toasts,setToasts]=useState([]);
   const[dragOpp,setDragOpp]=useState(null);
@@ -817,6 +821,7 @@ const App = function(){
   const deleteCompany_=async(id)=>{try{await serverDelete('companies',id);setCompanies(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteCompany',e);}};
   const deleteTask_=async(id)=>{try{await serverDelete('tasks',id);setTasks(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteTask',e);}};
   const deleteAtos_=async(id)=>{try{await serverDelete('atos',id);setAtosTeam(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteAtos',e);}};
+  const deleteInteraction_=async(id)=>{try{await serverDelete('interactions',id);setInteractions(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteInteraction',e);}};
 
   // ── iCal export for tasks (Outlook/Google Calendar/Apple Calendar) ──
   const exportTasksIcal=(taskList)=>{
@@ -947,7 +952,7 @@ const App = function(){
   const atosName=id=>atosTeam.find(a=>a.id===id)?.name||'';
 
   const logInteraction=async(contactId,oppId,type,text)=>{return await addInteraction_({contactId,oppId,type,text});};
-  const getInteractions=(contactId,oppId)=>interactions.filter(i=>(contactId&&i.contactId===contactId)||(oppId&&i.oppId===oppId)).slice(0,20);
+  const getInteractions=(contactId,oppId)=>interactions.filter(i=>(contactId&&i.contactId===contactId)||(oppId&&i.oppId===oppId)).slice(0,50);
 
   // Complete task — if it matches a deal's nextAction, clear it
   const completeTask=(tkId)=>{
@@ -1730,31 +1735,59 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             updateOpp(o.id,{stage:s.id,probability:STAGE_PROB[s.id]||o.probability,stageChangedAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
           }} style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:600,border:`1.5px solid ${o.stage===s.id?s.c:'transparent'}`,background:o.stage===s.id?`${s.c}20`:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:o.stage===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}</div>
         </div>
-        <div style={{padding:24}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>{tx.tasks2} ({oTasks.filter(tk=>!tk.done).length})</span><button onClick={()=>setModal({type:'task',data:{contactId:o.contactId||(o.contactIds||[])[0]||'',oppId:o.id}})} style={{...btnG,padding:'4px 12px',fontSize:11}}>{tx.addTask}</button></div>
-          <div style={{display:'flex',flexDirection:'column',gap:6}}>
-            {oTasks.filter(t=>!t.done).map(tk=><div key={tk.id} style={{fontSize:13,padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',display:'flex',alignItems:'center',gap:8}}>
-              <div onClick={()=>{completeTask(tk.id);}} style={{width:16,height:16,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',flexShrink:0}}/>
-              <span style={{flex:1}}>{tk.title}</span>
-              {tk.dueDate&&<span style={{fontSize:10,color:tk.dueDate<td()?t.red:t.dim}}>{fds(tk.dueDate)}</span>}
-            </div>)}
-            {oTasks.filter(t=>!t.done).length===0&&<div style={{fontSize:12,color:t.muted,fontStyle:'italic'}}>{tx.noOpenTasks}</div>}
+        <div style={{padding:'0 24px 24px'}}>
+          {/* Tab bar */}
+          <div style={{display:'flex',gap:0,borderBottom:`1px solid ${t.border}`,marginBottom:16}}>
+            {[{id:'tasks',l:tx.tabTasks,cnt:oTasks.filter(tk=>!tk.done).length},{id:'interactions',l:tx.tabInteractions,cnt:oInts.length},{id:'notes',l:tx.tabNotes,cnt:0}].map(tab=><button key={tab.id} onClick={()=>setDetailTab(tab.id)} style={{padding:'10px 16px',fontSize:13,fontWeight:detailTab===tab.id?700:500,color:detailTab===tab.id?t.accent:t.dim,background:'none',border:'none',borderBottom:`2px solid ${detailTab===tab.id?t.accent:'transparent'}`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:5,transition:'all .15s ease'}}>{tab.l}{tab.cnt>0&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:detailTab===tab.id?t.accentS:(dark?'rgba(118,118,128,0.1)':'rgba(118,118,128,0.06)'),color:detailTab===tab.id?t.accent:t.muted,fontWeight:600}}>{tab.cnt}</span>}</button>)}
           </div>
-          <div style={{marginTop:20}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>{tx.interactions} ({oInts.length})</span></div>
+
+          {/* Tasks tab */}
+          {detailTab==='tasks'&&<div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+              <button onClick={()=>setDetailShowDone(!detailShowDone)} style={{fontSize:11,color:t.muted,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:0}}>{detailShowDone?tx.hideDone:tx.showDone} ({oTasks.filter(tk=>tk.done).length})</button>
+              <button onClick={()=>setModal({type:'task',data:{contactId:o.contactId||(o.contactIds||[])[0]||'',oppId:o.id}})} style={{...btnG,padding:'4px 12px',fontSize:11}}>{tx.addTask}</button>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:6}}>
+              {oTasks.filter(tk=>!tk.done).map(tk=>{const tStat=TASK_STATUSES.find(s=>s.k===tk.status)||TASK_STATUSES[0];return <div key={tk.id} style={{fontSize:13,padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',display:'flex',alignItems:'center',gap:8}}>
+                <div onClick={()=>completeTask(tk.id)} style={{width:16,height:16,borderRadius:'50%',border:`2px solid ${tStat.c}`,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,color:tStat.c}}>{tStat.ic!=='○'&&tStat.ic}</div>
+                <span onClick={()=>setModal({type:'task',data:tk})} style={{flex:1,cursor:'pointer'}}>{tk.title}</span>
+                {tk.dueDate&&<span style={{fontSize:10,color:tk.dueDate<td()?t.red:t.dim}}>{fds(tk.dueDate)}</span>}
+                <span onClick={()=>{deleteTask_(tk.id);toast(tx.taskDeleted,'info');}} style={{cursor:'pointer',color:t.muted,fontSize:11,opacity:.5}}>✕</span>
+              </div>;})}
+              {oTasks.filter(tk=>!tk.done).length===0&&<div style={{fontSize:12,color:t.muted,fontStyle:'italic'}}>{tx.noOpenTasks}</div>}
+            </div>
+            {detailShowDone&&oTasks.filter(tk=>tk.done).length>0&&<div style={{marginTop:10,display:'flex',flexDirection:'column',gap:4}}>
+              {oTasks.filter(tk=>tk.done).map(tk=><div key={tk.id} style={{fontSize:12,padding:'6px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.03)':'rgba(118,118,128,0.02)',display:'flex',alignItems:'center',gap:8,opacity:.6}}>
+                <div onClick={()=>{updateTask_(tk.id,{done:false,status:'todo'});toast(tx.markOpen);}} style={{width:14,height:14,borderRadius:'50%',background:t.green,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,color:'#fff'}}>✓</div>
+                <span onClick={()=>setModal({type:'task',data:tk})} style={{flex:1,textDecoration:'line-through',cursor:'pointer'}}>{tk.title}</span>
+                {tk.dueDate&&<span style={{fontSize:10,color:t.dim}}>{fds(tk.dueDate)}</span>}
+                <span onClick={()=>{deleteTask_(tk.id);toast(tx.taskDeleted,'info');}} style={{cursor:'pointer',color:t.muted,fontSize:11,opacity:.5}}>✕</span>
+              </div>)}
+            </div>}
+          </div>}
+
+          {/* Interactions tab */}
+          {detailTab==='interactions'&&<div>
             <div style={{display:'flex',gap:4,marginBottom:10}}>{INT_TYPES.map(it=><button key={it.id} onClick={()=>{setIntModal({contactId:o.contactId||(o.contactIds||[])[0]||'',oppId:o.id,type:it.id});setIntText('');}} style={{...btnG,padding:'5px 10px',fontSize:11}}>{it.ic} {it.l}</button>)}</div>
             <div style={{display:'flex',flexDirection:'column',gap:5}}>
-              {oInts.map(i=><div key={i.id} style={{padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple}`,fontSize:12}}>
-                <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}><span style={{fontWeight:600}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}{i.contactId&&cName(i.contactId)?' — '+cName(i.contactId):''}</span><span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span></div>
+              {oInts.map(i=><div key={i.id} style={{padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple}`,fontSize:12,position:'relative',group:'int'}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+                  <span style={{fontWeight:600}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}{i.contactId&&cName(i.contactId)?' — '+cName(i.contactId):''}</span>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span>
+                    <span onClick={()=>{if(confirm(tx.confirmDeleteInteraction)){deleteInteraction_(i.id);toast(tx.interactionDeleted,'info');}}} style={{cursor:'pointer',color:t.muted,fontSize:11,opacity:.4}}>✕</span>
+                  </div>
+                </div>
                 <div style={{color:t.dim}}>{linkify(i.text)}</div>
               </div>)}
               {oInts.length===0&&<div style={{fontSize:12,color:t.muted,fontStyle:'italic',textAlign:'center',padding:12}}>{tx.noInteractionsYet}</div>}
             </div>
-          </div>
-          <div style={{marginTop:20}}>
-            <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{tx.dealNotes}</div>
-            <textarea value={o.dealNotes||''} onChange={e=>updateOpp(o.id,{dealNotes:e.target.value,updatedAt:new Date().toISOString()})} placeholder={tx.addNote} style={{...inp,minHeight:80,resize:'vertical',fontSize:12}}/>
-          </div>
+          </div>}
+
+          {/* Notes tab */}
+          {detailTab==='notes'&&<div>
+            <textarea value={o.dealNotes||''} onChange={e=>updateOpp(o.id,{dealNotes:e.target.value,updatedAt:new Date().toISOString()})} placeholder={tx.addNote} style={{...inp,minHeight:120,resize:'vertical',fontSize:12}}/>
+          </div>}
         </div>
       </div></div>;
     }
@@ -1894,12 +1927,12 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             <input type="date" style={{...inp,width:120,padding:'3px 6px',fontSize:11}} value={pt.dueDate||''} onChange={e=>{const pts=[...(f._pendingTasks||[])];pts[i]={...pts[i],dueDate:e.target.value};sf({...f,_pendingTasks:pts});}}/>
             <span onClick={()=>{const pts=(f._pendingTasks||[]).filter((_,j)=>j!==i);sf({...f,_pendingTasks:pts});}} style={{cursor:'pointer',color:t.muted,fontSize:11}}>✕</span>
           </div>)}
-          {d?.id&&(()=>{const oTasks=tasks.filter(tk=>tk.oppId===d.id&&!tk.done);return oTasks.length>0?<div style={{marginBottom:6}}>{oTasks.map(tk=><div key={tk.id} style={{display:'flex',gap:6,alignItems:'center',marginBottom:4,padding:'6px 10px',borderRadius:8,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)'}}>
-            <div onClick={()=>completeTask(tk.id)} style={{width:14,height:14,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',flexShrink:0}}/>
-            <span style={{flex:1,fontSize:12}}>{tk.title}</span>
+          {d?.id&&(()=>{const oTasks=tasks.filter(tk=>tk.oppId===d.id&&!tk.done);return oTasks.length>0?<div style={{marginBottom:6}}>{oTasks.map(tk=>{const tSt=TASK_STATUSES.find(s=>s.k===tk.status)||TASK_STATUSES[0];return <div key={tk.id} style={{display:'flex',gap:6,alignItems:'center',marginBottom:4,padding:'6px 10px',borderRadius:8,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)'}}>
+            <div onClick={()=>completeTask(tk.id)} style={{width:14,height:14,borderRadius:'50%',border:`2px solid ${tSt.c}`,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:7,color:tSt.c}}>{tSt.ic!=='○'&&tSt.ic}</div>
+            <span onClick={()=>setModal({type:'task',data:tk})} style={{flex:1,fontSize:12,cursor:'pointer'}}>{tk.title}</span>
             {tk.dueDate&&<span style={{fontSize:10,color:tk.dueDate<td()?t.red:t.dim}}>{fds(tk.dueDate)}</span>}
-            <span onClick={()=>deleteTask_(tk.id)} style={{cursor:'pointer',color:t.muted,fontSize:11}}>✕</span>
-          </div>)}</div>:null;})()}
+            <span onClick={()=>{deleteTask_(tk.id);toast(tx.taskDeleted,'info');}} style={{cursor:'pointer',color:t.muted,fontSize:11}}>✕</span>
+          </div>;})}</div>:null;})()}
           <div style={{display:'flex',gap:5}}><input style={inp} value={f._taskInput||''} onChange={e=>sf({...f,_taskInput:e.target.value})} placeholder={lang==='nl'?'Taak toevoegen...':'Add task...'} onKeyDown={e=>{if(e.key==='Enter'&&f._taskInput?.trim()){sf({...f,_pendingTasks:[...(f._pendingTasks||[]),{title:f._taskInput.trim(),dueDate:td()}],_taskInput:''});}}} /><button onClick={()=>{if(f._taskInput?.trim()){sf({...f,_pendingTasks:[...(f._pendingTasks||[]),{title:f._taskInput.trim(),dueDate:td()}],_taskInput:''});}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
         </div>
         {/* Interactions for existing deals */}
@@ -1907,7 +1940,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><label style={lbl}>{tx.interactions} ({oInts.length})</label></div>
           <div style={{display:'flex',gap:4,marginBottom:6}}>{INT_TYPES.map(it=><button key={it.id} onClick={()=>{setIntModal({contactId:f.contactId||(f.contactIds||[])[0]||'',oppId:d.id,type:it.id});setIntText('');}} style={{...btnG,padding:'4px 8px',fontSize:10}}>{it.ic} {it.l}</button>)}</div>
           <div style={{maxHeight:200,overflowY:'auto'}}>{oInts.map(i=><div key={i.id} style={{padding:'6px 10px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple}`,fontSize:11,marginBottom:4}}>
-            <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontWeight:600}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}</span><span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span></div>
+            <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontWeight:600}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}</span><div style={{display:'flex',alignItems:'center',gap:6}}><span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span><span onClick={()=>{if(confirm(tx.confirmDeleteInteraction)){deleteInteraction_(i.id);toast(tx.interactionDeleted,'info');}}} style={{cursor:'pointer',color:t.muted,fontSize:10,opacity:.5}}>✕</span></div></div>
             <div style={{color:t.dim,marginTop:2}}>{linkify(i.text)}</div>
           </div>)}</div>
           {oInts.length===0&&<div style={{fontSize:11,color:t.muted,fontStyle:'italic'}}>{tx.noInteractionsYet}</div>}
