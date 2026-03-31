@@ -140,6 +140,8 @@ async function setup() {
     { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS atos_id INTEGER", v: '29' },
     { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS company_contact_id INTEGER", v: '29' },
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS salesforce_url TEXT DEFAULT ''", v: '30' },
+    // v31: atos contacts linked to deals (internal colleagues)
+    { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS atos_contact_ids JSONB DEFAULT '[]'", v: '31' },
   ];
 
   let migrated = 0;
