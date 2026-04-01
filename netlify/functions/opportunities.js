@@ -105,9 +105,10 @@ exports.handler = async (event) => {
         deal_notes=COALESCE(${toNull(b.deal_notes)},deal_notes),
         salesforce_url=COALESCE(${b.salesforce_url !== undefined ? (toNull(b.salesforce_url) || '') : null},salesforce_url),
         folder_url=COALESCE(${b.folder_url !== undefined ? (toNull(b.folder_url) || '') : null},folder_url),
-        closed_at=CASE WHEN ${isClosing?1:0}=1 THEN ${new Date().toISOString()}::timestamptz ELSE closed_at END,
+        closed_at=CASE WHEN ${isClosing?1:0}=1 THEN ${toNull(b.closed_at) || new Date().toISOString()}::timestamptz ELSE closed_at END,
         updated_at=NOW()
       WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
+      if (!opp) return err(404, 'Deal niet gevonden');
       if (b.add_note) await sql`INSERT INTO opp_notes (opp_id,text) VALUES (${b.id},${b.add_note})`;
       return ok({ opportunity: opp });
     }

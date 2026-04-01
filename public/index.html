@@ -820,6 +820,7 @@ const App = function(){
     if(Array.isArray(body.contact_ids))body.contact_ids=JSON.stringify(body.contact_ids);
     if(Array.isArray(body.tech_tags))body.tech_tags=JSON.stringify(body.tech_tags);
     if(Array.isArray(body.tags))body.tags=JSON.stringify(body.tags);
+    if(Array.isArray(body.atos_contact_ids))body.atos_contact_ids=JSON.stringify(body.atos_contact_ids);
     console.log('serverCreate',endpoint,body);
     const resp=await fetch('/api/'+endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(body)});
     if(!resp.ok){const e=await resp.json().catch(()=>({}));console.error('serverCreate error',endpoint,resp.status,e);throw new Error(e.error||'Server error '+resp.status);}
@@ -834,9 +835,14 @@ const App = function(){
     if(Array.isArray(body.contact_ids))body.contact_ids=JSON.stringify(body.contact_ids);
     if(Array.isArray(body.tech_tags))body.tech_tags=JSON.stringify(body.tech_tags);
     if(Array.isArray(body.tags))body.tags=JSON.stringify(body.tags);
+    if(Array.isArray(body.atos_contact_ids))body.atos_contact_ids=JSON.stringify(body.atos_contact_ids);
+    // Remove client-only / read-only fields that shouldn't be sent
+    delete body.notes;delete body.created_at;delete body.avatar;
     const resp=await fetch('/api/'+endpoint,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(body)});
     if(!resp.ok){const e=await resp.json().catch(()=>({}));console.error('serverUpdate error',endpoint,resp.status,e);throw new Error(e.error||'Server error '+resp.status);}
-    const j=await resp.json();const rec=j.company||j.contact||j.opportunity||j.task||j.member||j.interaction;return rec?camelObj(rec):null;
+    const j=await resp.json();const rec=j.company||j.contact||j.opportunity||j.task||j.member||j.interaction;
+    if(!rec){console.error('serverUpdate: no record returned for',endpoint,data.id);throw new Error('Update failed — record not found');}
+    return camelObj(rec);
   };
   const serverDelete=async(endpoint,id)=>{
     await waitForDb();
@@ -858,11 +864,12 @@ const App = function(){
   const addInteraction_=async(i)=>{try{const s=await serverCreate('interactions',i);if(!s)return null;const saved={...s,at:s.at||s.createdAt};setInteractions(p=>[saved,...p]);return saved;}catch(e){showErr('addInteraction',e);return null;}};
 
   // Updates: optimistic UI + server persist (toast on failure)
-  const updateOpp=(id,fields)=>{setOpps(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('opportunities',{id,...fields}).catch(e=>showErr('updateOpp',e));};
-  const updateContact_=(id,fields)=>{setContacts(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('contacts',{id,...fields}).catch(e=>showErr('updateContact',e));};
-  const updateCompany_=(id,fields)=>{setCompanies(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('companies',{id,...fields}).catch(e=>showErr('updateCompany',e));};
-  const updateTask_=(id,fields)=>{setTasks(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('tasks',{id,...fields}).catch(e=>showErr('updateTask',e));};
-  const updateAtos_=(id,fields)=>{setAtosTeam(p=>p.map(x=>x.id===id?{...x,...fields}:x));serverUpdate('atos',{id,...fields}).catch(e=>showErr('updateAtos',e));};
+  const updateOpp=async(id,fields)=>{const prev=opps.find(x=>x.id===id);setOpps(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{const saved=await serverUpdate('opportunities',{id,...fields});if(saved)setOpps(p=>p.map(x=>x.id===id?{...x,...saved}:x));}catch(e){if(prev)setOpps(p=>p.map(x=>x.id===id?prev:x));showErr('updateOpp',e);}};
+  const updateContact_=async(id,fields)=>{const prev=contacts.find(x=>x.id===id);setContacts(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{await serverUpdate('contacts',{id,...fields});}catch(e){if(prev)setContacts(p=>p.map(x=>x.id===id?prev:x));showErr('updateContact',e);}};
+  const updateCompany_=async(id,fields)=>{const prev=companies.find(x=>x.id===id);setCompanies(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{await serverUpdate('companies',{id,...fields});}catch(e){if(prev)setCompanies(p=>p.map(x=>x.id===id?prev:x));showErr('updateCompany',e);}};
+  const updateTask_=async(id,fields)=>{const prev=tasks.find(x=>x.id===id);setTasks(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{await serverUpdate('tasks',{id,...fields});}catch(e){if(prev)setTasks(p=>p.map(x=>x.id===id?prev:x));showErr('updateTask',e);}};
+  const updateAtos_=async(id,fields)=>{const prev=atosTeam.find(x=>x.id===id);setAtosTeam(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{await serverUpdate('atos',{id,...fields});}catch(e){if(prev)setAtosTeam(p=>p.map(x=>x.id===id?prev:x));showErr('updateAtos',e);}};
+
 
   // Deletes: server-first, only remove from state on success
   const deleteOpp=async(id)=>{try{await serverDelete('opportunities',id);setOpps(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteOpp',e);}};
