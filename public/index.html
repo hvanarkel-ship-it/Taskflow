@@ -532,7 +532,7 @@ const App = function(){
       if(r.ok&&d.pending){
         setAuthPending(true);
       }else if(r.ok&&d.token){
-        const session={token:d.token,email:authEmail.trim().toLowerCase(),name:d.name||authName.trim(),expiresAt:new Date(Date.now()+14*24*60*60*1000).toISOString()};
+        const session={token:d.token,email:authEmail.trim().toLowerCase(),name:d.name||authName.trim(),expiresAt:new Date(Date.now()+30*24*60*60*1000).toISOString()};
         LS.set('auth_session',session);setAuthUser(session);
       }else if(r.status===409){setAuthErr(tx.emailInUse);}
       else if(r.status>=500){setAuthErr(lang==='nl'?'Server niet bereikbaar. Probeer het later opnieuw.':'Server unavailable. Please try again later.');}
@@ -647,6 +647,8 @@ const App = function(){
           fetch('/api/atos',{headers,signal:AbortSignal.timeout(10000)}),
           fetch('/api/interactions',{headers,signal:AbortSignal.timeout(10000)}),
         ]);
+        // If any API returned 401/403, the user is no longer authorized — auto-logout
+        if(resps.some(r=>r.status===401||r.status===403)){LS.set('auth_session',null);setAuthUser(null);return;}
         // If any API returned an error, don't trust the data — keep localStorage
         const failedCount=resps.filter(r=>!r.ok).length;
         if(failedCount===resps.length){console.warn('Neon: all APIs failed');setDataSource('offline');dbReady.current=true;return;}

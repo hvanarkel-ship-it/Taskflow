@@ -13,7 +13,7 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json(204, '');
   if (!checkRate(event)) return err(429, 'Te veel verzoeken');
   try {
-    const user = requireAuth(event);
+    const user = await requireAuth(event);
 
     if (event.httpMethod === 'GET') {
       const p = event.queryStringParameters || {};
