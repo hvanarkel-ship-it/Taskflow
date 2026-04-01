@@ -580,6 +580,17 @@ const App = function(){
 
   const doLogout=()=>{LS.set('auth_session',null);setAuthUser(null);setAuthEmail('');setAuthPass('');setAuthName('');setAuthErr('');};
 
+  // Periodically check token expiry (every 60s) — auto-logout if expired
+  useEffect(()=>{
+    if(!authUser?.token)return;
+    const iv=setInterval(()=>{
+      if(authUser?.expiresAt&&new Date(authUser.expiresAt)<new Date()){
+        doLogout();toast(lang==='nl'?'Sessie verlopen — log opnieuw in':'Session expired — please log in again','info');
+      }
+    },60000);
+    return()=>clearInterval(iv);
+  },[authUser]);
+
   const safeArr=(k)=>{const v=LS.get(k,[]);return Array.isArray(v)?v:[];};
   const[contacts,setContacts]=useState(()=>safeArr('contacts'));
   const[companies,setCompanies]=useState(()=>safeArr('companies'));
@@ -903,7 +914,7 @@ const App = function(){
     if(Array.isArray(body.tags))body.tags=JSON.stringify(body.tags);
     if(Array.isArray(body.atos_contact_ids))body.atos_contact_ids=JSON.stringify(body.atos_contact_ids);
     // Remove client-only / read-only fields that shouldn't be sent
-    delete body.notes;delete body.created_at;delete body.avatar;
+    delete body.notes;delete body.created_at;delete body.updated_at;delete body.avatar;
     const resp=await fetch('/api/'+endpoint,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(body)});
     if(!resp.ok){const e=await resp.json().catch(()=>({}));console.error('serverUpdate error',endpoint,resp.status,e);throw new Error(e.error||'Server error '+resp.status);}
     const j=await resp.json();const rec=j.company||j.contact||j.opportunity||j.task||j.member||j.interaction;
