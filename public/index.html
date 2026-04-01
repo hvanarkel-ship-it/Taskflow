@@ -456,6 +456,34 @@ const TASK_STATUSES=[
 const CONTACT_CATS_I18N={nl:['Beslisser','Technisch','Inkoop','Gebruiker','Partner','Consultant','Management','Sponsor'],en:['Decision Maker','Technical','Procurement','User','Partner','Consultant','Management','Sponsor']};
 const INT_TYPES_I18N=[{id:'call',l:{nl:'Gesprek',en:'Call'},ic:'📞'},{id:'email',l:{nl:'E-mail',en:'Email'},ic:'📧'},{id:'meeting',l:{nl:'Meeting',en:'Meeting'},ic:'📅'},{id:'note',l:{nl:'Notitie',en:'Note'},ic:'📝'}];
 
+// ═══ RICH TEXT EDITOR (simple contentEditable with toolbar) ═══
+const RichNote=({value,onChange,placeholder,t:theme,style:sx})=>{
+  const edRef=useRef(null);
+  const isInit=useRef(false);
+  useEffect(()=>{if(edRef.current&&!isInit.current){edRef.current.innerHTML=value||'';isInit.current=true;}},[]);
+  useEffect(()=>{if(edRef.current&&document.activeElement!==edRef.current){edRef.current.innerHTML=value||'';}},[value]);
+  const exec=(cmd,val)=>{document.execCommand(cmd,false,val||null);edRef.current?.focus();};
+  const onInput=()=>{if(edRef.current&&onChange)onChange(edRef.current.innerHTML);};
+  const btnS={background:'none',border:'none',cursor:'pointer',padding:'4px 7px',borderRadius:4,fontSize:13,color:theme?.dim||'#888',fontFamily:'inherit',lineHeight:1};
+  return React.createElement('div',{style:{border:`1px solid ${theme?.border||'#ddd'}`,borderRadius:10,overflow:'hidden',...(sx||{})}},
+    React.createElement('div',{style:{display:'flex',gap:1,padding:'4px 6px',borderBottom:`1px solid ${theme?.border||'#ddd'}`,background:theme?.elev||'#f5f5f5',flexWrap:'wrap'}},
+      React.createElement('button',{type:'button',onClick:()=>exec('bold'),style:{...btnS,fontWeight:700},title:'Bold'},'B'),
+      React.createElement('button',{type:'button',onClick:()=>exec('italic'),style:{...btnS,fontStyle:'italic'},title:'Italic'},'I'),
+      React.createElement('button',{type:'button',onClick:()=>exec('underline'),style:{...btnS,textDecoration:'underline'},title:'Underline'},'U'),
+      React.createElement('span',{style:{width:1,background:theme?.border||'#ddd',margin:'2px 4px'}}),
+      React.createElement('button',{type:'button',onClick:()=>exec('insertUnorderedList'),style:btnS,title:'Bullet list'},'• List'),
+      React.createElement('button',{type:'button',onClick:()=>exec('insertOrderedList'),style:btnS,title:'Numbered list'},'1. List'),
+      React.createElement('span',{style:{width:1,background:theme?.border||'#ddd',margin:'2px 4px'}}),
+      React.createElement('button',{type:'button',onClick:()=>exec('formatBlock','h3'),style:{...btnS,fontWeight:700,fontSize:12},title:'Heading'},'H'),
+      React.createElement('button',{type:'button',onClick:()=>exec('formatBlock','p'),style:{...btnS,fontSize:11},title:'Paragraph'},'¶'),
+      React.createElement('span',{style:{width:1,background:theme?.border||'#ddd',margin:'2px 4px'}}),
+      React.createElement('button',{type:'button',onClick:()=>{const url=prompt('URL:');if(url)exec('createLink',url);},style:{...btnS,color:theme?.accent||'#007AFF'},title:'Link'},'🔗'),
+      React.createElement('button',{type:'button',onClick:()=>exec('removeFormat'),style:{...btnS,fontSize:11,opacity:.6},title:'Clear format'},'✕'),
+    ),
+    React.createElement('div',{ref:edRef,contentEditable:true,onInput,onBlur:onInput,'data-placeholder':placeholder||'',style:{padding:'10px 14px',minHeight:120,maxHeight:300,overflowY:'auto',fontSize:13,lineHeight:1.6,outline:'none',color:theme?.text||'#333',fontFamily:'inherit',background:theme?.solid||'#fff',cursor:'text'}})
+  );
+};
+
 // ═══ SEARCHABLE SELECT ═════════════════════════════════
 const SearchSelect=({value,onChange,options,placeholder,style:sx,t:theme,lang:_lang})=>{const _tx=TX[_lang||'nl']||TX.nl;
   const[open,setOpen]=useState(false);const[q,setQ]=useState('');const ref=useRef(null);
@@ -834,6 +862,8 @@ const App = function(){
   const impFileRef=useRef(null);
   const[intModal,setIntModal]=useState(null);
   const[intText,setIntText]=useState('');
+  const[expandedInts,setExpandedInts]=useState({});
+  const toggleInt=(id)=>setExpandedInts(p=>({...p,[id]:!p[id]}));
   const[reasonModal,setReasonModal]=useState(null); // {oppId,stage,reasons[],title}
 
   // ── FIX: track both type AND id so editing always re-initialises the form ──
@@ -1803,11 +1833,22 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           <div style={{marginTop:20}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>{tx.interactions}</span></div>
             <div style={{display:'flex',gap:4,marginBottom:10}}>{INT_TYPES.map(it=><button key={it.id} onClick={()=>{setIntModal({contactId:c.id,oppId:'',type:it.id});setIntText('');}} style={{...btnG,padding:'5px 10px',fontSize:11}}>{it.ic} {it.l}</button>)}</div>
-            <div style={{display:'flex',flexDirection:'column',gap:5}}>
-              {getInteractions(c.id).map(i=><div key={i.id} style={{padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple}`,fontSize:12}}>
-                <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}><span style={{fontWeight:600}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}</span><span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span></div>
-                <div style={{color:t.dim}}>{linkify(i.text)}</div>
-              </div>)}
+            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+              {getInteractions(c.id).map(i=>{const intColor=i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple;const isOpen=expandedInts[i.id];const plainText=(i.text||'').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();return <div key={i.id} style={{borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${intColor}`,fontSize:12,overflow:'hidden'}}>
+                <div onClick={()=>toggleInt(i.id)} style={{display:'flex',alignItems:'center',padding:'7px 12px',cursor:'pointer',userSelect:'none',gap:6}}>
+                  <span style={{fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{INT_TYPES.find(x=>x.id===i.type)?.ic}</span>
+                  <span style={{fontWeight:600,whiteSpace:'nowrap',flexShrink:0,fontSize:11}}>{INT_TYPES.find(x=>x.id===i.type)?.l}</span>
+                  <span style={{color:t.muted,fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,opacity:.5}}>{plainText.slice(0,50)}</span>
+                  <span style={{color:t.muted,fontSize:10,whiteSpace:'nowrap',flexShrink:0}}>{fds(i.at)}</span>
+                  <span style={{fontSize:9,color:t.muted,flexShrink:0,transition:'transform .15s',transform:isOpen?'rotate(180deg)':'rotate(0)'}}>▼</span>
+                </div>
+                {isOpen&&<div style={{padding:'0 12px 10px',borderTop:`0.5px solid ${dark?'rgba(118,118,128,0.1)':'rgba(118,118,128,0.06)'}`}}>
+                  {i.text&&i.text.includes('<')?<div style={{color:t.dim,paddingTop:8,lineHeight:1.6}} dangerouslySetInnerHTML={{__html:i.text}}/>:<div style={{color:t.dim,paddingTop:8,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{linkify(i.text)}</div>}
+                  <div style={{display:'flex',justifyContent:'flex-end',marginTop:6}}>
+                    <span onClick={(e)=>{e.stopPropagation();if(confirm(tx.confirmDeleteInteraction)){deleteInteraction_(i.id);toast(tx.interactionDeleted,'info');}}} style={{cursor:'pointer',color:t.red,fontSize:10,opacity:.6}}>🗑</span>
+                  </div>
+                </div>}
+              </div>;})}
               {getInteractions(c.id).length===0&&<div style={{fontSize:12,color:t.muted,fontStyle:'italic',textAlign:'center',padding:12}}>{tx.noInteractionsLogged}</div>}
             </div>
           </div>
@@ -1891,7 +1932,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         <div style={{padding:'0 24px 24px'}}>
           {/* Tab bar */}
           <div style={{display:'flex',gap:0,borderBottom:`1px solid ${t.border}`,marginBottom:16}}>
-            {[{id:'tasks',l:tx.tabTasks,cnt:oTasks.filter(tk=>!tk.done).length},{id:'interactions',l:tx.tabInteractions,cnt:oInts.length},{id:'notes',l:tx.tabNotes,cnt:0}].map(tab=><button key={tab.id} onClick={()=>setDetailTab(tab.id)} style={{padding:'10px 16px',fontSize:13,fontWeight:detailTab===tab.id?700:500,color:detailTab===tab.id?t.accent:t.dim,background:'none',border:'none',borderBottom:`2px solid ${detailTab===tab.id?t.accent:'transparent'}`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:5,transition:'all .15s ease'}}>{tab.l}{tab.cnt>0&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:detailTab===tab.id?t.accentS:(dark?'rgba(118,118,128,0.1)':'rgba(118,118,128,0.06)'),color:detailTab===tab.id?t.accent:t.muted,fontWeight:600}}>{tab.cnt}</span>}</button>)}
+            {[{id:'tasks',l:tx.tabTasks,cnt:oTasks.filter(tk=>!tk.done).length},{id:'interactions',l:tx.tabInteractions,cnt:oInts.length}].map(tab=><button key={tab.id} onClick={()=>setDetailTab(tab.id)} style={{padding:'10px 16px',fontSize:13,fontWeight:detailTab===tab.id?700:500,color:detailTab===tab.id?t.accent:t.dim,background:'none',border:'none',borderBottom:`2px solid ${detailTab===tab.id?t.accent:'transparent'}`,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:5,transition:'all .15s ease'}}>{tab.l}{tab.cnt>0&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:detailTab===tab.id?t.accentS:(dark?'rgba(118,118,128,0.1)':'rgba(118,118,128,0.06)'),color:detailTab===tab.id?t.accent:t.muted,fontWeight:600}}>{tab.cnt}</span>}</button>)}
           </div>
 
           {/* Tasks tab */}
@@ -1926,27 +1967,33 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             </div>}
           </div>}
 
-          {/* Interactions tab */}
+          {/* Interactions tab — all collapsed by default, expand on click */}
           {detailTab==='interactions'&&<div>
             <div style={{display:'flex',gap:4,marginBottom:10}}>{INT_TYPES.map(it=><button key={it.id} onClick={()=>{setIntModal({contactId:o.contactId||(o.contactIds||[])[0]||'',oppId:o.id,type:it.id});setIntText('');}} style={{...btnG,padding:'5px 10px',fontSize:11}}>{it.ic} {it.l}</button>)}</div>
-            <div style={{display:'flex',flexDirection:'column',gap:5}}>
-              {oInts.map(i=><div key={i.id} style={{padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple}`,fontSize:12,position:'relative',group:'int'}}>
-                <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
-                  <span style={{fontWeight:600}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}{i.contactId&&cName(i.contactId)?' — '+cName(i.contactId):''}</span>
-                  <div style={{display:'flex',alignItems:'center',gap:6}}>
-                    <span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span>
-                    <span onClick={()=>{if(confirm(tx.confirmDeleteInteraction)){deleteInteraction_(i.id);toast(tx.interactionDeleted,'info');}}} style={{cursor:'pointer',color:t.muted,fontSize:11,opacity:.4}}>✕</span>
-                  </div>
+            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+              {oInts.map(i=>{const intColor=i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple;const isOpen=expandedInts[i.id];const plainText=(i.text||'').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();return <div key={i.id} style={{borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${intColor}`,fontSize:12,overflow:'hidden'}}>
+                <div onClick={()=>toggleInt(i.id)} style={{display:'flex',alignItems:'center',padding:'7px 12px',cursor:'pointer',userSelect:'none',gap:6}}>
+                  <span style={{fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{INT_TYPES.find(x=>x.id===i.type)?.ic}</span>
+                  <span style={{fontWeight:600,whiteSpace:'nowrap',flexShrink:0,fontSize:11}}>{INT_TYPES.find(x=>x.id===i.type)?.l}</span>
+                  {i.contactId&&cName(i.contactId)&&<span style={{color:t.dim,fontSize:10,whiteSpace:'nowrap',flexShrink:0}}>— {cName(i.contactId)}</span>}
+                  <span style={{color:t.muted,fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,opacity:.5}}>{plainText.slice(0,50)}</span>
+                  <span style={{color:t.muted,fontSize:10,whiteSpace:'nowrap',flexShrink:0}}>{fds(i.at)}</span>
+                  <span style={{fontSize:9,color:t.muted,flexShrink:0,transition:'transform .15s',transform:isOpen?'rotate(180deg)':'rotate(0)'}}>▼</span>
                 </div>
-                <div style={{color:t.dim}}>{linkify(i.text)}</div>
-              </div>)}
+                {isOpen&&<div style={{padding:'0 12px 10px',borderTop:`0.5px solid ${dark?'rgba(118,118,128,0.1)':'rgba(118,118,128,0.06)'}`}}>
+                  {i.text&&i.text.includes('<')?<div style={{color:t.dim,paddingTop:8,lineHeight:1.6}} dangerouslySetInnerHTML={{__html:i.text}}/>:<div style={{color:t.dim,paddingTop:8,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{linkify(i.text)}</div>}
+                  <div style={{display:'flex',justifyContent:'flex-end',marginTop:6}}>
+                    <span onClick={(e)=>{e.stopPropagation();if(confirm(tx.confirmDeleteInteraction)){deleteInteraction_(i.id);toast(tx.interactionDeleted,'info');}}} style={{cursor:'pointer',color:t.red,fontSize:10,opacity:.6}}>🗑</span>
+                  </div>
+                </div>}
+              </div>;})}
               {oInts.length===0&&<div style={{fontSize:12,color:t.muted,fontStyle:'italic',textAlign:'center',padding:12}}>{tx.noInteractionsYet}</div>}
             </div>
-          </div>}
-
-          {/* Notes tab */}
-          {detailTab==='notes'&&<div>
-            <textarea value={o.dealNotes||''} onChange={e=>updateOpp(o.id,{dealNotes:e.target.value,updatedAt:new Date().toISOString()})} placeholder={tx.addNote} style={{...inp,minHeight:120,resize:'vertical',fontSize:12}}/>
+            {/* Deal notes (rich text) */}
+            <div style={{marginTop:16}}>
+              <label style={{fontSize:12,fontWeight:600,color:t.dim,marginBottom:6,display:'block'}}>{tx.dealNotes}</label>
+              <RichNote t={t} value={o.dealNotes||''} onChange={v=>updateOpp(o.id,{dealNotes:v,updatedAt:new Date().toISOString()})} placeholder={tx.addNote}/>
+            </div>
           </div>}
         </div>
       </div></div>;
@@ -2104,10 +2151,21 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         {d?.id&&(()=>{const oInts=getInteractions('',d.id);return <div style={{marginBottom:12}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><label style={lbl}>{tx.interactions} ({oInts.length})</label></div>
           <div style={{display:'flex',gap:4,marginBottom:6}}>{INT_TYPES.map(it=><button key={it.id} onClick={()=>{setIntModal({contactId:f.contactId||(f.contactIds||[])[0]||'',oppId:d.id,type:it.id});setIntText('');}} style={{...btnG,padding:'4px 8px',fontSize:10}}>{it.ic} {it.l}</button>)}</div>
-          <div style={{maxHeight:200,overflowY:'auto'}}>{oInts.map(i=><div key={i.id} style={{padding:'6px 10px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple}`,fontSize:11,marginBottom:4}}>
-            <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontWeight:600}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}</span><div style={{display:'flex',alignItems:'center',gap:6}}><span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span><span onClick={()=>{if(confirm(tx.confirmDeleteInteraction)){deleteInteraction_(i.id);toast(tx.interactionDeleted,'info');}}} style={{cursor:'pointer',color:t.muted,fontSize:10,opacity:.5}}>✕</span></div></div>
-            <div style={{color:t.dim,marginTop:2}}>{linkify(i.text)}</div>
-          </div>)}</div>
+          <div style={{maxHeight:200,overflowY:'auto',display:'flex',flexDirection:'column',gap:2}}>{oInts.map(i=>{const intColor=i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple;const isOpen=expandedInts[i.id];const plainText=(i.text||'').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();return <div key={i.id} style={{borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${intColor}`,fontSize:11,overflow:'hidden'}}>
+            <div onClick={()=>toggleInt(i.id)} style={{display:'flex',alignItems:'center',padding:'5px 10px',cursor:'pointer',userSelect:'none',gap:4}}>
+              <span style={{fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{INT_TYPES.find(x=>x.id===i.type)?.ic}</span>
+              <span style={{fontWeight:600,whiteSpace:'nowrap',flexShrink:0,fontSize:10}}>{INT_TYPES.find(x=>x.id===i.type)?.l}</span>
+              <span style={{color:t.muted,fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,opacity:.5}}>{plainText.slice(0,40)}</span>
+              <span style={{color:t.muted,fontSize:9,whiteSpace:'nowrap',flexShrink:0}}>{fds(i.at)}</span>
+              <span style={{fontSize:8,color:t.muted,flexShrink:0,transform:isOpen?'rotate(180deg)':'rotate(0)'}}>▼</span>
+            </div>
+            {isOpen&&<div style={{padding:'0 10px 8px',borderTop:`0.5px solid ${dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.05)'}`}}>
+              {i.text&&i.text.includes('<')?<div style={{color:t.dim,paddingTop:6,lineHeight:1.5}} dangerouslySetInnerHTML={{__html:i.text}}/>:<div style={{color:t.dim,paddingTop:6,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{linkify(i.text)}</div>}
+              <div style={{display:'flex',justifyContent:'flex-end',marginTop:4}}>
+                <span onClick={(e)=>{e.stopPropagation();if(confirm(tx.confirmDeleteInteraction)){deleteInteraction_(i.id);toast(tx.interactionDeleted,'info');}}} style={{cursor:'pointer',color:t.red,fontSize:10,opacity:.6}}>✕</span>
+              </div>
+            </div>}
+          </div>;})}</div>
           {oInts.length===0&&<div style={{fontSize:11,color:t.muted,fontStyle:'italic'}}>{tx.noInteractionsYet}</div>}
         </div>;})()}
       </div>
@@ -2840,6 +2898,10 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
       @keyframes glow{0%,100%{box-shadow:0 0 12px ${t.accentS}}50%{box-shadow:0 0 28px ${t.accentS}}}
       button,a,[role="button"]{min-height:44px;min-width:44px}
+      [contenteditable]:empty:before{content:attr(data-placeholder);color:${t.muted};pointer-events:none}
+      [contenteditable] h3{font-size:15px;font-weight:700;margin:4px 0}
+      [contenteditable] ul,[contenteditable] ol{margin:4px 0;padding-left:20px}
+      [contenteditable] a{color:${t.accent};text-decoration:underline}
       button.sm,span[onClick]{min-height:32px;min-width:32px}
       input,select,textarea{min-height:44px;font-size:16px}
       .sb{position:fixed;left:0;top:0;bottom:0;width:240px;z-index:200;transition:transform .3s ${sp}}
@@ -3006,7 +3068,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
               </div>}
             </div>
             <div style={{marginBottom:12}}><label style={lbl}>Type</label><div style={{display:'flex',gap:4}}>{INT_TYPES.map(it=><button key={it.id} onClick={()=>setIntModal({...intModal,type:it.id})} style={{flex:1,padding:'6px',borderRadius:8,fontSize:12,fontWeight:600,border:`1.5px solid ${intModal.type===it.id?t.accent:'transparent'}`,background:intModal.type===it.id?t.accentS:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:intModal.type===it.id?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{it.ic} {it.l}</button>)}</div></div>
-            <div style={{marginBottom:12}}><label style={lbl}>{tx.description}</label><textarea style={{...inp,minHeight:100,resize:'vertical'}} value={intText} onChange={e=>setIntText(e.target.value)} placeholder={tx.descPlaceholder}/></div>
+            <div style={{marginBottom:12}}><label style={lbl}>{tx.description}</label><RichNote t={t} value={intText} onChange={v=>setIntText(v)} placeholder={tx.descPlaceholder}/></div>
             <div style={{marginBottom:12}}><label style={{...lbl,display:'flex',alignItems:'center',gap:6}}><input type="checkbox" checked={!!intModal.createTask} onChange={e=>setIntModal({...intModal,createTask:e.target.checked})}/> {tx.createFollowup}</label></div>
             {intModal.createTask&&<div style={{marginBottom:12,padding:'10px 14px',borderRadius:10,background:t.accentS,border:`0.5px solid ${t.accent}44`}}>
               <div style={{marginBottom:8}}><label style={lbl}>{tx.taskDesc}</label><input style={inp} value={intModal.taskTitle||''} onChange={e=>setIntModal({...intModal,taskTitle:e.target.value})} placeholder={tx.taskDescPlaceholder}/></div>
