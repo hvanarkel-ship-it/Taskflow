@@ -148,6 +148,9 @@ async function setup() {
     { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT false", v: '32' },
     // v32: auto-approve admin user
     { sql: "UPDATE users SET approved = true WHERE email = 'hvanarkel@gmail.com'", v: '32' },
+    // v33: password reset tokens
+    { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_hash TEXT DEFAULT NULL", v: '33' },
+    { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ DEFAULT NULL", v: '33' },
   ];
 
   let migrated = 0;
