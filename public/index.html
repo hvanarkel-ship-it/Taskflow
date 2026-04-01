@@ -864,6 +864,14 @@ const App = function(){
   const[intText,setIntText]=useState('');
   const[expandedInts,setExpandedInts]=useState({});
   const toggleInt=(id)=>setExpandedInts(p=>({...p,[id]:!p[id]}));
+  const noteTimerRef=useRef(null);
+  const debouncedNoteUpdate=useCallback((id,val)=>{
+    // Update local state immediately for responsiveness
+    setOpps(p=>p.map(x=>x.id===id?{...x,dealNotes:val}:x));
+    // Debounce server save (800ms after last keystroke)
+    if(noteTimerRef.current)clearTimeout(noteTimerRef.current);
+    noteTimerRef.current=setTimeout(()=>{serverUpdate('opportunities',{id,dealNotes:val}).catch(e=>showErr('updateNotes',e));},800);
+  },[]);
   const[reasonModal,setReasonModal]=useState(null); // {oppId,stage,reasons[],title}
 
   // ── FIX: track both type AND id so editing always re-initialises the form ──
@@ -1992,7 +2000,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             {/* Deal notes (rich text) */}
             <div style={{marginTop:16}}>
               <label style={{fontSize:12,fontWeight:600,color:t.dim,marginBottom:6,display:'block'}}>{tx.dealNotes}</label>
-              <RichNote t={t} value={o.dealNotes||''} onChange={v=>updateOpp(o.id,{dealNotes:v,updatedAt:new Date().toISOString()})} placeholder={tx.addNote}/>
+              <RichNote t={t} value={o.dealNotes||''} onChange={v=>debouncedNoteUpdate(o.id,v)} placeholder={tx.addNote}/>
             </div>
           </div>}
         </div>
