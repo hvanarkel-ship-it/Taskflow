@@ -191,6 +191,7 @@ const TX={
     totalDeals:'Totaal Deals',conversion:'Conversie',avgDealSize:'Gem. Dealgrootte',avgWon:'Gem. Gewonnen',pipelineValue:'Pipeline Waarde',lostDeals:'Verloren',
     salesFunnel:'Sales Funnel',convPerPhase:'Conversie per Fase',leadToWon:'Lead → Won Conversie',dealsWon:'deals gewonnen',pipePerPhase:'Pipeline Waarde per Fase',
     weightedShort:'gewogen',conversionPct:'conversie',
+    exportCSV:'Exporteer CSV',exportDealReport:'Deal Status Rapport',exportPipeline:'Pipeline Export',reportPeriod:'Periode',allTime:'Alle tijd',last30:'Laatste 30 dagen',last90:'Laatste 90 dagen',thisYear:'Dit jaar',dealOverview:'Deal Overzicht',stage:'Fase',company:'Bedrijf',contact:'Contact',value:'Waarde',probability:'Kans',closeDate:'Sluitdatum',reason:'Reden',daysInStage:'Dagen in fase',created:'Aangemaakt',winRate:'Win Rate',avgCycleTime:'Gem. Doorlooptijd',days:'dagen',topCompanies:'Top Bedrijven',byCompany:'per bedrijf',dealCount:'Aantal deals',wonValue:'Gewonnen waarde',lostValue:'Verloren waarde',reportGenerated:'Rapport gegenereerd',
     // Dashboard
     openPipeline:'Open Pipeline',weightedValue:'Gewogen Waarde',wonLabel:'Gewonnen',conversionLabel:'Conversie',activeDeals:'Actieve Deals',tasksToday:'Taken Vandaag',
     pipePerPhaseShort:'Pipeline per Fase',allGood:'Alles bij 👏',highPriority:'🔥 Hoge Prioriteit',
@@ -350,6 +351,7 @@ const TX={
     totalDeals:'Total Deals',conversion:'Conversion',avgDealSize:'Avg. Deal Size',avgWon:'Avg. Won',pipelineValue:'Pipeline Value',lostDeals:'Lost',
     salesFunnel:'Sales Funnel',convPerPhase:'Conversion per Phase',leadToWon:'Lead → Won Conversion',dealsWon:'deals won',pipePerPhase:'Pipeline Value per Phase',
     weightedShort:'weighted',conversionPct:'conversion',
+    exportCSV:'Export CSV',exportDealReport:'Deal Status Report',exportPipeline:'Pipeline Export',reportPeriod:'Period',allTime:'All time',last30:'Last 30 days',last90:'Last 90 days',thisYear:'This year',dealOverview:'Deal Overview',stage:'Stage',company:'Company',contact:'Contact',value:'Value',probability:'Probability',closeDate:'Close date',reason:'Reason',daysInStage:'Days in stage',created:'Created',winRate:'Win Rate',avgCycleTime:'Avg. Cycle Time',days:'days',topCompanies:'Top Companies',byCompany:'by company',dealCount:'Deal count',wonValue:'Won value',lostValue:'Lost value',reportGenerated:'Report generated',
     // Dashboard
     openPipeline:'Open Pipeline',weightedValue:'Weighted Value',wonLabel:'Won',conversionLabel:'Conversion',activeDeals:'Active Deals',tasksToday:'Tasks Today',
     pipePerPhaseShort:'Pipeline per Phase',allGood:'All clear 👏',highPriority:'🔥 High Priority',
@@ -1206,6 +1208,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       <div style={{display:'flex',gap:4,marginBottom:10,flexWrap:'wrap',alignItems:'center'}}>
         <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:4}}>{tx.filterPhase}:</span>
         {activeStages.map(s=><button key={s.id} onClick={()=>setFiltPhase(filtPhase===s.id?'':s.id)} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtPhase===s.id?s.c:'transparent'}`,background:filtPhase===s.id?`${s.c}20`:'transparent',color:filtPhase===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}
+        <span style={{fontSize:10,color:t.border,margin:'0 2px'}}>|</span>
+        {STAGES.filter(s=>s.id==='won'||s.id==='lost'||s.id==='dropped').map(s=><button key={s.id} onClick={()=>setFiltPhase(filtPhase===s.id?'':s.id)} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtPhase===s.id?s.c:'transparent'}`,background:filtPhase===s.id?`${s.c}20`:'transparent',color:filtPhase===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}
       </div>
       <div style={{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
         <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:4}}>{tx.filterClose}:</span>
@@ -2186,88 +2190,219 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     </div>;
   };
 
+  const[reportPeriod,setReportPeriod]=useState('all');
+  const[reportStageFilter,setReportStageFilter]=useState('');
+  const[reportTab,setReportTab]=useState('overview');
+
+  const csvDownload=(filename,headers,rows)=>{
+    const esc=v=>{const s=String(v??'');return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;};
+    const csv=[headers.join(','),...rows.map(r=>r.map(esc).join(','))].join('\n');
+    const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);
+    toast(tx.reportGenerated);
+  };
+
   const renderReports=()=>{
-    const funnelStages=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost'&&s.id!=='dropped');
-    const funnelData=funnelStages.map(s=>{const st=opps.filter(o=>o.stage===s.id);return{...s,count:st.length,val:st.reduce((sum,o)=>sum+(o.value||0),0),weighted:st.reduce((sum,o)=>sum+((o.value||0)*(o.probability||0)/100),0)};});
-    const maxCount=Math.max(...funnelData.map(d=>d.count),1);
-    const totalAll=opps.length||1;
-    const convRate=opps.length?Math.round(wonOpps.length/opps.length*100):0;
-    const avgDealSize=activeOpps.length?Math.round(totalPipeline/activeOpps.length):0;
-    const avgWon=wonOpps.length?Math.round(wonRevenue/wonOpps.length):0;
-    const fW=funnelData.map((d,i)=>{const base=90-i*12;return Math.max(base*(d.count/maxCount),20);});
+    const now=new Date();const cutoff=reportPeriod==='30'?new Date(now-30*864e5):reportPeriod==='90'?new Date(now-90*864e5):reportPeriod==='year'?new Date(now.getFullYear(),0,1):null;
+    const rOpps=cutoff?opps.filter(o=>new Date(o.createdAt||o.updatedAt)>=cutoff):opps;
+    const rActive=rOpps.filter(o=>o.stage!=='won'&&o.stage!=='lost'&&o.stage!=='dropped');
+    const rWon=rOpps.filter(o=>o.stage==='won');const rLost=rOpps.filter(o=>o.stage==='lost');
+    const rPipeline=rActive.reduce((s,o)=>s+(o.value||0),0);
+    const rWonVal=rWon.reduce((s,o)=>s+(o.value||0),0);
+    const rLostVal=rLost.reduce((s,o)=>s+(o.value||0),0);
+    const convRate=rOpps.length?Math.round(rWon.length/rOpps.length*100):0;
+    const avgDealSize=rActive.length?Math.round(rPipeline/rActive.length):0;
+    const avgWon=rWon.length?Math.round(rWonVal/rWon.length):0;
+    const avgCycle=rWon.length?Math.round(rWon.reduce((s,o)=>{const c=new Date(o.closedAt||o.updatedAt)-new Date(o.createdAt||o.updatedAt);return s+c/(864e5);},0)/rWon.length):0;
+    const stageData=STAGES.map(s=>{const st=rOpps.filter(o=>o.stage===s.id);return{...s,count:st.length,val:st.reduce((sum,o)=>sum+(o.value||0),0),weighted:st.reduce((sum,o)=>sum+((o.value||0)*(o.probability||0)/100),0)};});
+    const activeStageData=stageData.filter(s=>s.id!=='won'&&s.id!=='lost'&&s.id!=='dropped');
+    const maxVal=Math.max(...activeStageData.map(d=>d.val),1);
+    const filtDeals=reportStageFilter?rOpps.filter(o=>o.stage===reportStageFilter):rOpps;
+
+    // Company analysis
+    const companyMap={};rOpps.forEach(o=>{const cid=o.companyId;if(!cid)return;if(!companyMap[cid])companyMap[cid]={id:cid,name:compName(cid)||'—',deals:0,won:0,lost:0,wonVal:0,lostVal:0,activeVal:0};companyMap[cid].deals++;if(o.stage==='won'){companyMap[cid].won++;companyMap[cid].wonVal+=(o.value||0);}else if(o.stage==='lost'){companyMap[cid].lost++;companyMap[cid].lostVal+=(o.value||0);}else if(o.stage!=='dropped'){companyMap[cid].activeVal+=(o.value||0);}});
+    const topCompanies=Object.values(companyMap).sort((a,b)=>(b.wonVal+b.activeVal)-(a.wonVal+a.activeVal)).slice(0,10);
+
+    // Export: comprehensive deal status report CSV
+    const exportDealReport=()=>{
+      const stageName=id=>{const s=STAGES.find(x=>x.id===id);return s?(s.l[lang]||s.l.nl):id;};
+      const headers=[tx.dealOverview,tx.company,tx.contact,tx.stage,tx.value,tx.probability+'%',tx.closeDate,tx.reason,tx.daysInStage,tx.created];
+      const rows=filtDeals.map(o=>{
+        const daysSt=o.stageChangedAt?Math.round((Date.now()-new Date(o.stageChangedAt).getTime())/864e5):'-';
+        return[o.title,compName(o.companyId)||'',oppWho(o),stageName(o.stage),o.value||0,(o.probability||0)+'%',o.expectedCloseDate||'',o.closedReason?(tx[o.closedReason]||o.closedReason):'',daysSt,o.createdAt?(o.createdAt).slice(0,10):''];
+      });
+      csvDownload(`deal-status-report-${new Date().toISOString().slice(0,10)}.csv`,headers,rows);
+    };
+
+    // Export: pipeline summary CSV
+    const exportPipelineSummary=()=>{
+      const stageName=id=>{const s=STAGES.find(x=>x.id===id);return s?(s.l[lang]||s.l.nl):id;};
+      const headers=[tx.stage,tx.dealCount,tx.value,tx.weightedShort];
+      const rows=stageData.map(d=>[d.l[lang]||d.l.nl,d.count,d.val,Math.round(d.weighted)]);
+      rows.push(['','','','']);
+      rows.push([tx.winRate,'',convRate+'%','']);
+      rows.push([tx.avgCycleTime,'',avgCycle+' '+tx.days,'']);
+      rows.push([tx.avgDealSize,'',avgDealSize,'']);
+      csvDownload(`pipeline-summary-${new Date().toISOString().slice(0,10)}.csv`,headers,rows);
+    };
+
+    const periodBtns=[{id:'all',l:tx.allTime},{id:'30',l:tx.last30},{id:'90',l:tx.last90},{id:'year',l:tx.thisYear}];
+    const tabs=[{id:'overview',l:tx.reports},{id:'deals',l:tx.dealOverview},{id:'companies',l:tx.topCompanies}];
+
     return <div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:24}}>
-        {[{l:tx.totalDeals,v:opps.length,c:t.text},{l:tx.conversion,v:convRate+'%',c:t.green},{l:tx.avgDealSize,v:eur(avgDealSize),c:t.accent},{l:tx.avgWon,v:eur(avgWon),c:t.green},{l:tx.pipelineValue,v:eur(totalPipeline),c:t.purple},{l:tx.lostDeals,v:opps.filter(o=>o.stage==='lost').length,c:t.red}].map((s,i)=><div key={i} style={card}><div style={lbl}>{s.l}</div><div style={{fontSize:22,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:24}}>
-        <div style={card}>
-          <div style={{fontSize:16,fontWeight:700,marginBottom:20}}>{tx.salesFunnel}</div>
-          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-            {funnelData.map((d,i)=>{const w=fW[i];return <div key={d.id} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
-              <div style={{width:`${w}%`,background:`linear-gradient(135deg,${d.c}cc,${d.c}88)`,borderRadius:i===0?'12px 12px 4px 4px':i===funnelData.length-1?'4px 4px 12px 12px':'4px',padding:'14px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',minHeight:52,transition:`all 0.4s ${sp}`}}>
-                <div>
-                  <div style={{fontSize:13,fontWeight:700,color:'#fff'}}>{d.l[lang]||d.l.nl}</div>
-                  <div style={{fontSize:11,color:'rgba(255,255,255,0.7)'}}>{d.count} deal{d.count!==1?'s':''}</div>
-                </div>
-                <div style={{textAlign:'right'}}>
-                  <div style={{fontSize:15,fontWeight:700,color:'#fff'}}>{eur(d.val)}</div>
-                  <div style={{fontSize:10,color:'rgba(255,255,255,0.6)'}}>{tx.weightedShort} {eur(Math.round(d.weighted))}</div>
-                </div>
-              </div>
-              {i<funnelData.length-1&&<div style={{position:'absolute',bottom:-6,fontSize:10,color:t.muted,zIndex:1}}>
-                {funnelData[i+1].count>0&&d.count>0?Math.round(funnelData[i+1].count/d.count*100)+'%':'—'}
-              </div>}
-            </div>;})}
-          </div>
-          <div style={{display:'flex',justifyContent:'center',gap:16,marginTop:20}}>
-            <div style={{textAlign:'center'}}><div style={{fontSize:20,fontWeight:700,color:t.green}}>🏆 {wonOpps.length}</div><div style={{fontSize:11,color:t.dim}}>{tx.wonLabel}</div></div>
-            <div style={{textAlign:'center'}}><div style={{fontSize:20,fontWeight:700,color:t.red}}>✕ {opps.filter(o=>o.stage==='lost').length}</div><div style={{fontSize:11,color:t.dim}}>{tx.lostDeals}</div></div>
-          </div>
+      {/* Period filter + export buttons */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8,marginBottom:16}}>
+        <div style={{display:'flex',gap:4,alignItems:'center'}}>
+          <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:4}}>{tx.reportPeriod}:</span>
+          {periodBtns.map(p=><button key={p.id} onClick={()=>setReportPeriod(p.id)} style={{padding:'4px 12px',borderRadius:20,fontSize:11,fontWeight:600,border:`1.5px solid ${reportPeriod===p.id?t.accent:'transparent'}`,background:reportPeriod===p.id?t.accentS:'transparent',color:reportPeriod===p.id?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{p.l}</button>)}
         </div>
-        <div style={card}>
-          <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>{tx.convPerPhase}</div>
-          <div style={{display:'flex',flexDirection:'column',gap:8}}>
-            {funnelData.map((d,i)=>{const pct=d.count>0?Math.round(d.count/totalAll*100):0;return <div key={d.id}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-                <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:8,height:8,borderRadius:'50%',background:d.c}}/><span style={{fontSize:13,fontWeight:600}}>{d.l[lang]||d.l.nl}</span></div>
-                <div style={{display:'flex',gap:12,alignItems:'center'}}><span style={{fontSize:12,color:t.dim}}>{d.count} deals</span><span style={{fontSize:13,fontWeight:700}}>{eur(d.val)}</span></div>
-              </div>
-              <div style={{height:6,background:t.elev,borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',background:d.c,width:`${pct}%`,borderRadius:3,transition:`width 0.5s ${sp}`}}/></div>
-              {i<funnelData.length-1&&funnelData[i+1].count>0&&d.count>0&&<div style={{fontSize:10,color:t.muted,textAlign:'right',marginTop:2}}>↓ {Math.round(funnelData[i+1].count/d.count*100)}% {tx.conversionPct}</div>}
-            </div>;})}
-          </div>
-          <div style={{marginTop:20,padding:'14px 16px',borderRadius:10,background:t.greenS,border:`0.5px solid ${t.green}33`}}>
-            <div style={{fontSize:13,fontWeight:700,color:t.green,marginBottom:4}}>{tx.leadToWon}</div>
-            <div style={{fontSize:28,fontWeight:800,color:t.green}}>{convRate}%</div>
-            <div style={{fontSize:11,color:t.dim,marginTop:2}}>{wonOpps.length} / {opps.length} {tx.dealsWon}</div>
-          </div>
+        <div style={{display:'flex',gap:6}}>
+          <button onClick={exportDealReport} style={{padding:'6px 14px',borderRadius:8,border:`1px solid ${t.border}`,background:'none',color:t.dim,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>📄 {tx.exportDealReport}</button>
+          <button onClick={exportPipelineSummary} style={{padding:'6px 14px',borderRadius:8,border:`1px solid ${t.border}`,background:'none',color:t.dim,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>📊 {tx.exportPipeline}</button>
         </div>
       </div>
-      <div style={card}>
-        <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>{tx.pipePerPhase}</div>
-        <svg viewBox={`0 0 ${Math.max(30+funnelData.length*110,300)} 160`} style={{width:'100%'}}>
-          {funnelData.map((d,i)=>{const bw=60,gap=110,x=30+i*gap,maxV=Math.max(...funnelData.map(s=>s.val),1),h=(d.val/maxV)*110;return <g key={i}>
-            <rect x={x} y={130-h} width={bw} height={h} rx={8} fill={d.c} opacity={.8}/>
-            <text x={x+bw/2} y={145} textAnchor="middle" fontSize="10" fill={t.muted} fontFamily="Outfit,system-ui">{(d.l[lang]||d.l.nl).slice(0,8)}</text>
-            <text x={x+bw/2} y={123-h} textAnchor="middle" fontSize="10" fill={t.dim} fontWeight="600" fontFamily="Outfit,system-ui">{eur(d.val)}</text>
-          </g>;})}
-          <line x1="28" y1="130" x2={Math.max(30+funnelData.length*110-20,280)} y2="130" stroke={t.border} strokeWidth=".5"/>
-        </svg>
+
+      {/* KPI cards */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:10,marginBottom:20}}>
+        {[
+          {l:tx.totalDeals,v:rOpps.length,c:t.text},
+          {l:tx.winRate,v:convRate+'%',c:t.green},
+          {l:tx.avgCycleTime,v:avgCycle+' '+tx.days,c:t.accent},
+          {l:tx.avgDealSize,v:eur(avgDealSize),c:t.purple},
+          {l:tx.avgWon,v:eur(avgWon),c:t.green},
+          {l:tx.pipelineValue,v:eur(rPipeline),c:t.accent},
+          {l:tx.wonLabel,v:eur(rWonVal)+' ('+rWon.length+')',c:t.green},
+          {l:tx.lostDeals,v:eur(rLostVal)+' ('+rLost.length+')',c:t.red},
+        ].map((s,i)=><div key={i} style={{...card,padding:'14px 16px'}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase',fontWeight:600,marginBottom:4}}>{s.l}</div><div style={{fontSize:20,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
       </div>
-      <div style={{...card,marginTop:16}}>
-        <div style={{fontSize:16,fontWeight:700,marginBottom:12}}>{tx.lostReengagement}</div>
-        {(()=>{const lostDeals=opps.filter(o=>o.stage==='lost').sort((a,b)=>new Date(b.closedAt||b.updatedAt)-new Date(a.closedAt||a.updatedAt));
-          return lostDeals.length===0?<div style={{color:t.muted,fontSize:12,textAlign:'center',padding:12}}>{tx.noData}</div>:
-          <div style={{display:'flex',flexDirection:'column',gap:6}}>
-            {lostDeals.slice(0,10).map(o=>{const months=Math.round((Date.now()-new Date(o.closedAt||o.updatedAt).getTime())/(1000*60*60*24*30));return <div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{padding:'10px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',cursor:'pointer',display:'flex',alignItems:'center',gap:12}}>
-              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div>
-                <div style={{fontSize:11,color:t.dim}}>{compName(o.companyId)}{o.closedReason&&' · '+(tx[o.closedReason]||o.closedReason)}</div></div>
-              <div style={{textAlign:'right'}}><div style={{fontWeight:700,fontSize:13}}>{eur(o.value||0)}</div>
-                <div style={{fontSize:10,color:months>=3?t.green:t.muted}}>{months} {tx.monthsAgo}</div></div>
-            </div>;})}
-          </div>;
-        })()}
+
+      {/* Tab bar */}
+      <div style={{display:'flex',gap:0,borderBottom:`1px solid ${t.border}`,marginBottom:16}}>
+        {tabs.map(tab=><button key={tab.id} onClick={()=>setReportTab(tab.id)} style={{padding:'10px 18px',fontSize:13,fontWeight:reportTab===tab.id?700:500,color:reportTab===tab.id?t.accent:t.dim,background:'none',border:'none',borderBottom:`2px solid ${reportTab===tab.id?t.accent:'transparent'}`,cursor:'pointer',fontFamily:'inherit'}}>{tab.l}</button>)}
       </div>
+
+      {/* Overview tab */}
+      {reportTab==='overview'&&<div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+          {/* Pipeline per phase - horizontal bars */}
+          <div style={card}>
+            <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>{tx.pipePerPhase}</div>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {activeStageData.map(d=>{const pct=d.val>0?Math.max(d.val/maxVal*100,4):0;return <div key={d.id} onClick={()=>{setReportStageFilter(reportStageFilter===d.id?'':d.id);setReportTab('deals');}} style={{cursor:'pointer'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:3}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:14}}>{d.ic}</span><span style={{fontSize:13,fontWeight:600}}>{d.l[lang]||d.l.nl}</span><span style={{fontSize:11,color:t.muted}}>({d.count})</span></div>
+                  <span style={{fontSize:13,fontWeight:700}}>{eur(d.val)}</span>
+                </div>
+                <div style={{height:8,background:t.elev,borderRadius:4,overflow:'hidden'}}><div style={{height:'100%',background:`linear-gradient(90deg,${d.c},${d.c}aa)`,width:`${pct}%`,borderRadius:4,transition:`width 0.5s ${sp}`}}/></div>
+                <div style={{fontSize:10,color:t.muted,marginTop:2}}>{tx.weightedShort}: {eur(Math.round(d.weighted))}</div>
+              </div>;})}
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',marginTop:16,padding:'12px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)'}}>
+              <div style={{textAlign:'center'}}><div style={{fontSize:18,fontWeight:700,color:t.green}}>🏆 {rWon.length}</div><div style={{fontSize:10,color:t.dim}}>{eur(rWonVal)}</div></div>
+              <div style={{textAlign:'center'}}><div style={{fontSize:18,fontWeight:700,color:t.red}}>✕ {rLost.length}</div><div style={{fontSize:10,color:t.dim}}>{eur(rLostVal)}</div></div>
+              <div style={{textAlign:'center'}}><div style={{fontSize:18,fontWeight:700,color:t.muted}}>⏸ {rOpps.filter(o=>o.stage==='dropped').length}</div><div style={{fontSize:10,color:t.dim}}>{eur(rOpps.filter(o=>o.stage==='dropped').reduce((s,o)=>s+(o.value||0),0))}</div></div>
+            </div>
+          </div>
+          {/* Conversion per phase */}
+          <div style={card}>
+            <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>{tx.convPerPhase}</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {activeStageData.map((d,i)=>{const pct=d.count>0?Math.round(d.count/(rOpps.length||1)*100):0;return <div key={d.id}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:8,height:8,borderRadius:'50%',background:d.c}}/><span style={{fontSize:13,fontWeight:600}}>{d.l[lang]||d.l.nl}</span></div>
+                  <div style={{display:'flex',gap:12,alignItems:'center'}}><span style={{fontSize:12,color:t.dim}}>{d.count} deals</span><span style={{fontSize:13,fontWeight:700}}>{eur(d.val)}</span></div>
+                </div>
+                <div style={{height:6,background:t.elev,borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',background:d.c,width:`${pct}%`,borderRadius:3,transition:`width 0.5s ${sp}`}}/></div>
+                {i<activeStageData.length-1&&activeStageData[i+1].count>0&&d.count>0&&<div style={{fontSize:10,color:t.muted,textAlign:'right',marginTop:2}}>↓ {Math.round(activeStageData[i+1].count/d.count*100)}% {tx.conversionPct}</div>}
+              </div>;})}
+            </div>
+            <div style={{marginTop:20,padding:'14px 16px',borderRadius:10,background:t.greenS,border:`0.5px solid ${t.green}33`}}>
+              <div style={{fontSize:13,fontWeight:700,color:t.green,marginBottom:4}}>{tx.leadToWon}</div>
+              <div style={{fontSize:28,fontWeight:800,color:t.green}}>{convRate}%</div>
+              <div style={{fontSize:11,color:t.dim,marginTop:2}}>{rWon.length} / {rOpps.length} {tx.dealsWon}</div>
+            </div>
+          </div>
+        </div>
+        {/* Lost deals re-engagement */}
+        <div style={{...card,marginTop:0}}>
+          <div style={{fontSize:16,fontWeight:700,marginBottom:12}}>{tx.lostReengagement}</div>
+          {(()=>{const lostDeals=rLost.sort((a,b)=>new Date(b.closedAt||b.updatedAt)-new Date(a.closedAt||a.updatedAt));
+            return lostDeals.length===0?<div style={{color:t.muted,fontSize:12,textAlign:'center',padding:12}}>{tx.noData}</div>:
+            <div style={{display:'flex',flexDirection:'column',gap:6}}>
+              {lostDeals.slice(0,10).map(o=>{const months=Math.round((Date.now()-new Date(o.closedAt||o.updatedAt).getTime())/(864e5*30));return <div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{padding:'10px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',cursor:'pointer',display:'flex',alignItems:'center',gap:12}}>
+                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{o.title}</div>
+                  <div style={{fontSize:11,color:t.dim}}>{compName(o.companyId)}{o.closedReason&&' · '+(tx[o.closedReason]||o.closedReason)}</div></div>
+                <div style={{textAlign:'right'}}><div style={{fontWeight:700,fontSize:13}}>{eur(o.value||0)}</div>
+                  <div style={{fontSize:10,color:months>=3?t.green:t.muted}}>{months} {tx.monthsAgo}</div></div>
+              </div>;})}
+            </div>;
+          })()}
+        </div>
+      </div>}
+
+      {/* Deals tab - interactive deal table */}
+      {reportTab==='deals'&&<div>
+        <div style={{display:'flex',gap:4,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
+          <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:4}}>{tx.filterPhase}:</span>
+          <button onClick={()=>setReportStageFilter('')} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${!reportStageFilter?t.accent:'transparent'}`,background:!reportStageFilter?t.accentS:'transparent',color:!reportStageFilter?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{tx.allTime}</button>
+          {STAGES.map(s=><button key={s.id} onClick={()=>setReportStageFilter(reportStageFilter===s.id?'':s.id)} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${reportStageFilter===s.id?s.c:'transparent'}`,background:reportStageFilter===s.id?`${s.c}20`:'transparent',color:reportStageFilter===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}
+        </div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+          <span style={{fontSize:12,color:t.muted}}>{filtDeals.length} deals — {eur(filtDeals.reduce((s,o)=>s+(o.value||0),0))}</span>
+          <button onClick={exportDealReport} style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${t.border}`,background:'none',color:t.dim,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>📄 {tx.exportCSV}</button>
+        </div>
+        <div style={{borderRadius:12,overflow:'hidden',border:`0.5px solid ${t.border}`}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+            <thead><tr style={{background:dark?'rgba(118,118,128,0.1)':'rgba(118,118,128,0.05)'}}>
+              {[tx.dealOverview,tx.company,tx.stage,tx.value,tx.probability,tx.closeDate,tx.daysInStage].map((h,i)=><th key={i} style={{padding:'10px 12px',textAlign:i>=3?'right':'left',fontWeight:600,color:t.muted,fontSize:10,textTransform:'uppercase',letterSpacing:.5}}>{h}</th>)}
+            </tr></thead>
+            <tbody>{filtDeals.sort((a,b)=>(b.value||0)-(a.value||0)).map(o=>{
+              const stg=STAGES.find(s=>s.id===o.stage)||STAGES[0];
+              const daysSt=o.stageChangedAt?Math.round((Date.now()-new Date(o.stageChangedAt).getTime())/864e5):'-';
+              return <tr key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{cursor:'pointer',borderTop:`0.5px solid ${t.border}`}}>
+                <td style={{padding:'10px 12px'}}><div style={{fontWeight:600}}>{o.title}</div><div style={{fontSize:10,color:t.dim}}>{oppWho(o)}</div></td>
+                <td style={{padding:'10px 12px',color:t.dim}}>{compName(o.companyId)||'—'}</td>
+                <td style={{padding:'10px 12px'}}><span style={{padding:'2px 8px',borderRadius:6,fontSize:10,fontWeight:600,background:`${stg.c}20`,color:stg.c}}>{stg.ic} {stg.l[lang]}</span></td>
+                <td style={{padding:'10px 12px',textAlign:'right',fontWeight:700}}>{eur(o.value||0)}</td>
+                <td style={{padding:'10px 12px',textAlign:'right',color:t.dim}}>{o.probability||0}%</td>
+                <td style={{padding:'10px 12px',textAlign:'right',color:o.expectedCloseDate&&o.expectedCloseDate<td()?t.red:t.dim,fontSize:11}}>{o.expectedCloseDate||'—'}</td>
+                <td style={{padding:'10px 12px',textAlign:'right',color:typeof daysSt==='number'&&daysSt>14?t.red:t.dim}}>{daysSt}</td>
+              </tr>;})}
+            </tbody>
+          </table>
+        </div>
+      </div>}
+
+      {/* Companies tab */}
+      {reportTab==='companies'&&<div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{fontSize:16,fontWeight:700}}>{tx.topCompanies}</div>
+          <button onClick={()=>{
+            const headers=[tx.company,tx.dealCount,tx.wonValue,tx.lostValue,tx.pipelineValue,tx.winRate];
+            const rows=topCompanies.map(c=>[c.name,c.deals,c.wonVal,c.lostVal,c.activeVal,c.deals?(Math.round(c.won/c.deals*100))+'%':'0%']);
+            csvDownload(`company-report-${new Date().toISOString().slice(0,10)}.csv`,headers,rows);
+          }} style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${t.border}`,background:'none',color:t.dim,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>📄 {tx.exportCSV}</button>
+        </div>
+        {topCompanies.length===0?<div style={{color:t.muted,fontSize:12,textAlign:'center',padding:20}}>{tx.noData}</div>:
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {topCompanies.map(c=>{const total=c.wonVal+c.lostVal+c.activeVal;const wr=c.deals?Math.round(c.won/c.deals*100):0;return <div key={c.id} onClick={()=>setDetail({type:'company',id:c.id})} style={{...card,padding:'14px 16px',cursor:'pointer',display:'flex',alignItems:'center',gap:14}}>
+            <div style={{width:42,height:42,borderRadius:10,background:`linear-gradient(135deg,${t.accent},${t.purple})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:'#fff',flexShrink:0}}>{c.name.charAt(0)}</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{c.name}</div>
+              <div style={{fontSize:11,color:t.dim}}>{c.deals} deals · {tx.winRate}: {wr}%</div>
+              <div style={{display:'flex',gap:8,marginTop:4,fontSize:11}}>
+                {c.wonVal>0&&<span style={{color:t.green}}>🏆 {eur(c.wonVal)}</span>}
+                {c.activeVal>0&&<span style={{color:t.accent}}>📊 {eur(c.activeVal)}</span>}
+                {c.lostVal>0&&<span style={{color:t.red}}>✕ {eur(c.lostVal)}</span>}
+              </div>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <div style={{fontSize:18,fontWeight:700,color:t.accent}}>{eur(total)}</div>
+              <div style={{fontSize:10,color:t.muted}}>{tx.value}</div>
+            </div>
+          </div>;})}
+        </div>}
+      </div>}
     </div>;
   };
 
