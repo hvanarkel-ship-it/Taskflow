@@ -142,6 +142,8 @@ async function setup() {
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS salesforce_url TEXT DEFAULT ''", v: '30' },
     // v31: atos contacts linked to deals (internal colleagues)
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS atos_contact_ids JSONB DEFAULT '[]'", v: '31' },
+    // v31: client folder URL on deals
+    { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS folder_url TEXT DEFAULT ''", v: '31' },
     // v32: user approval system — new users must be approved by admin
     { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT false", v: '32' },
     // v32: auto-approve admin user
