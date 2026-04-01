@@ -657,12 +657,13 @@ const App = function(){
   const[dataSource,setDataSource]=useState('local');
 
   // Save to localStorage as cache (for faster initial render before Neon loads)
-  useEffect(()=>{LS.set('contacts',contacts);},[contacts]);
-  useEffect(()=>{LS.set('companies',companies);},[companies]);
-  useEffect(()=>{LS.set('opps',opps);},[opps]);
-  useEffect(()=>{LS.set('tasks',tasks);},[tasks]);
-  useEffect(()=>{LS.set('atos',atosTeam);},[atosTeam]);
-  useEffect(()=>{LS.set('interactions',interactions);},[interactions]);
+  // Only sync to localStorage AFTER Neon data has loaded (prevents overwriting good cache with empty/partial data)
+  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('contacts',contacts);},[contacts]);
+  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('companies',companies);},[companies]);
+  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('opps',opps);},[opps]);
+  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('tasks',tasks);},[tasks]);
+  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('atos',atosTeam);},[atosTeam]);
+  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('interactions',interactions);},[interactions]);
 
   // ── Load data from Neon on login ──
   const neonLoaded=useRef(false);
@@ -712,6 +713,69 @@ const App = function(){
     };
     load();
   },[authUser]);
+
+  // Force reload all data from server (used for data recovery)
+  const forceReloadFromServer=useCallback(async()=>{
+    if(!authUser?.token)return;
+    const headers={'Authorization':'Bearer '+authUser.token};
+    try{
+      toast(lang==='nl'?'Data herladen van server...':'Reloading data from server...');
+      const resps=await Promise.all([
+        fetch('/api/companies',{headers,signal:AbortSignal.timeout(15000)}),
+        fetch('/api/contacts',{headers,signal:AbortSignal.timeout(15000)}),
+        fetch('/api/opportunities',{headers,signal:AbortSignal.timeout(15000)}),
+        fetch('/api/tasks',{headers,signal:AbortSignal.timeout(15000)}),
+        fetch('/api/atos',{headers,signal:AbortSignal.timeout(15000)}),
+        fetch('/api/interactions',{headers,signal:AbortSignal.timeout(15000)}),
+      ]);
+      if(resps.some(r=>r.status===401||r.status===403)){toast(lang==='nl'?'Sessie verlopen':'Session expired','info');return;}
+      const[cos,cts,ops,tks,ats,ints]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
+      const cc=camelArr(cos.companies||[]);const ct=camelArr(cts.contacts||[]);
+      const op=camelArr(ops.opportunities||[]).map(o=>({...o,techTags:o.techTags||[],contactIds:o.contactIds||[],atosContactIds:o.atosContactIds||[],notes:o.notes||[],expectedCloseDate:o.expectedCloseDate?o.expectedCloseDate.slice(0,10):o.expectedCloseDate}));
+      const tk=camelArr(tks.tasks||[]).map(t=>({...t,dueDate:t.dueDate?t.dueDate.slice(0,10):t.dueDate}));
+      const at=camelArr(ats.team||[]);const it=camelArr(ints.interactions||[]).map(i=>({...i,at:i.at||i.createdAt}));
+      setCompanies(cc);setContacts(ct);setOpps(op);setTasks(tk);setAtosTeam(at);setInteractions(it);
+      neonLoaded.current=true;setDataSource('neon');
+      toast(lang==='nl'?`Geladen: ${cc.length} bedrijven, ${ct.length} contacten, ${op.length} deals, ${tk.length} taken`:`Loaded: ${cc.length} companies, ${ct.length} contacts, ${op.length} deals, ${tk.length} tasks`);
+    }catch(e){console.error('Force reload error:',e);toast(lang==='nl'?'Herladen mislukt':'Reload failed','info');}
+  },[authUser,lang]);
+
+  // Restore from local backup (pf_backup or pf_backup_pre_update) — pushes to server
+  const restoreFromLocalBackup=useCallback(async()=>{
+    try{
+      const bk1=localStorage.getItem('pf_backup_pre_update');
+      const bk2=localStorage.getItem('pf_backup');
+      const backups=[];
+      if(bk1)try{backups.push({src:'pre-update',data:JSON.parse(bk1)});}catch{}
+      if(bk2)try{backups.push({src:'auto-backup',data:JSON.parse(bk2)});}catch{}
+      if(backups.length===0){toast(lang==='nl'?'Geen lokale backup gevonden':'No local backup found','info');return;}
+      // Pick the backup with the most data
+      const best=backups.sort((a,b)=>{
+        const countA=(a.data.opps?.length||0)+(a.data.contacts?.length||0)+(a.data.companies?.length||0);
+        const countB=(b.data.opps?.length||0)+(b.data.contacts?.length||0)+(b.data.companies?.length||0);
+        return countB-countA;
+      })[0];
+      const b=best.data;
+      const oc=(b.opps?.length||0);const cc=(b.contacts?.length||0);const coc=(b.companies?.length||0);const tc=(b.tasks?.length||0);
+      const loc=lang==='nl'?'nl-NL':'en-US';const ts=b.ts?new Date(b.ts).toLocaleString(loc):'?';
+      if(!confirm(lang==='nl'?`Lokale backup gevonden (${best.src}) van ${ts}:\n${coc} bedrijven, ${cc} contacten, ${oc} deals, ${tc} taken\n\nWilt u deze terugzetten naar de server? Dit vervangt alle huidige data.`:`Local backup found (${best.src}) from ${ts}:\n${coc} companies, ${cc} contacts, ${oc} deals, ${tc} tasks\n\nRestore to server? This replaces all current data.`))return;
+      // Convert camelCase back to snake_case for server
+      const toSnakeArr=arr=>(arr||[]).map(x=>snakeObj(x));
+      if(authUser?.token){
+        const backup={companies:toSnakeArr(b.companies),contacts:toSnakeArr(b.contacts),opportunities:toSnakeArr(b.opps),tasks:toSnakeArr(b.tasks),atos_team:toSnakeArr(b.atosTeam||b.atos),interactions:toSnakeArr(b.interactions)};
+        const resp=await fetch('/api/backup',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({backup,force:true})});
+        if(!resp.ok){toast(lang==='nl'?'Restore mislukt':'Restore failed','info');return;}
+      }
+      // Update local state
+      if(b.contacts)setContacts(b.contacts);if(b.companies)setCompanies(b.companies);
+      if(b.opps)setOpps(b.opps);if(b.tasks)setTasks(b.tasks);
+      if(b.atosTeam||b.atos)setAtosTeam(b.atosTeam||b.atos);
+      if(b.interactions)setInteractions(b.interactions);
+      neonLoaded.current=true;
+      toast(lang==='nl'?'Data hersteld van lokale backup':'Data restored from local backup');
+    }catch(e){console.error('Restore error:',e);toast(lang==='nl'?'Restore mislukt':'Restore failed','info');}
+  },[authUser,lang]);
+
   const[filtCompany,setFiltCompany]=useState('');
   const[filtContact,setFiltContact]=useState('');
   const[filtTech,setFiltTech]=useState('');
@@ -795,6 +859,8 @@ const App = function(){
 
   const backupTimer=useRef(null);
   useEffect(()=>{
+    // Don't overwrite backup until Neon data is loaded (prevents destroying good backup with partial data)
+    if(authUser?.token&&!neonLoaded.current)return;
     if(backupTimer.current)clearTimeout(backupTimer.current);
     backupTimer.current=setTimeout(()=>{
       try{localStorage.setItem('pf_backup',JSON.stringify({...dataRef.current,ts:new Date().toISOString(),v:APP_VERSION}));}catch{}
@@ -974,7 +1040,7 @@ const App = function(){
         // Restore to Neon if connected
         if(dbStatus==='connected'&&authUser?.token){
           const backup={companies:cos,contacts:cts,opportunities:ops,tasks:tks,atos_team:ats,interactions:ints};
-          await fetch('/api/backup',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({backup})}).catch(()=>{});
+          await fetch('/api/backup',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({backup,force:true})}).catch(()=>{});
         }
         // Restore to local state (convert snake_case to camelCase if needed)
         const toCamelArr=arr=>arr.map(x=>x.company_id!==undefined||x.contact_id!==undefined||x.user_id!==undefined?camelObj(x):x);
@@ -2792,6 +2858,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             <div onClick={()=>{const nl=lang==='nl'?'en':'nl';setLang(nl);LS.set('lang',nl);}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🌐 {lang==='nl'?'English':'Nederlands'}</div>
             <div onClick={doBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📤 {tx.backup}</div>
             <div onClick={doRestore} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📥 {tx.restore}</div>
+            <div onClick={forceReloadFromServer} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🔄 {lang==='nl'?'Herlaad van server':'Reload from server'}</div>
+            <div onClick={restoreFromLocalBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.orange,fontSize:13,fontWeight:600}}>🛟 {lang==='nl'?'Herstel lokale backup':'Restore local backup'}</div>
             {installPrompt&&<div onClick={installApp} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.accent,fontSize:13,fontWeight:600}}>{tx.installPrompt}</div>}
           </div>
         </nav>
