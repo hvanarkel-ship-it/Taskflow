@@ -1833,22 +1833,19 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           <div style={{marginTop:20}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:14,fontWeight:700}}>{tx.interactions}</span></div>
             <div style={{display:'flex',gap:4,marginBottom:10}}>{INT_TYPES.map(it=><button key={it.id} onClick={()=>{setIntModal({contactId:c.id,oppId:'',type:it.id});setIntText('');}} style={{...btnG,padding:'5px 10px',fontSize:11}}>{it.ic} {it.l}</button>)}</div>
-            <div style={{display:'flex',flexDirection:'column',gap:4}}>
-              {getInteractions(c.id).map(i=>{const intColor=i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple;const isOpen=expandedInts[i.id];return <div key={i.id} style={{borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${intColor}`,fontSize:12,overflow:'hidden'}}>
-                <div onClick={()=>toggleInt(i.id)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 12px',cursor:'pointer',userSelect:'none'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0,flex:1}}>
-                    <span style={{fontWeight:600,whiteSpace:'nowrap'}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}</span>
-                    {!isOpen&&<span style={{color:t.muted,fontSize:11,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,opacity:.6}}>{(i.text||'').replace(/<[^>]+>/g,'').slice(0,60)}{(i.text||'').length>60?'…':''}</span>}
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
-                    <span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span>
-                    <span style={{fontSize:10,color:t.muted,transition:'transform .15s',transform:isOpen?'rotate(180deg)':'rotate(0)'}}>▼</span>
-                  </div>
+            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+              {getInteractions(c.id).map(i=>{const intColor=i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple;const isOpen=expandedInts[i.id];const plainText=(i.text||'').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();return <div key={i.id} style={{borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${intColor}`,fontSize:12,overflow:'hidden'}}>
+                <div onClick={()=>toggleInt(i.id)} style={{display:'flex',alignItems:'center',padding:'7px 12px',cursor:'pointer',userSelect:'none',gap:6}}>
+                  <span style={{fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{INT_TYPES.find(x=>x.id===i.type)?.ic}</span>
+                  <span style={{fontWeight:600,whiteSpace:'nowrap',flexShrink:0,fontSize:11}}>{INT_TYPES.find(x=>x.id===i.type)?.l}</span>
+                  <span style={{color:t.muted,fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,opacity:.5}}>{plainText.slice(0,50)}</span>
+                  <span style={{color:t.muted,fontSize:10,whiteSpace:'nowrap',flexShrink:0}}>{fds(i.at)}</span>
+                  <span style={{fontSize:9,color:t.muted,flexShrink:0,transition:'transform .15s',transform:isOpen?'rotate(180deg)':'rotate(0)'}}>▼</span>
                 </div>
                 {isOpen&&<div style={{padding:'0 12px 10px',borderTop:`0.5px solid ${dark?'rgba(118,118,128,0.1)':'rgba(118,118,128,0.06)'}`}}>
-                  <div style={{color:t.dim,paddingTop:8,lineHeight:1.5,whiteSpace:'pre-wrap'}} dangerouslySetInnerHTML={{__html:typeof i.text==='string'&&i.text.includes('<')?i.text:undefined}} children={typeof i.text==='string'&&!i.text.includes('<')?linkify(i.text):undefined}/>
+                  {i.text&&i.text.includes('<')?<div style={{color:t.dim,paddingTop:8,lineHeight:1.6}} dangerouslySetInnerHTML={{__html:i.text}}/>:<div style={{color:t.dim,paddingTop:8,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{linkify(i.text)}</div>}
                   <div style={{display:'flex',justifyContent:'flex-end',marginTop:6}}>
-                    <span onClick={(e)=>{e.stopPropagation();if(confirm(tx.confirmDeleteInteraction)){deleteInteraction_(i.id);toast(tx.interactionDeleted,'info');}}} style={{cursor:'pointer',color:t.red,fontSize:10,opacity:.6,padding:'2px 6px'}}>🗑 {lang==='nl'?'Verwijder':'Delete'}</span>
+                    <span onClick={(e)=>{e.stopPropagation();if(confirm(tx.confirmDeleteInteraction)){deleteInteraction_(i.id);toast(tx.interactionDeleted,'info');}}} style={{cursor:'pointer',color:t.red,fontSize:10,opacity:.6}}>🗑</span>
                   </div>
                 </div>}
               </div>;})}
@@ -1970,26 +1967,23 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             </div>}
           </div>}
 
-          {/* Interactions tab — collapsible cards + deal notes */}
+          {/* Interactions tab — all collapsed by default, expand on click */}
           {detailTab==='interactions'&&<div>
             <div style={{display:'flex',gap:4,marginBottom:10}}>{INT_TYPES.map(it=><button key={it.id} onClick={()=>{setIntModal({contactId:o.contactId||(o.contactIds||[])[0]||'',oppId:o.id,type:it.id});setIntText('');}} style={{...btnG,padding:'5px 10px',fontSize:11}}>{it.ic} {it.l}</button>)}</div>
-            <div style={{display:'flex',flexDirection:'column',gap:4}}>
-              {oInts.map(i=>{const intColor=i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple;const isOpen=expandedInts[i.id];return <div key={i.id} style={{borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${intColor}`,fontSize:12,overflow:'hidden',transition:'all .15s ease'}}>
-                <div onClick={()=>toggleInt(i.id)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 12px',cursor:'pointer',userSelect:'none'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0,flex:1}}>
-                    <span style={{fontWeight:600,whiteSpace:'nowrap'}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}</span>
-                    {i.contactId&&cName(i.contactId)&&<span style={{color:t.dim,fontSize:11,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>— {cName(i.contactId)}</span>}
-                    {!isOpen&&<span style={{color:t.muted,fontSize:11,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,opacity:.6}}>{(i.text||'').replace(/<[^>]+>/g,'').slice(0,60)}{(i.text||'').length>60?'…':''}</span>}
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
-                    <span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span>
-                    <span style={{fontSize:10,color:t.muted,transition:'transform .15s',transform:isOpen?'rotate(180deg)':'rotate(0)'}}>▼</span>
-                  </div>
+            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+              {oInts.map(i=>{const intColor=i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple;const isOpen=expandedInts[i.id];const plainText=(i.text||'').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();return <div key={i.id} style={{borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${intColor}`,fontSize:12,overflow:'hidden'}}>
+                <div onClick={()=>toggleInt(i.id)} style={{display:'flex',alignItems:'center',padding:'7px 12px',cursor:'pointer',userSelect:'none',gap:6}}>
+                  <span style={{fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{INT_TYPES.find(x=>x.id===i.type)?.ic}</span>
+                  <span style={{fontWeight:600,whiteSpace:'nowrap',flexShrink:0,fontSize:11}}>{INT_TYPES.find(x=>x.id===i.type)?.l}</span>
+                  {i.contactId&&cName(i.contactId)&&<span style={{color:t.dim,fontSize:10,whiteSpace:'nowrap',flexShrink:0}}>— {cName(i.contactId)}</span>}
+                  <span style={{color:t.muted,fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,opacity:.5}}>{plainText.slice(0,50)}</span>
+                  <span style={{color:t.muted,fontSize:10,whiteSpace:'nowrap',flexShrink:0}}>{fds(i.at)}</span>
+                  <span style={{fontSize:9,color:t.muted,flexShrink:0,transition:'transform .15s',transform:isOpen?'rotate(180deg)':'rotate(0)'}}>▼</span>
                 </div>
-                {isOpen&&<div style={{padding:'0 12px 10px',borderTop:`0.5px solid ${dark?'rgba(118,118,128,0.1)':'rgba(118,118,128,0.06)'}`,marginTop:0}}>
-                  <div style={{color:t.dim,paddingTop:8,lineHeight:1.5,whiteSpace:'pre-wrap'}} dangerouslySetInnerHTML={{__html:typeof i.text==='string'&&i.text.includes('<')?i.text:undefined}} children={typeof i.text==='string'&&!i.text.includes('<')?linkify(i.text):undefined}/>
+                {isOpen&&<div style={{padding:'0 12px 10px',borderTop:`0.5px solid ${dark?'rgba(118,118,128,0.1)':'rgba(118,118,128,0.06)'}`}}>
+                  {i.text&&i.text.includes('<')?<div style={{color:t.dim,paddingTop:8,lineHeight:1.6}} dangerouslySetInnerHTML={{__html:i.text}}/>:<div style={{color:t.dim,paddingTop:8,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{linkify(i.text)}</div>}
                   <div style={{display:'flex',justifyContent:'flex-end',marginTop:6}}>
-                    <span onClick={(e)=>{e.stopPropagation();if(confirm(tx.confirmDeleteInteraction)){deleteInteraction_(i.id);toast(tx.interactionDeleted,'info');}}} style={{cursor:'pointer',color:t.red,fontSize:10,opacity:.6,padding:'2px 6px'}}>🗑 {lang==='nl'?'Verwijder':'Delete'}</span>
+                    <span onClick={(e)=>{e.stopPropagation();if(confirm(tx.confirmDeleteInteraction)){deleteInteraction_(i.id);toast(tx.interactionDeleted,'info');}}} style={{cursor:'pointer',color:t.red,fontSize:10,opacity:.6}}>🗑</span>
                   </div>
                 </div>}
               </div>;})}
@@ -2157,19 +2151,16 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         {d?.id&&(()=>{const oInts=getInteractions('',d.id);return <div style={{marginBottom:12}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><label style={lbl}>{tx.interactions} ({oInts.length})</label></div>
           <div style={{display:'flex',gap:4,marginBottom:6}}>{INT_TYPES.map(it=><button key={it.id} onClick={()=>{setIntModal({contactId:f.contactId||(f.contactIds||[])[0]||'',oppId:d.id,type:it.id});setIntText('');}} style={{...btnG,padding:'4px 8px',fontSize:10}}>{it.ic} {it.l}</button>)}</div>
-          <div style={{maxHeight:200,overflowY:'auto'}}>{oInts.map(i=>{const intColor=i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple;const isOpen=expandedInts[i.id];return <div key={i.id} style={{borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${intColor}`,fontSize:11,marginBottom:4,overflow:'hidden'}}>
-            <div onClick={()=>toggleInt(i.id)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 10px',cursor:'pointer',userSelect:'none'}}>
-              <div style={{display:'flex',alignItems:'center',gap:4,minWidth:0,flex:1}}>
-                <span style={{fontWeight:600,whiteSpace:'nowrap'}}>{INT_TYPES.find(x=>x.id===i.type)?.ic} {INT_TYPES.find(x=>x.id===i.type)?.l}</span>
-                {!isOpen&&<span style={{color:t.muted,fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,opacity:.6}}>{(i.text||'').replace(/<[^>]+>/g,'').slice(0,50)}</span>}
-              </div>
-              <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
-                <span style={{color:t.muted,fontSize:10}}>{fds(i.at)}</span>
-                <span style={{fontSize:9,color:t.muted,transform:isOpen?'rotate(180deg)':'rotate(0)'}}>▼</span>
-              </div>
+          <div style={{maxHeight:200,overflowY:'auto',display:'flex',flexDirection:'column',gap:2}}>{oInts.map(i=>{const intColor=i.type==='call'?t.green:i.type==='email'?t.accent:i.type==='meeting'?t.orange:t.purple;const isOpen=expandedInts[i.id];const plainText=(i.text||'').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();return <div key={i.id} style={{borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',borderLeft:`3px solid ${intColor}`,fontSize:11,overflow:'hidden'}}>
+            <div onClick={()=>toggleInt(i.id)} style={{display:'flex',alignItems:'center',padding:'5px 10px',cursor:'pointer',userSelect:'none',gap:4}}>
+              <span style={{fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{INT_TYPES.find(x=>x.id===i.type)?.ic}</span>
+              <span style={{fontWeight:600,whiteSpace:'nowrap',flexShrink:0,fontSize:10}}>{INT_TYPES.find(x=>x.id===i.type)?.l}</span>
+              <span style={{color:t.muted,fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,opacity:.5}}>{plainText.slice(0,40)}</span>
+              <span style={{color:t.muted,fontSize:9,whiteSpace:'nowrap',flexShrink:0}}>{fds(i.at)}</span>
+              <span style={{fontSize:8,color:t.muted,flexShrink:0,transform:isOpen?'rotate(180deg)':'rotate(0)'}}>▼</span>
             </div>
             {isOpen&&<div style={{padding:'0 10px 8px',borderTop:`0.5px solid ${dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.05)'}`}}>
-              <div style={{color:t.dim,paddingTop:6,lineHeight:1.5,whiteSpace:'pre-wrap'}} dangerouslySetInnerHTML={{__html:typeof i.text==='string'&&i.text.includes('<')?i.text:undefined}} children={typeof i.text==='string'&&!i.text.includes('<')?linkify(i.text):undefined}/>
+              {i.text&&i.text.includes('<')?<div style={{color:t.dim,paddingTop:6,lineHeight:1.5}} dangerouslySetInnerHTML={{__html:i.text}}/>:<div style={{color:t.dim,paddingTop:6,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{linkify(i.text)}</div>}
               <div style={{display:'flex',justifyContent:'flex-end',marginTop:4}}>
                 <span onClick={(e)=>{e.stopPropagation();if(confirm(tx.confirmDeleteInteraction)){deleteInteraction_(i.id);toast(tx.interactionDeleted,'info');}}} style={{cursor:'pointer',color:t.red,fontSize:10,opacity:.6}}>✕</span>
               </div>
