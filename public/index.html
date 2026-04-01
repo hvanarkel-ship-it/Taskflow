@@ -153,6 +153,7 @@ const TX={
     loginError:'Ongeldige inloggegevens',registerError:'Registratie mislukt',emailInUse:'E-mailadres al in gebruik',
     pendingApproval:'Je registratie is ontvangen! Een beheerder moet je account goedkeuren voordat je kunt inloggen.',pendingLogin:'Je account wacht nog op goedkeuring door een beheerder.',backToLogin:'Terug naar inloggen',
     adminPanel:'Gebruikersbeheer',pendingUsers:'Wachtende Gebruikers',noPendingUsers:'Geen wachtende registraties',approveUser:'Goedkeuren',rejectUser:'Afwijzen',userApproved:'Gebruiker goedgekeurd',userRejected:'Gebruiker afgewezen',registeredAt:'Geregistreerd op',
+    forgotPassword:'Wachtwoord vergeten?',resetPassword:'Wachtwoord resetten',resetCode:'Reset code',newPassword:'Nieuw wachtwoord',requestReset:'Verstuur reset code',resetRequested:'Als dit e-mailadres bekend is, is er een reset code aangemaakt. Neem contact op met je beheerder voor de code.',resetSuccess:'Wachtwoord is gewijzigd! Je kunt nu inloggen.',resetError:'Ongeldige of verlopen reset code.',confirmReset:'Wachtwoord wijzigen',enterResetCode:'Voer de reset code in die je van de beheerder hebt ontvangen',adminResetPassword:'Reset wachtwoord',resetCodeGenerated:'Reset code aangemaakt',resetCodeCopied:'Reset code gekopieerd',resetCodeExpiry:'Geldig voor 15 minuten',copyCode:'Kopieer code',allUsers:'Alle Gebruikers',
     // Interaction modal
     logAction:'Loggen',description:'Beschrijving',descPlaceholder:'Wat is er besproken of afgesproken...',
     createFollowup:'Maak een opvolgtaak aan',taskDesc:'Taak omschrijving',taskDescPlaceholder:'Wat moet er gebeuren?',
@@ -308,6 +309,7 @@ const TX={
     loginError:'Invalid credentials',registerError:'Registration failed',emailInUse:'Email already in use',
     pendingApproval:'Your registration has been received! An administrator must approve your account before you can log in.',pendingLogin:'Your account is still waiting for administrator approval.',backToLogin:'Back to login',
     adminPanel:'User Management',pendingUsers:'Pending Users',noPendingUsers:'No pending registrations',approveUser:'Approve',rejectUser:'Reject',userApproved:'User approved',userRejected:'User rejected',registeredAt:'Registered on',
+    forgotPassword:'Forgot password?',resetPassword:'Reset Password',resetCode:'Reset code',newPassword:'New password',requestReset:'Send reset code',resetRequested:'If an account exists with that email, a reset code has been generated. Contact your administrator for the code.',resetSuccess:'Password has been changed! You can now log in.',resetError:'Invalid or expired reset code.',confirmReset:'Change password',enterResetCode:'Enter the reset code you received from the administrator',adminResetPassword:'Reset password',resetCodeGenerated:'Reset code generated',resetCodeCopied:'Reset code copied',resetCodeExpiry:'Valid for 15 minutes',copyCode:'Copy code',allUsers:'All Users',
     // Interaction modal
     logAction:'Log',description:'Description',descPlaceholder:'What was discussed or agreed...',
     createFollowup:'Create a follow-up task',taskDesc:'Task description',taskDescPlaceholder:'What needs to be done?',
@@ -519,6 +521,33 @@ const App = function(){
   const[authErr,setAuthErr]=useState('');
   const[authLoad,setAuthLoad]=useState(false);
   const[authPending,setAuthPending]=useState(false);
+  const[authResetMode,setAuthResetMode]=useState(null); // null | 'request' | 'code' | 'done'
+  const[resetCode,setResetCode]=useState('');
+  const[resetNewPass,setResetNewPass]=useState('');
+
+  const doRequestReset=async()=>{
+    setAuthErr('');
+    if(!authEmail.trim()){setAuthErr(tx.fillEmail);return;}
+    setAuthLoad(true);
+    try{
+      await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'request_reset',email:authEmail.trim().toLowerCase()})});
+      setAuthResetMode('code');
+    }catch{setAuthErr(lang==='nl'?'Geen verbinding met de server.':'Cannot connect to server.');}
+    setAuthLoad(false);
+  };
+
+  const doResetPassword=async()=>{
+    setAuthErr('');
+    if(!resetCode.trim()||resetNewPass.length<6){setAuthErr(!resetCode.trim()?(lang==='nl'?'Voer de reset code in':'Enter the reset code'):tx.fillPassword);return;}
+    setAuthLoad(true);
+    try{
+      const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'reset_password',token:resetCode.trim(),new_password:resetNewPass})});
+      const d=await r.json();
+      if(r.ok&&d.reset){setAuthResetMode('done');}
+      else{setAuthErr(tx.resetError);}
+    }catch{setAuthErr(lang==='nl'?'Geen verbinding met de server.':'Cannot connect to server.');}
+    setAuthLoad(false);
+  };
 
   const doAuth=async()=>{
     setAuthErr('');
@@ -2362,6 +2391,11 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   const rejectUser=async(uid)=>{try{await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({action:'reject_user',user_id:uid})});setPendingUsers(p=>p.filter(u=>u.id!==uid));toast(tx.userRejected,'info');}catch(e){console.error('reject',e);}};
   useEffect(()=>{if(isAdmin)loadPendingUsers();},[isAdmin]);
 
+  const[allUsers,setAllUsers]=useState([]);
+  const[adminResetCode,setAdminResetCode]=useState(null);
+  const loadAllUsers=async()=>{if(!isAdmin||!authUser?.token)return;try{const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({action:'list_approved'})});const d=await r.json();if(d.users)setAllUsers(d.users);}catch(e){console.error('loadAllUsers',e);}};
+  const adminReset=async(uid)=>{try{const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({action:'admin_reset',user_id:uid})});const d=await r.json();if(d.reset_code){setAdminResetCode({code:d.reset_code,email:d.email,name:d.name});toast(tx.resetCodeGenerated);}else{toast(d.error||'Error','info');}}catch(e){console.error('adminReset',e);}};
+
   const renderAdmin=()=><div>
     <div style={{...card,padding:'20px 24px',marginBottom:16}}>
       <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>{tx.pendingUsers}</div>
@@ -2379,6 +2413,35 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         </div>
       </div>)}</div>}
     </div>
+    {adminResetCode&&<div style={{...card,padding:'20px 24px',marginBottom:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <div style={{fontSize:16,fontWeight:700}}>{tx.resetCodeGenerated}</div>
+        <span onClick={()=>setAdminResetCode(null)} style={{cursor:'pointer',color:t.muted,fontSize:14}}>✕</span>
+      </div>
+      <div style={{padding:'16px 20px',borderRadius:12,background:dark?'rgba(59,130,246,0.08)':'rgba(59,130,246,0.05)',border:`1px solid rgba(59,130,246,0.2)`}}>
+        <div style={{fontSize:13,marginBottom:8}}>{adminResetCode.name} ({adminResetCode.email})</div>
+        <div style={{fontSize:12,fontFamily:'monospace',padding:'10px 14px',borderRadius:8,background:dark?'rgba(0,0,0,0.3)':'rgba(0,0,0,0.05)',wordBreak:'break-all',marginBottom:8,userSelect:'all'}}>{adminResetCode.code}</div>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <button onClick={()=>{navigator.clipboard.writeText(adminResetCode.code);toast(tx.resetCodeCopied);}} style={{padding:'6px 14px',borderRadius:8,border:'none',background:t.accent,color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.copyCode}</button>
+          <span style={{fontSize:11,color:t.muted}}>{tx.resetCodeExpiry}</span>
+        </div>
+      </div>
+    </div>}
+    <div style={{...card,padding:'20px 24px',marginBottom:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <div style={{fontSize:16,fontWeight:700}}>{tx.allUsers}</div>
+        <button onClick={loadAllUsers} style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${t.border}`,background:'none',color:t.dim,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>↻</button>
+      </div>
+      {allUsers.length===0?<div style={{fontSize:13,color:t.muted,fontStyle:'italic',textAlign:'center',padding:20}}><button onClick={loadAllUsers} style={{padding:'8px 20px',borderRadius:8,border:'none',background:t.accent,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{lang==='nl'?'Gebruikers laden':'Load users'}</button></div>
+      :<div style={{display:'flex',flexDirection:'column',gap:8}}>{allUsers.map(u=><div key={u.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',borderRadius:12,background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)',border:`0.5px solid ${t.border}`}}>
+        <div style={{width:36,height:36,borderRadius:'50%',background:`linear-gradient(135deg,${t.accent},#5856D6)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:'#fff',flexShrink:0}}>{u.name.charAt(0)}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:14,fontWeight:600}}>{u.name}{u.email==='hvanarkel@gmail.com'&&<span style={{fontSize:10,color:t.accent,marginLeft:6,fontWeight:500}}>admin</span>}</div>
+          <div style={{fontSize:12,color:t.dim}}>{u.email}</div>
+        </div>
+        <button onClick={()=>adminReset(u.id)} style={{padding:'6px 14px',borderRadius:8,border:`1px solid ${t.border}`,background:'none',color:t.dim,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.adminResetPassword}</button>
+      </div>)}</div>}
+    </div>
   </div>;
 
   if(!authUser){
@@ -2389,7 +2452,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           <div style={{textAlign:'center',marginBottom:28}}>
             <div style={{width:56,height:56,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:14,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:24,fontWeight:800,color:'#fff',marginBottom:12}}>D</div>
             <div style={{fontSize:24,fontWeight:800,letterSpacing:-.5}}>{tx.loginTitle}</div>
-            <div style={{fontSize:13,color:t.dim,marginTop:4}}>{authPending?'':authMode==='login'?tx.loginSub:tx.registerSub}</div>
+            <div style={{fontSize:13,color:t.dim,marginTop:4}}>{authPending?'':authResetMode?tx.resetPassword:authMode==='login'?tx.loginSub:tx.registerSub}</div>
           </div>
           {authPending?<div>
             <div style={{padding:'16px 20px',borderRadius:12,background:dark?'rgba(255,149,0,0.1)':'rgba(255,149,0,0.08)',border:`1px solid rgba(255,149,0,0.3)`,marginBottom:20,textAlign:'center'}}>
@@ -2397,10 +2460,33 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
               <div style={{fontSize:14,fontWeight:600,color:t.orange,marginBottom:4}}>{authMode==='register'?tx.pendingApproval:tx.pendingLogin}</div>
             </div>
             <button onClick={()=>{setAuthPending(false);setAuthMode('login');setAuthErr('');}} style={{width:'100%',padding:'12px',borderRadius:10,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',color:t.dim,border:'none',fontFamily:'inherit',fontSize:14,fontWeight:600,cursor:'pointer'}}>{tx.backToLogin}</button>
+          </div>:authResetMode?<div>
+            {authResetMode==='request'&&<>
+              <div style={{marginBottom:14}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.email}</label><input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&doRequestReset()} placeholder={tx.emailPlaceholder} style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>
+              {authErr&&<div style={{padding:'8px 14px',borderRadius:8,background:t.redS,color:t.red,fontSize:12,marginBottom:14,fontWeight:500}}>{authErr}</div>}
+              <button onClick={doRequestReset} disabled={authLoad} style={{width:'100%',padding:'12px',borderRadius:10,background:t.accent,color:'#fff',border:'none',fontFamily:'inherit',fontSize:14,fontWeight:600,cursor:'pointer',opacity:authLoad?.6:1,marginBottom:8}}>{authLoad?'...':tx.requestReset}</button>
+              <div style={{textAlign:'center',fontSize:12,color:t.dim,marginBottom:8}}>{lang==='nl'?'Heb je al een code?':'Already have a code?'} <span onClick={()=>{setAuthResetMode('code');setAuthErr('');}} style={{color:t.accent,cursor:'pointer',fontWeight:600}}>{tx.resetCode}</span></div>
+            </>}
+            {authResetMode==='code'&&<>
+              <div style={{padding:'12px 16px',borderRadius:10,background:dark?'rgba(59,130,246,0.08)':'rgba(59,130,246,0.05)',border:`1px solid rgba(59,130,246,0.2)`,marginBottom:16,fontSize:12,color:t.dim}}>{tx.enterResetCode}</div>
+              <div style={{marginBottom:14}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.resetCode}</label><input value={resetCode} onChange={e=>setResetCode(e.target.value)} placeholder="abc123..." style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none',fontFeatureSettings:'"tnum"'}}/></div>
+              <div style={{marginBottom:20}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.newPassword}</label><input type="password" value={resetNewPass} onChange={e=>setResetNewPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&doResetPassword()} placeholder="••••••••" style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>
+              {authErr&&<div style={{padding:'8px 14px',borderRadius:8,background:t.redS,color:t.red,fontSize:12,marginBottom:14,fontWeight:500}}>{authErr}</div>}
+              <button onClick={doResetPassword} disabled={authLoad} style={{width:'100%',padding:'12px',borderRadius:10,background:t.accent,color:'#fff',border:'none',fontFamily:'inherit',fontSize:14,fontWeight:600,cursor:'pointer',opacity:authLoad?.6:1}}>{authLoad?'...':tx.confirmReset}</button>
+            </>}
+            {authResetMode==='done'&&<>
+              <div style={{padding:'16px 20px',borderRadius:12,background:dark?'rgba(52,199,89,0.1)':'rgba(52,199,89,0.08)',border:`1px solid rgba(52,199,89,0.3)`,marginBottom:20,textAlign:'center'}}>
+                <div style={{fontSize:28,marginBottom:8}}>✓</div>
+                <div style={{fontSize:14,fontWeight:600,color:t.green}}>{tx.resetSuccess}</div>
+              </div>
+            </>}
+            <button onClick={()=>{setAuthResetMode(null);setAuthErr('');setResetCode('');setResetNewPass('');}} style={{width:'100%',padding:'12px',borderRadius:10,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',color:t.dim,border:'none',fontFamily:'inherit',fontSize:14,fontWeight:600,cursor:'pointer',marginTop:8}}>{tx.backToLogin}</button>
           </div>:<>
           {authMode==='register'&&<div style={{marginBottom:14}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.name}</label><input value={authName} onChange={e=>setAuthName(e.target.value)} placeholder={tx.fullName} style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>}
           <div style={{marginBottom:14}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.email}</label><input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&doAuth()} placeholder={tx.emailPlaceholder} style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>
-          <div style={{marginBottom:20}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.password}</label><input type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&doAuth()} placeholder="••••••••" style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>
+          <div style={{marginBottom:8}}><label style={{display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600}}>{tx.password}</label><input type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&doAuth()} placeholder="••••••••" style={{width:'100%',padding:'12px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/></div>
+          {authMode==='login'&&<div style={{textAlign:'right',marginBottom:12}}><span onClick={()=>{setAuthResetMode('request');setAuthErr('');}} style={{fontSize:12,color:t.accent,cursor:'pointer'}}>{tx.forgotPassword}</span></div>}
+          {authMode!=='login'&&<div style={{marginBottom:12}}/>}
           {authErr&&<div style={{padding:'8px 14px',borderRadius:8,background:t.redS,color:t.red,fontSize:12,marginBottom:14,fontWeight:500}}>{authErr}</div>}
           <button onClick={doAuth} disabled={authLoad} style={{width:'100%',padding:'12px',borderRadius:10,background:t.accent,color:'#fff',border:'none',fontFamily:'inherit',fontSize:14,fontWeight:600,cursor:'pointer',opacity:authLoad?.6:1}}>{authLoad?'...':(authMode==='login'?tx.login:tx.register)}</button>
           <div style={{textAlign:'center',marginTop:16,fontSize:13,color:t.dim}}>{authMode==='login'?tx.noAccount:tx.hasAccount} <span onClick={()=>{setAuthMode(authMode==='login'?'register':'login');setAuthErr('');}} style={{color:t.accent,cursor:'pointer',fontWeight:600}}>{authMode==='login'?tx.register:tx.login}</span></div>
