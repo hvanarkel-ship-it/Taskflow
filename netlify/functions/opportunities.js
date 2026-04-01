@@ -23,7 +23,9 @@ exports.handler = async (event) => {
       } else if (p.company_id) {
         opps = await sql`SELECT o.*, '[]'::jsonb AS notes FROM opportunities o WHERE o.company_id=${p.company_id} AND o.user_id=${user.id} ORDER BY o.updated_at DESC LIMIT 200`;
       } else if (p.contact_id) {
-        opps = await sql`SELECT o.*, '[]'::jsonb AS notes FROM opportunities o WHERE (o.contact_id=${p.contact_id} OR o.contact_ids @> ${JSON.stringify([parseInt(p.contact_id)])}::jsonb) AND o.user_id=${user.id} ORDER BY o.updated_at DESC LIMIT 200`;
+        const cid = parseInt(p.contact_id, 10);
+        if (isNaN(cid)) return err(400, 'Ongeldig contact_id');
+        opps = await sql`SELECT o.*, '[]'::jsonb AS notes FROM opportunities o WHERE (o.contact_id=${cid} OR o.contact_ids @> ${JSON.stringify([cid])}::jsonb) AND o.user_id=${user.id} ORDER BY o.updated_at DESC LIMIT 200`;
       } else if (p.stage) {
         opps = await sql`SELECT o.*, '[]'::jsonb AS notes FROM opportunities o WHERE o.stage=${p.stage} AND o.user_id=${user.id} ORDER BY o.value DESC LIMIT 200`;
       } else {
@@ -37,6 +39,8 @@ exports.handler = async (event) => {
       if (!b.title) return err(400, 'Titel vereist');
       const val = b.value !== undefined && b.value !== '' ? Number(b.value) : 0;
       const prob = b.probability !== undefined && b.probability !== '' ? Number(b.probability) : 20;
+      if (isNaN(val)) return err(400, 'Waarde moet een geldig getal zijn');
+      if (isNaN(prob)) return err(400, 'Waarschijnlijkheid moet een geldig getal zijn');
       const [opp] = await sql`INSERT INTO opportunities (
         title, contact_id, contact_ids, company_id, stage, value, probability, priority,
         next_action, next_action_date, expected_close_date, tech_tags,
@@ -99,7 +103,7 @@ exports.handler = async (event) => {
         atos_sales_id=CASE WHEN ${hasAtosSales}=1 THEN ${toInt(b.atos_sales_id)} ELSE atos_sales_id END,
         atos_delivery_id=CASE WHEN ${hasAtosDeliv}=1 THEN ${toInt(b.atos_delivery_id)} ELSE atos_delivery_id END,
         atos_contact_ids=COALESCE(${b.atos_contact_ids !== undefined ? toJsonb(b.atos_contact_ids) : null}::jsonb,atos_contact_ids),
-        stage_changed_at=CASE WHEN ${hasStageChanged}=1 THEN ${toNull(b.stage_changed_at)}::timestamptz ELSE stage_changed_at END,
+        stage_changed_at=CASE WHEN ${hasStageChanged}=1 THEN ${toNull(b.stage_changed_at)} ELSE stage_changed_at END,
         closed_reason=COALESCE(${toNull(b.closed_reason)},closed_reason),
         closed_note=COALESCE(${toNull(b.closed_note)},closed_note),
         deal_notes=COALESCE(${toNull(b.deal_notes)},deal_notes),

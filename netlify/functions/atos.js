@@ -21,7 +21,8 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'PUT') {
       const b = parseBody(event);
       if (!b.id) return err(400, 'ID vereist');
-      const [m] = await sql`UPDATE atos_team SET name=COALESCE(${b.name||null},name), role=COALESCE(${b.role||null},role), email=COALESCE(${b.email},email), phone=COALESCE(${b.phone},phone) WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
+      const [m] = await sql`UPDATE atos_team SET name=COALESCE(${b.name||null},name), role=COALESCE(${b.role||null},role), email=COALESCE(${b.email||null},email), phone=COALESCE(${b.phone||null},phone) WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
+      if (!m) return err(404, 'Teamlid niet gevonden');
       return ok({ member: m });
     }
  
