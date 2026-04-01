@@ -41,7 +41,7 @@ exports.handler = async (event) => {
         title, contact_id, contact_ids, company_id, stage, value, probability, priority,
         next_action, next_action_date, expected_close_date, tech_tags,
         atos_sales_id, atos_delivery_id, atos_contact_ids, stage_changed_at,
-        closed_reason, closed_note, deal_notes, salesforce_url, user_id
+        closed_reason, closed_note, deal_notes, salesforce_url, folder_url, user_id
       ) VALUES (
         ${b.title},
         ${toInt(b.contact_id)},
@@ -63,6 +63,7 @@ exports.handler = async (event) => {
         ${toNull(b.closed_note) || ''},
         ${toNull(b.deal_notes) || ''},
         ${toNull(b.salesforce_url) || ''},
+        ${toNull(b.folder_url) || ''},
         ${user.id}
       ) RETURNING *`;
       if (b.notes && Array.isArray(b.notes) && b.notes.length > 0) {
@@ -103,6 +104,7 @@ exports.handler = async (event) => {
         closed_note=COALESCE(${toNull(b.closed_note)},closed_note),
         deal_notes=COALESCE(${toNull(b.deal_notes)},deal_notes),
         salesforce_url=COALESCE(${b.salesforce_url !== undefined ? (toNull(b.salesforce_url) || '') : null},salesforce_url),
+        folder_url=COALESCE(${b.folder_url !== undefined ? (toNull(b.folder_url) || '') : null},folder_url),
         closed_at=CASE WHEN ${isClosing?1:0}=1 THEN ${new Date().toISOString()}::timestamptz ELSE closed_at END,
         updated_at=NOW()
       WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;

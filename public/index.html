@@ -251,6 +251,7 @@ const TX={
     staleIndicator:'Inactief',dealNotes:'Deal Notities',addNote:'Notitie toevoegen...',
     tabTasks:'Taken',tabInteractions:'Interacties',tabNotes:'Notities',showDone:'Toon afgerond',hideDone:'Verberg afgerond',interactionDeleted:'Interactie verwijderd',confirmDeleteInteraction:'Interactie verwijderen?',taskUpdated:'Taak bijgewerkt',taskDeleted:'Taak verwijderd',
     atosColleagues:'Atos Collega\'s',addAtosColleague:'+ Atos collega',noAtosLinked:'Geen Atos collega\'s gekoppeld',internalTeam:'Intern team',client:'Klant',
+    folderUrl:'Klantenmap',folderUrlPlaceholder:'https://...sharepoint.com/... of pad naar map',
     // Stage gate
     stageRequiresContact:'Voeg eerst een contact toe voor deze fase',stageRequiresValue:'Voeg eerst een waarde toe voor deze fase',stageRequiresClose:'Voeg eerst een sluitdatum toe',
     lostReengagement:'Verloren Deals',reengageFilter:'Heractiveer filter',monthsAgo:'maanden geleden',
@@ -405,6 +406,7 @@ const TX={
     staleIndicator:'Stale',dealNotes:'Deal Notes',addNote:'Add note...',
     tabTasks:'Tasks',tabInteractions:'Interactions',tabNotes:'Notes',showDone:'Show completed',hideDone:'Hide completed',interactionDeleted:'Interaction deleted',confirmDeleteInteraction:'Delete interaction?',taskUpdated:'Task updated',taskDeleted:'Task deleted',
     atosColleagues:'Atos Colleagues',addAtosColleague:'+ Atos colleague',noAtosLinked:'No Atos colleagues linked',internalTeam:'Internal team',client:'Client',
+    folderUrl:'Client Folder',folderUrlPlaceholder:'https://...sharepoint.com/... or path to folder',
     // Stage gate
     stageRequiresContact:'Add a contact first for this stage',stageRequiresValue:'Add a value first for this stage',stageRequiresClose:'Add a close date first',
     lostReengagement:'Lost Deals',reengageFilter:'Re-engage filter',monthsAgo:'months ago',
@@ -652,8 +654,8 @@ const App = function(){
         const[cos,cts,ops,tks,ats,ints]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
         const cc=camelArr(cos.companies||cos.data||[]);
         const ct=camelArr(cts.contacts||cts.data||[]);
-        const op=camelArr(ops.opportunities||ops.data||[]).map(o=>({...o,techTags:o.techTags||[],contactIds:o.contactIds||[],notes:o.notes||[]}));
-        const tk=camelArr(tks.tasks||tks.data||[]);
+        const op=camelArr(ops.opportunities||ops.data||[]).map(o=>({...o,techTags:o.techTags||[],contactIds:o.contactIds||[],atosContactIds:o.atosContactIds||[],notes:o.notes||[],expectedCloseDate:o.expectedCloseDate?o.expectedCloseDate.slice(0,10):o.expectedCloseDate}));
+        const tk=camelArr(tks.tasks||tks.data||[]).map(t=>({...t,dueDate:t.dueDate?t.dueDate.slice(0,10):t.dueDate}));
         const at=camelArr(ats.team||ats.data||[]);
         const it=camelArr(ints.interactions||ints.data||[]).map(i=>({...i,at:i.at||i.createdAt}));
         // Neon is the single source of truth — always use server data
@@ -733,7 +735,7 @@ const App = function(){
       if(mt==='import'){setImpData([]);setImpCols([]);setImpMapping({title:'',company:'',contact:'',value:'',stage:'',probability:'',priority:'',tech:'',nextAction:'',closeDate:''});setImpStep(1);setImpResult(null);}
       if(mt==='opp'){
         if(md?.id){setMf({...md,_pendingTasks:[],_taskInput:''});}
-        else{const base={title:'',contactId:'',contactIds:[],companyId:'',stage:'lead',value:0,probability:10,priority:'medium',expectedCloseDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',atosContactIds:[],dealNotes:'',salesforceUrl:'',notes:[],_pendingTasks:[],_taskInput:'',...(md||{})};if(base.contactId&&!base.contactIds.includes(base.contactId))base.contactIds=[...base.contactIds,base.contactId];setMf(base);}
+        else{const base={title:'',contactId:'',contactIds:[],companyId:'',stage:'lead',value:0,probability:10,priority:'medium',expectedCloseDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',atosContactIds:[],dealNotes:'',salesforceUrl:'',folderUrl:'',notes:[],_pendingTasks:[],_taskInput:'',...(md||{})};if(base.contactId&&!base.contactIds.includes(base.contactId))base.contactIds=[...base.contactIds,base.contactId];setMf(base);}
       }else if(mt==='contact'){
         setMf(md?.id?{...md}:{name:'',email:'',phone:'',companyId:md?.companyId||'',role:'',category:'',tags:[],...(md||{})});
       }else if(mt==='task'){
@@ -1357,7 +1359,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
               {atosName&&<span style={{color:t.purple}}>🔵 {atosName}</span>}
               {tk.dueDate&&<span style={{color:isOverdue?t.red:t.dim}}>{fds(tk.dueDate)}</span>}
             </div>
-            {tk.notes&&<div style={{fontSize:10,color:t.dim,marginTop:2,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📝 {tk.notes.slice(0,60)}{tk.notes.length>60?'...':''}</div>}
+            {tk.notes&&<div style={{fontSize:10,color:t.dim,marginTop:2,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📝 {linkify(tk.notes.slice(0,60))}{tk.notes.length>60?'...':''}</div>}
           </div>
           <span onClick={()=>{deleteTask_(tk.id);toast(tx.removed,'info');}} style={{cursor:'pointer',color:t.red,fontSize:11,opacity:.4,flexShrink:0,marginTop:2}}>✕</span>
         </div>;})}
@@ -1477,7 +1479,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {tk.reminder&&<span>🔔{tk.reminderMin?<span style={{fontSize:10}}>{tk.reminderMin}m</span>:null}</span>}
           {(()=>{const cn=tk.contactId?cCompany(tk.contactId):(tk.oppId?compName(opps.find(o=>o.id===tk.oppId)?.companyId):'');const coId=tk.contactId?contacts.find(c=>c.id===tk.contactId)?.companyId:(tk.oppId?opps.find(o=>o.id===tk.oppId)?.companyId:null);return cn?<span onClick={e=>{e.stopPropagation();if(coId)setDetail({type:'company',id:coId});}} style={{color:t.teal,cursor:coId?'pointer':'default'}}>🏢 {cn}</span>:null;})()}
         </div>
-        {tk.notes&&<div style={{fontSize:11,color:t.dim,marginTop:2,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📝 {tk.notes.slice(0,80)}{tk.notes.length>80?'...':''}</div>}
+        {tk.notes&&<div style={{fontSize:11,color:t.dim,marginTop:2,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📝 {linkify(tk.notes.slice(0,80))}{tk.notes.length>80?'...':''}</div>}
       </div>
       {!tk.done&&<button onClick={()=>setModal({type:'task',data:tk})} style={{...btnG,padding:'4px 10px',fontSize:11}}>✎</button>}
       <button onClick={()=>{deleteTask_(tk.id);toast(tx.removed,'info');}} style={{background:'none',border:'none',color:t.red,cursor:'pointer',fontSize:14}}>✕</button>
@@ -1702,7 +1704,10 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
           <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'opp',data:o})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={async()=>{await deleteOpp(o.id);setDetail(null);toast(tx.dealDeleted,'info');}} style={btnD}>🗑</button></div></div>
           <div style={{fontSize:22,fontWeight:700,marginBottom:4}}>{o.title}</div>
-          {o.salesforceUrl&&<a href={o.salesforceUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:t.accent,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4,marginBottom:8,fontWeight:500,padding:'3px 10px',borderRadius:8,background:t.accentS}}>☁ Salesforce <span style={{fontSize:10,opacity:.6}}>↗</span></a>}
+          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
+            {o.salesforceUrl&&<a href={o.salesforceUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:t.accent,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4,fontWeight:500,padding:'3px 10px',borderRadius:8,background:t.accentS}}>☁ Salesforce <span style={{fontSize:10,opacity:.6}}>↗</span></a>}
+            {o.folderUrl&&<a href={o.folderUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:t.teal||'#10B981',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4,fontWeight:500,padding:'3px 10px',borderRadius:8,background:dark?'rgba(16,185,129,0.1)':'rgba(16,185,129,0.08)'}}>📁 {tx.folderUrl} <span style={{fontSize:10,opacity:.6}}>↗</span></a>}
+          </div>
           <div style={{marginBottom:10}}>
             <div style={{fontSize:11,color:t.muted,fontWeight:600,marginBottom:4}}>{tx.contactPersonsUpper}</div>
             {allOppContacts.length>0?<div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:6}}>
@@ -1776,6 +1781,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
                 <div onClick={()=>setModal({type:'task',data:tk})} style={{flex:1,cursor:'pointer',minWidth:0}}>
                   <div>{tk.title}</div>
                   {(tkContact||tkCompany)&&<div style={{fontSize:10,color:t.dim,marginTop:1}}>{tkContact&&<span>👤 {tkContact}</span>}{tkContact&&tkCompany&&' · '}{tkCompany&&<span>🏢 {tkCompany}</span>}</div>}
+                  {tk.notes&&<div style={{fontSize:10,color:t.dim,marginTop:2,fontStyle:'italic'}}>📝 {linkify(tk.notes.slice(0,80))}{tk.notes.length>80?'...':''}</div>}
                 </div>
                 {tk.dueDate&&<span style={{fontSize:10,color:tk.dueDate<td()?t.red:t.dim,flexShrink:0}}>{fds(tk.dueDate)}</span>}
                 <span onClick={()=>{deleteTask_(tk.id);toast(tx.taskDeleted,'info');}} style={{cursor:'pointer',color:t.muted,fontSize:11,opacity:.5}}>✕</span>
@@ -1952,6 +1958,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         </div>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.closeDate}</label><input type="date" style={inp} value={f.expectedCloseDate||''} onChange={e=>sf({...f,expectedCloseDate:e.target.value})}/></div>
         <div style={{marginBottom:12}}><label style={lbl}>Salesforce URL</label><input style={inp} value={f.salesforceUrl||''} onChange={e=>sf({...f,salesforceUrl:e.target.value})} placeholder="https://...salesforce.com/..."/></div>
+        <div style={{marginBottom:12}}><label style={lbl}>{tx.folderUrl}</label><input style={inp} value={f.folderUrl||''} onChange={e=>sf({...f,folderUrl:e.target.value})} placeholder={tx.folderUrlPlaceholder}/></div>
         {/* Inline tasks */}
         <div style={{marginBottom:12}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><label style={lbl}>{tx.tasks2}</label></div>
