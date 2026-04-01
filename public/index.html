@@ -154,6 +154,9 @@ const TX={
     pendingApproval:'Je registratie is ontvangen! Een beheerder moet je account goedkeuren voordat je kunt inloggen.',pendingLogin:'Je account wacht nog op goedkeuring door een beheerder.',backToLogin:'Terug naar inloggen',
     adminPanel:'Gebruikersbeheer',pendingUsers:'Wachtende Gebruikers',noPendingUsers:'Geen wachtende registraties',approveUser:'Goedkeuren',rejectUser:'Afwijzen',userApproved:'Gebruiker goedgekeurd',userRejected:'Gebruiker afgewezen',registeredAt:'Geregistreerd op',
     forgotPassword:'Wachtwoord vergeten?',resetPassword:'Wachtwoord resetten',resetCode:'Reset code',newPassword:'Nieuw wachtwoord',requestReset:'Verstuur reset code',resetRequested:'Als dit e-mailadres bekend is, is er een reset code aangemaakt. Neem contact op met je beheerder voor de code.',resetSuccess:'Wachtwoord is gewijzigd! Je kunt nu inloggen.',resetError:'Ongeldige of verlopen reset code.',confirmReset:'Wachtwoord wijzigen',enterResetCode:'Voer de reset code in die je van de beheerder hebt ontvangen',adminResetPassword:'Reset wachtwoord',resetCodeGenerated:'Reset code aangemaakt',resetCodeCopied:'Reset code gekopieerd',resetCodeExpiry:'Geldig voor 15 minuten',copyCode:'Kopieer code',allUsers:'Alle Gebruikers',
+    addUser:'Gebruiker toevoegen',editUser:'Bewerken',deleteUser:'Verwijderen',suspendUser:'Blokkeren',reactivateUser:'Heractiveren',userAdded:'Gebruiker aangemaakt',userEdited:'Gebruiker bijgewerkt',userDeleted:'Gebruiker verwijderd',userSuspended:'Gebruiker geblokkeerd',userReactivated:'Gebruiker geheractiveerd',confirmDeleteUser:'Weet je zeker dat je deze gebruiker en al zijn/haar data wilt verwijderen? Dit kan niet ongedaan gemaakt worden.',active:'Actief',suspended:'Geblokkeerd',lastLogin:'Laatst ingelogd',never:'Nooit',
+    changePassword:'Wachtwoord wijzigen',currentPassword:'Huidig wachtwoord',passwordChanged:'Wachtwoord gewijzigd!',wrongPassword:'Huidig wachtwoord is onjuist',
+    systemStats:'Systeemoverzicht',totalUsers:'Gebruikers',totalCompanies:'Bedrijven',totalContacts:'Contacten',totalDeals:'Deals',activeDeals:'Actieve deals',pipelineValue:'Pipeline waarde',openTasks:'Open taken',totalInteractions:'Interacties',
     // Interaction modal
     logAction:'Loggen',description:'Beschrijving',descPlaceholder:'Wat is er besproken of afgesproken...',
     createFollowup:'Maak een opvolgtaak aan',taskDesc:'Taak omschrijving',taskDescPlaceholder:'Wat moet er gebeuren?',
@@ -310,6 +313,9 @@ const TX={
     pendingApproval:'Your registration has been received! An administrator must approve your account before you can log in.',pendingLogin:'Your account is still waiting for administrator approval.',backToLogin:'Back to login',
     adminPanel:'User Management',pendingUsers:'Pending Users',noPendingUsers:'No pending registrations',approveUser:'Approve',rejectUser:'Reject',userApproved:'User approved',userRejected:'User rejected',registeredAt:'Registered on',
     forgotPassword:'Forgot password?',resetPassword:'Reset Password',resetCode:'Reset code',newPassword:'New password',requestReset:'Send reset code',resetRequested:'If an account exists with that email, a reset code has been generated. Contact your administrator for the code.',resetSuccess:'Password has been changed! You can now log in.',resetError:'Invalid or expired reset code.',confirmReset:'Change password',enterResetCode:'Enter the reset code you received from the administrator',adminResetPassword:'Reset password',resetCodeGenerated:'Reset code generated',resetCodeCopied:'Reset code copied',resetCodeExpiry:'Valid for 15 minutes',copyCode:'Copy code',allUsers:'All Users',
+    addUser:'Add User',editUser:'Edit',deleteUser:'Delete',suspendUser:'Suspend',reactivateUser:'Reactivate',userAdded:'User created',userEdited:'User updated',userDeleted:'User deleted',userSuspended:'User suspended',userReactivated:'User reactivated',confirmDeleteUser:'Are you sure you want to delete this user and all their data? This cannot be undone.',active:'Active',suspended:'Suspended',lastLogin:'Last login',never:'Never',
+    changePassword:'Change Password',currentPassword:'Current password',passwordChanged:'Password changed!',wrongPassword:'Current password is incorrect',
+    systemStats:'System Overview',totalUsers:'Users',totalCompanies:'Companies',totalContacts:'Contacts',totalDeals:'Deals',activeDeals:'Active deals',pipelineValue:'Pipeline value',openTasks:'Open tasks',totalInteractions:'Interactions',
     // Interaction modal
     logAction:'Log',description:'Description',descPlaceholder:'What was discussed or agreed...',
     createFollowup:'Create a follow-up task',taskDesc:'Task description',taskDescPlaceholder:'What needs to be done?',
@@ -2384,35 +2390,94 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   const titles={pipeline:tx.pipeline,contacts:tx.contacts,companies:tx.companies,atos:tx.atos,tasks:tx.tasks,dashboard:tx.dashboard,reports:tx.reports,admin:tx.adminPanel};
   const nav=[{id:'dashboard',ic:'◆',l:tx.dashboard},{id:'pipeline',ic:'📊',l:tx.pipeline},{id:'companies',ic:'🏢',l:tx.companies},{id:'contacts',ic:'👤',l:tx.contacts},{id:'atos',ic:'🔵',l:tx.atos},{id:'tasks',ic:'☑',l:tx.tasks},{id:'reports',ic:'📈',l:tx.reports},...(isAdmin?[{id:'admin',ic:'🛡',l:tx.adminPanel}]:[])];
 
-  // Admin: pending users
+  // Admin: state
   const[pendingUsers,setPendingUsers]=useState([]);
-  const loadPendingUsers=async()=>{if(!isAdmin||!authUser?.token)return;try{const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({action:'list_pending'})});const d=await r.json();if(d.pending)setPendingUsers(d.pending);}catch(e){console.error('loadPending',e);}};
-  const approveUser=async(uid)=>{try{await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({action:'approve_user',user_id:uid})});setPendingUsers(p=>p.filter(u=>u.id!==uid));toast(tx.userApproved);}catch(e){console.error('approve',e);}};
-  const rejectUser=async(uid)=>{try{await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({action:'reject_user',user_id:uid})});setPendingUsers(p=>p.filter(u=>u.id!==uid));toast(tx.userRejected,'info');}catch(e){console.error('reject',e);}};
-  useEffect(()=>{if(isAdmin)loadPendingUsers();},[isAdmin]);
-
   const[allUsers,setAllUsers]=useState([]);
   const[adminResetCode,setAdminResetCode]=useState(null);
-  const loadAllUsers=async()=>{if(!isAdmin||!authUser?.token)return;try{const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({action:'list_approved'})});const d=await r.json();if(d.users)setAllUsers(d.users);}catch(e){console.error('loadAllUsers',e);}};
-  const adminReset=async(uid)=>{try{const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({action:'admin_reset',user_id:uid})});const d=await r.json();if(d.reset_code){setAdminResetCode({code:d.reset_code,email:d.email,name:d.name});toast(tx.resetCodeGenerated);}else{toast(d.error||'Error','info');}}catch(e){console.error('adminReset',e);}};
+  const[adminStats,setAdminStats]=useState(null);
+  const[adminAddForm,setAdminAddForm]=useState(null);
+  const[adminEditForm,setAdminEditForm]=useState(null);
+  const[adminChgPw,setAdminChgPw]=useState(null);
+  const adminH={'Content-Type':'application/json','Authorization':'Bearer '+(authUser?.token||'')};
+  const adminPost=async(body)=>{const r=await fetch('/api/auth',{method:'POST',headers:adminH,body:JSON.stringify(body)});return r.json();};
 
-  const renderAdmin=()=><div>
+  const loadPendingUsers=async()=>{if(!isAdmin||!authUser?.token)return;try{const d=await adminPost({action:'list_pending'});if(d.pending)setPendingUsers(d.pending);}catch(e){console.error('loadPending',e);}};
+  const loadAllUsers=async()=>{if(!isAdmin||!authUser?.token)return;try{const d=await adminPost({action:'list_all_users'});if(d.users)setAllUsers(d.users);}catch(e){console.error('loadAllUsers',e);}};
+  const loadAdminStats=async()=>{if(!isAdmin||!authUser?.token)return;try{const d=await adminPost({action:'admin_stats'});if(d.stats)setAdminStats(d.stats);}catch(e){console.error('loadStats',e);}};
+  const approveUser=async(uid)=>{try{await adminPost({action:'approve_user',user_id:uid});setPendingUsers(p=>p.filter(u=>u.id!==uid));loadAllUsers();toast(tx.userApproved);}catch(e){console.error('approve',e);}};
+  const rejectUser=async(uid)=>{try{await adminPost({action:'reject_user',user_id:uid});setPendingUsers(p=>p.filter(u=>u.id!==uid));toast(tx.userRejected,'info');}catch(e){console.error('reject',e);}};
+  const adminReset=async(uid)=>{try{const d=await adminPost({action:'admin_reset',user_id:uid});if(d.reset_code){setAdminResetCode({code:d.reset_code,email:d.email,name:d.name});toast(tx.resetCodeGenerated);}else{toast(d.error||'Error','info');}}catch(e){console.error('adminReset',e);}};
+  const adminAddUser=async()=>{if(!adminAddForm)return;const{name:n,email:e,password:p}=adminAddForm;if(!n||!e||!p){toast(lang==='nl'?'Vul alle velden in':'Fill all fields','info');return;}try{const d=await adminPost({action:'admin_add_user',new_email:e,new_name:n,new_password:p});if(d.user){setAdminAddForm(null);loadAllUsers();toast(tx.userAdded);}else{toast(d.error||'Error','info');}}catch(e){console.error('addUser',e);}};
+  const adminEditUser=async()=>{if(!adminEditForm)return;try{const d=await adminPost({action:'admin_edit_user',user_id:adminEditForm.id,new_name:adminEditForm.name,new_email:adminEditForm.email});if(d.user){setAdminEditForm(null);loadAllUsers();toast(tx.userEdited);}else{toast(d.error||'Error','info');}}catch(e){console.error('editUser',e);}};
+  const adminDeleteUser=async(uid,uname)=>{if(!confirm(tx.confirmDeleteUser+'\n\n'+uname))return;try{const d=await adminPost({action:'admin_delete_user',user_id:uid});if(d.deleted){setAllUsers(p=>p.filter(u=>u.id!==uid));toast(tx.userDeleted,'info');}else{toast(d.error||'Error','info');}}catch(e){console.error('deleteUser',e);}};
+  const adminSuspendUser=async(uid)=>{try{await adminPost({action:'admin_suspend_user',user_id:uid});loadAllUsers();toast(tx.userSuspended,'info');}catch(e){console.error('suspend',e);}};
+  const adminReactivateUser=async(uid)=>{try{await adminPost({action:'admin_reactivate_user',user_id:uid});loadAllUsers();loadPendingUsers();toast(tx.userReactivated);}catch(e){console.error('reactivate',e);}};
+  const doChangePassword=async()=>{if(!adminChgPw)return;if(adminChgPw.newPw.length<6){toast(tx.fillPassword,'info');return;}try{const d=await adminPost({action:'change_password',current_password:adminChgPw.curPw,new_password:adminChgPw.newPw});if(d.changed){setAdminChgPw(null);toast(tx.passwordChanged);}else{toast(d.error||tx.wrongPassword,'info');}}catch(e){console.error('changePw',e);}};
+
+  useEffect(()=>{if(isAdmin){loadPendingUsers();loadAllUsers();loadAdminStats();}},[isAdmin]);
+
+  const fmtDate=(d)=>d?new Date(d).toLocaleDateString(lang==='nl'?'nl-NL':'en-US',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):tx.never;
+
+  const renderAdmin=()=>{
+    const lbl={display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600};
+    const inp2={width:'100%',padding:'10px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'};
+    return <div>
+
+    {/* System Stats */}
+    {adminStats&&<div style={{...card,padding:'20px 24px',marginBottom:16}}>
+      <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>{tx.systemStats}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:10}}>
+        {[
+          {l:tx.totalUsers,v:adminStats.total_users,ic:'👤',c:t.accent},
+          {l:tx.totalCompanies,v:adminStats.total_companies,ic:'🏢',c:t.teal||'#10B981'},
+          {l:tx.totalContacts,v:adminStats.total_contacts,ic:'📇',c:t.purple},
+          {l:tx.totalDeals,v:adminStats.total_deals,ic:'📊',c:t.orange},
+          {l:tx.activeDeals,v:adminStats.active_deals,ic:'🔥',c:'#EF4444'},
+          {l:tx.pipelineValue,v:'€'+Number(adminStats.pipeline_value||0).toLocaleString(),ic:'💰',c:t.green},
+          {l:tx.openTasks,v:adminStats.open_tasks,ic:'☑',c:t.accent},
+          {l:tx.totalInteractions,v:adminStats.total_interactions,ic:'💬',c:t.purple},
+        ].map((s,i)=><div key={i} style={{padding:'12px 14px',borderRadius:12,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',border:`0.5px solid ${t.border}`,textAlign:'center'}}>
+          <div style={{fontSize:20,marginBottom:4}}>{s.ic}</div>
+          <div style={{fontSize:18,fontWeight:800,color:s.c}}>{s.v}</div>
+          <div style={{fontSize:10,color:t.muted,fontWeight:600,marginTop:2}}>{s.l}</div>
+        </div>)}
+      </div>
+    </div>}
+
+    {/* Change own password */}
     <div style={{...card,padding:'20px 24px',marginBottom:16}}>
-      <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>{tx.pendingUsers}</div>
-      {pendingUsers.length===0?<div style={{fontSize:13,color:t.muted,fontStyle:'italic',textAlign:'center',padding:20}}>{tx.noPendingUsers}</div>
-      :<div style={{display:'flex',flexDirection:'column',gap:8}}>{pendingUsers.map(u=><div key={u.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',borderRadius:12,background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)',border:`0.5px solid ${t.border}`}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div style={{fontSize:16,fontWeight:700}}>{tx.changePassword}</div>
+        {!adminChgPw&&<button onClick={()=>setAdminChgPw({curPw:'',newPw:''})} style={{padding:'6px 14px',borderRadius:8,border:'none',background:t.accent,color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.changePassword}</button>}
+      </div>
+      {adminChgPw&&<div style={{marginTop:12}}>
+        <div style={{marginBottom:10}}><label style={lbl}>{tx.currentPassword}</label><input type="password" style={inp2} value={adminChgPw.curPw} onChange={e=>setAdminChgPw({...adminChgPw,curPw:e.target.value})} placeholder="••••••••"/></div>
+        <div style={{marginBottom:10}}><label style={lbl}>{tx.newPassword}</label><input type="password" style={inp2} value={adminChgPw.newPw} onChange={e=>setAdminChgPw({...adminChgPw,newPw:e.target.value})} placeholder="••••••••" onKeyDown={e=>e.key==='Enter'&&doChangePassword()}/></div>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={doChangePassword} style={{padding:'8px 18px',borderRadius:8,border:'none',background:t.accent,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.confirmReset}</button>
+          <button onClick={()=>setAdminChgPw(null)} style={{padding:'8px 18px',borderRadius:8,border:`1px solid ${t.border}`,background:'none',color:t.dim,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.cancel||'Annuleren'}</button>
+        </div>
+      </div>}
+    </div>
+
+    {/* Pending users */}
+    {pendingUsers.length>0&&<div style={{...card,padding:'20px 24px',marginBottom:16}}>
+      <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>{tx.pendingUsers} <span style={{fontSize:12,padding:'2px 8px',borderRadius:10,background:t.red,color:'#fff',fontWeight:700,marginLeft:6}}>{pendingUsers.length}</span></div>
+      <div style={{display:'flex',flexDirection:'column',gap:8}}>{pendingUsers.map(u=><div key={u.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',borderRadius:12,background:dark?'rgba(255,149,0,0.06)':'rgba(255,149,0,0.04)',border:`1px solid rgba(255,149,0,0.2)`}}>
         <div style={{width:36,height:36,borderRadius:'50%',background:`linear-gradient(135deg,${t.orange},#FF9500)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:'#fff',flexShrink:0}}>{u.name.charAt(0)}</div>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:14,fontWeight:600}}>{u.name}</div>
           <div style={{fontSize:12,color:t.dim}}>{u.email}</div>
-          <div style={{fontSize:10,color:t.muted,marginTop:2}}>{tx.registeredAt} {new Date(u.created_at).toLocaleDateString(lang==='nl'?'nl-NL':'en-US',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+          <div style={{fontSize:10,color:t.muted,marginTop:2}}>{tx.registeredAt} {fmtDate(u.created_at)}</div>
         </div>
         <div style={{display:'flex',gap:6}}>
           <button onClick={()=>approveUser(u.id)} style={{padding:'6px 14px',borderRadius:8,border:'none',background:t.green,color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.approveUser}</button>
           <button onClick={()=>rejectUser(u.id)} style={{padding:'6px 14px',borderRadius:8,border:'none',background:t.red,color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.rejectUser}</button>
         </div>
-      </div>)}</div>}
-    </div>
+      </div>)}</div>
+    </div>}
+
+    {/* Reset code display */}
     {adminResetCode&&<div style={{...card,padding:'20px 24px',marginBottom:16}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <div style={{fontSize:16,fontWeight:700}}>{tx.resetCodeGenerated}</div>
@@ -2427,22 +2492,65 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         </div>
       </div>
     </div>}
+
+    {/* Add user form */}
+    {adminAddForm&&<div style={{...card,padding:'20px 24px',marginBottom:16}}>
+      <div style={{fontSize:16,fontWeight:700,marginBottom:12}}>{tx.addUser}</div>
+      <div style={{marginBottom:10}}><label style={lbl}>{tx.name}</label><input style={inp2} value={adminAddForm.name} onChange={e=>setAdminAddForm({...adminAddForm,name:e.target.value})} placeholder="Jan Jansen"/></div>
+      <div style={{marginBottom:10}}><label style={lbl}>{tx.email}</label><input type="email" style={inp2} value={adminAddForm.email} onChange={e=>setAdminAddForm({...adminAddForm,email:e.target.value})} placeholder="jan@bedrijf.nl"/></div>
+      <div style={{marginBottom:12}}><label style={lbl}>{tx.password}</label><input type="text" style={inp2} value={adminAddForm.password} onChange={e=>setAdminAddForm({...adminAddForm,password:e.target.value})} placeholder={lang==='nl'?'Tijdelijk wachtwoord (min. 6 tekens)':'Temporary password (min. 6 chars)'}/></div>
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={adminAddUser} style={{padding:'8px 18px',borderRadius:8,border:'none',background:t.green,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.addUser}</button>
+        <button onClick={()=>setAdminAddForm(null)} style={{padding:'8px 18px',borderRadius:8,border:`1px solid ${t.border}`,background:'none',color:t.dim,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.cancel||'Annuleren'}</button>
+      </div>
+    </div>}
+
+    {/* Edit user form */}
+    {adminEditForm&&<div style={{...card,padding:'20px 24px',marginBottom:16}}>
+      <div style={{fontSize:16,fontWeight:700,marginBottom:12}}>{tx.editUser}: {adminEditForm.originalName}</div>
+      <div style={{marginBottom:10}}><label style={lbl}>{tx.name}</label><input style={inp2} value={adminEditForm.name} onChange={e=>setAdminEditForm({...adminEditForm,name:e.target.value})}/></div>
+      <div style={{marginBottom:12}}><label style={lbl}>{tx.email}</label><input type="email" style={inp2} value={adminEditForm.email} onChange={e=>setAdminEditForm({...adminEditForm,email:e.target.value})}/></div>
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={adminEditUser} style={{padding:'8px 18px',borderRadius:8,border:'none',background:t.accent,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.save||'Opslaan'}</button>
+        <button onClick={()=>setAdminEditForm(null)} style={{padding:'8px 18px',borderRadius:8,border:`1px solid ${t.border}`,background:'none',color:t.dim,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.cancel||'Annuleren'}</button>
+      </div>
+    </div>}
+
+    {/* All users */}
     <div style={{...card,padding:'20px 24px',marginBottom:16}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-        <div style={{fontSize:16,fontWeight:700}}>{tx.allUsers}</div>
-        <button onClick={loadAllUsers} style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${t.border}`,background:'none',color:t.dim,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>↻</button>
-      </div>
-      {allUsers.length===0?<div style={{fontSize:13,color:t.muted,fontStyle:'italic',textAlign:'center',padding:20}}><button onClick={loadAllUsers} style={{padding:'8px 20px',borderRadius:8,border:'none',background:t.accent,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{lang==='nl'?'Gebruikers laden':'Load users'}</button></div>
-      :<div style={{display:'flex',flexDirection:'column',gap:8}}>{allUsers.map(u=><div key={u.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',borderRadius:12,background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)',border:`0.5px solid ${t.border}`}}>
-        <div style={{width:36,height:36,borderRadius:'50%',background:`linear-gradient(135deg,${t.accent},#5856D6)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:'#fff',flexShrink:0}}>{u.name.charAt(0)}</div>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:14,fontWeight:600}}>{u.name}{u.email==='hvanarkel@gmail.com'&&<span style={{fontSize:10,color:t.accent,marginLeft:6,fontWeight:500}}>admin</span>}</div>
-          <div style={{fontSize:12,color:t.dim}}>{u.email}</div>
+        <div style={{fontSize:16,fontWeight:700}}>{tx.allUsers} {allUsers.length>0&&<span style={{fontSize:12,color:t.muted,fontWeight:500}}>({allUsers.length})</span>}</div>
+        <div style={{display:'flex',gap:6}}>
+          <button onClick={()=>setAdminAddForm({name:'',email:'',password:''})} style={{padding:'6px 14px',borderRadius:8,border:'none',background:t.green,color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.addUser}</button>
+          <button onClick={()=>{loadAllUsers();loadAdminStats();}} style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${t.border}`,background:'none',color:t.dim,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>↻</button>
         </div>
-        <button onClick={()=>adminReset(u.id)} style={{padding:'6px 14px',borderRadius:8,border:`1px solid ${t.border}`,background:'none',color:t.dim,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.adminResetPassword}</button>
-      </div>)}</div>}
+      </div>
+      {allUsers.length===0?<div style={{fontSize:13,color:t.muted,fontStyle:'italic',textAlign:'center',padding:20}}>{lang==='nl'?'Laden...':'Loading...'}</div>
+      :<div style={{display:'flex',flexDirection:'column',gap:8}}>{allUsers.map(u=>{const isMe=u.email==='hvanarkel@gmail.com';const isSuspended=!u.approved;return <div key={u.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',borderRadius:12,background:isSuspended?(dark?'rgba(239,68,68,0.06)':'rgba(239,68,68,0.04)'):(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),border:`0.5px solid ${isSuspended?'rgba(239,68,68,0.3)':t.border}`,opacity:isSuspended?.7:1}}>
+        <div style={{width:36,height:36,borderRadius:'50%',background:isMe?`linear-gradient(135deg,${t.accent},#5856D6)`:isSuspended?'linear-gradient(135deg,#999,#777)':`linear-gradient(135deg,${t.teal||'#10B981'},#059669)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:'#fff',flexShrink:0}}>{u.name.charAt(0)}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:14,fontWeight:600,display:'flex',alignItems:'center',gap:6}}>
+            {u.name}
+            {isMe&&<span style={{fontSize:9,padding:'1px 6px',borderRadius:6,background:t.accentS,color:t.accent,fontWeight:700}}>ADMIN</span>}
+            {isSuspended&&<span style={{fontSize:9,padding:'1px 6px',borderRadius:6,background:t.redS,color:t.red,fontWeight:700}}>{tx.suspended}</span>}
+            {!isSuspended&&!isMe&&<span style={{fontSize:9,padding:'1px 6px',borderRadius:6,background:dark?'rgba(52,199,89,0.15)':'rgba(52,199,89,0.1)',color:t.green,fontWeight:700}}>{tx.active}</span>}
+          </div>
+          <div style={{fontSize:12,color:t.dim}}>{u.email}</div>
+          <div style={{fontSize:10,color:t.muted,marginTop:2}}>{tx.lastLogin}: {fmtDate(u.last_login)}</div>
+        </div>
+        <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
+          <button onClick={()=>setAdminEditForm({id:u.id,name:u.name,email:u.email,originalName:u.name})} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${t.border}`,background:'none',color:t.dim,fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.editUser}</button>
+          <button onClick={()=>adminReset(u.id)} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${t.border}`,background:'none',color:t.accent,fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.adminResetPassword}</button>
+          {!isMe&&(isSuspended
+            ?<button onClick={()=>adminReactivateUser(u.id)} style={{padding:'5px 10px',borderRadius:6,border:'none',background:t.green,color:'#fff',fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.reactivateUser}</button>
+            :<button onClick={()=>adminSuspendUser(u.id)} style={{padding:'5px 10px',borderRadius:6,border:'none',background:t.orange,color:'#fff',fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.suspendUser}</button>
+          )}
+          {!isMe&&<button onClick={()=>adminDeleteUser(u.id,u.name)} style={{padding:'5px 10px',borderRadius:6,border:'none',background:t.red,color:'#fff',fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{tx.deleteUser}</button>}
+        </div>
+      </div>;})}</div>}
     </div>
   </div>;
+  };
 
   if(!authUser){
     return <>

@@ -151,6 +151,8 @@ async function setup() {
     // v33: password reset tokens
     { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_hash TEXT DEFAULT NULL", v: '33' },
     { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ DEFAULT NULL", v: '33' },
+    // v34: last login tracking
+    { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ DEFAULT NULL", v: '34' },
   ];
 
   let migrated = 0;
