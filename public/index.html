@@ -125,7 +125,8 @@ const PRIS=[{id:'urgent',l:{nl:'Urgent',en:'Urgent'},c:'#FF2D55'},{id:'high',l:{
 
 const TX={
   nl:{
-    pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacten',companies:'Bedrijven',atos:'Atos Team',tasks:'Taken',reports:'Rapporten',
+    pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacten',companies:'Bedrijven',atos:'Atos Team',tasks:'Taken',reports:'Rapporten',checklist:'Checklist',
+    clAddItem:'Item toevoegen...',clClearDone:'Opgeruimd verwijderen',clCleared:'Afgeronde items verwijderd',clEmpty:'Geen items — voeg er een toe!',clCategory:'Categorie',clAll:'Alles',clDone:'afgerond',clItemAdded:'Item toegevoegd',clItemDeleted:'Item verwijderd',
     save:'Opslaan',add:'Toevoegen',cancel:'Annuleren',delete:'Verwijderen',edit:'Bewerken',back:'← Terug',search:'Zoeken...',
     newDeal:'Nieuwe Deal',editDeal:'Deal Bewerken',newContact:'Nieuw Contact',editContact:'Contact Bewerken',newTask:'Nieuwe Taak',editTask:'Taak Bewerken',newCompany:'Nieuw Bedrijf',editCompany:'Bedrijf Bewerken',newTeam:'Nieuw Teamlid',
     title:'Titel',company:'Bedrijf',contactPersons:'Contactpersonen',value:'Waarde',chance:'Kans',phase:'Fase',priority:'Prioriteit',technology:'Technologie',nextAction:'Volgende Actie',actionDate:'Actie Datum',closeDate:'Verwachte Sluiting',
@@ -285,7 +286,8 @@ const TX={
     waitingOn:'Wachtend op',
   },
   en:{
-    pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',atos:'Atos Team',tasks:'Tasks',reports:'Reports',
+    pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',atos:'Atos Team',tasks:'Tasks',reports:'Reports',checklist:'Checklist',
+    clAddItem:'Add item...',clClearDone:'Clear completed',clCleared:'Completed items cleared',clEmpty:'No items — add one!',clCategory:'Category',clAll:'All',clDone:'done',clItemAdded:'Item added',clItemDeleted:'Item deleted',
     save:'Save',add:'Add',cancel:'Cancel',delete:'Delete',edit:'Edit',back:'← Back',search:'Search...',
     newDeal:'New Deal',editDeal:'Edit Deal',newContact:'New Contact',editContact:'Edit Contact',newTask:'New Task',editTask:'Edit Task',newCompany:'New Company',editCompany:'Edit Company',newTeam:'New Team Member',
     title:'Title',company:'Company',contactPersons:'Contacts',value:'Value',chance:'Probability',phase:'Phase',priority:'Priority',technology:'Technology',nextAction:'Next Action',actionDate:'Action Date',closeDate:'Expected Close',
@@ -484,6 +486,25 @@ const RichNote=({value,onChange,placeholder,t:theme,style:sx})=>{
   );
 };
 
+// ═══ CHECKLIST ITEM (inline editable) ═══
+const ChecklistItem=({item,t,dark,onToggle,onDelete,onEdit,onCategory,categories})=>{
+  const[editing,setEditing]=useState(false);
+  const[editText,setEditText]=useState(item.text);
+  const[showCat,setShowCat]=useState(false);
+  return <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',transition:'background .1s'}}>
+    <div onClick={onToggle} style={{width:18,height:18,borderRadius:5,border:`2px solid ${t.accent}`,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}/>
+    {editing?<input autoFocus value={editText} onChange={e=>setEditText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){onEdit(editText);setEditing(false);}if(e.key==='Escape')setEditing(false);}} onBlur={()=>{onEdit(editText);setEditing(false);}} style={{flex:1,fontSize:13,padding:'2px 6px',border:`1px solid ${t.accent}`,borderRadius:6,background:t.solid,color:t.text,outline:'none',fontFamily:'inherit'}}/>
+    :<span onClick={()=>{setEditText(item.text);setEditing(true);}} style={{flex:1,fontSize:13,cursor:'text',minWidth:0,wordBreak:'break-word'}}>{item.text}</span>}
+    {item.category&&!showCat&&<span onClick={()=>setShowCat(true)} style={{fontSize:9,padding:'1px 6px',borderRadius:4,background:t.accentS,color:t.accent,cursor:'pointer',flexShrink:0}}>{item.category}</span>}
+    {showCat&&<select autoFocus value={item.category||''} onChange={e=>{onCategory(e.target.value);setShowCat(false);}} onBlur={()=>setShowCat(false)} style={{fontSize:10,padding:'1px 4px',borderRadius:4,border:`1px solid ${t.border}`,background:t.solid,color:t.text,fontFamily:'inherit'}}>
+      <option value="">—</option>
+      {categories.map(c=><option key={c} value={c}>{c}</option>)}
+    </select>}
+    {!item.category&&<span onClick={()=>setShowCat(true)} style={{fontSize:10,color:t.muted,cursor:'pointer',opacity:.4,flexShrink:0}}>+tag</span>}
+    <span onClick={onDelete} style={{cursor:'pointer',color:t.muted,fontSize:11,opacity:.4,flexShrink:0}}>✕</span>
+  </div>;
+};
+
 // ═══ SEARCHABLE SELECT ═════════════════════════════════
 const SearchSelect=({value,onChange,options,placeholder,style:sx,t:theme,lang:_lang})=>{const _tx=TX[_lang||'nl']||TX.nl;
   const[open,setOpen]=useState(false);const[q,setQ]=useState('');const ref=useRef(null);
@@ -626,6 +647,10 @@ const App = function(){
   const[tasks,setTasks]=useState(()=>safeArr('tasks'));
   const[atosTeam,setAtosTeam]=useState(()=>safeArr('atos'));
   const[interactions,setInteractions]=useState(()=>safeArr('interactions'));
+  const[checklistItems,setChecklistItems]=useState([]);
+  const[clInput,setClInput]=useState('');
+  const[clCategory,setClCategory]=useState('');
+  const[clFilter,setClFilter]=useState('all'); // 'all' or a category name
 
   // Auto-restore: if all data is empty and NOT logged in, offer backup restore
   // When logged in, Neon load handles data — skip the backup prompt
@@ -723,22 +748,25 @@ const App = function(){
           fetch('/api/tasks',{headers,signal:AbortSignal.timeout(10000)}),
           fetch('/api/atos',{headers,signal:AbortSignal.timeout(10000)}),
           fetch('/api/interactions',{headers,signal:AbortSignal.timeout(10000)}),
+          fetch('/api/checklist',{headers,signal:AbortSignal.timeout(10000)}).catch(()=>({ok:false})),
         ]);
         // If any API returned 401/403, the user is no longer authorized — auto-logout
-        if(resps.some(r=>r.status===401||r.status===403)){LS.set('auth_session',null);setAuthUser(null);return;}
+        if(resps.slice(0,6).some(r=>r.status===401||r.status===403)){LS.set('auth_session',null);setAuthUser(null);return;}
         // If any API returned an error, don't trust the data — keep localStorage
-        const failedCount=resps.filter(r=>!r.ok).length;
-        if(failedCount===resps.length){console.warn('Neon: all APIs failed');setDataSource('offline');dbReady.current=true;return;}
+        const failedCount=resps.slice(0,6).filter(r=>!r.ok).length;
+        if(failedCount===6){console.warn('Neon: all APIs failed');setDataSource('offline');dbReady.current=true;return;}
         if(failedCount>0)console.warn(`Neon: ${failedCount} API(s) failed, loading available data`);
-        const[cos,cts,ops,tks,ats,ints]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
+        const[cos,cts,ops,tks,ats,ints,clRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
         const cc=camelArr(cos.companies||cos.data||[]);
         const ct=camelArr(cts.contacts||cts.data||[]);
         const op=camelArr(ops.opportunities||ops.data||[]).map(o=>({...o,techTags:o.techTags||[],contactIds:o.contactIds||[],atosContactIds:o.atosContactIds||[],notes:o.notes||[],expectedCloseDate:o.expectedCloseDate?o.expectedCloseDate.slice(0,10):o.expectedCloseDate}));
         const tk=camelArr(tks.tasks||tks.data||[]).map(t=>({...t,dueDate:t.dueDate?t.dueDate.slice(0,10):t.dueDate}));
         const at=camelArr(ats.team||ats.data||[]);
         const it=camelArr(ints.interactions||ints.data||[]).map(i=>({...i,at:i.at||i.createdAt}));
+        const cl=camelArr(clRes.items||[]);
         // Neon is the single source of truth — always use server data
         setCompanies(cc); setContacts(ct); setOpps(op); setTasks(tk); setAtosTeam(at); setInteractions(it);
+        setChecklistItems(cl);
         setDataSource('neon');
         // Only mark as loaded AFTER successful data fetch
         neonLoaded.current=true;
@@ -766,14 +794,16 @@ const App = function(){
         fetch('/api/tasks',{headers,signal:AbortSignal.timeout(15000)}),
         fetch('/api/atos',{headers,signal:AbortSignal.timeout(15000)}),
         fetch('/api/interactions',{headers,signal:AbortSignal.timeout(15000)}),
+        fetch('/api/checklist',{headers,signal:AbortSignal.timeout(15000)}).catch(()=>({ok:false})),
       ]);
-      if(resps.some(r=>r.status===401||r.status===403)){toast(lang==='nl'?'Sessie verlopen':'Session expired','info');return;}
-      const[cos,cts,ops,tks,ats,ints]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
+      if(resps.slice(0,6).some(r=>r.status===401||r.status===403)){toast(lang==='nl'?'Sessie verlopen':'Session expired','info');return;}
+      const[cos,cts,ops,tks,ats,ints,clRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
       const cc=camelArr(cos.companies||[]);const ct=camelArr(cts.contacts||[]);
       const op=camelArr(ops.opportunities||[]).map(o=>({...o,techTags:o.techTags||[],contactIds:o.contactIds||[],atosContactIds:o.atosContactIds||[],notes:o.notes||[],expectedCloseDate:o.expectedCloseDate?o.expectedCloseDate.slice(0,10):o.expectedCloseDate}));
       const tk=camelArr(tks.tasks||[]).map(t=>({...t,dueDate:t.dueDate?t.dueDate.slice(0,10):t.dueDate}));
       const at=camelArr(ats.team||[]);const it=camelArr(ints.interactions||[]).map(i=>({...i,at:i.at||i.createdAt}));
-      setCompanies(cc);setContacts(ct);setOpps(op);setTasks(tk);setAtosTeam(at);setInteractions(it);
+      const cl=camelArr(clRes.items||[]);
+      setCompanies(cc);setContacts(ct);setOpps(op);setTasks(tk);setAtosTeam(at);setInteractions(it);setChecklistItems(cl);
       neonLoaded.current=true;setDataSource('neon');
       toast(lang==='nl'?`Geladen: ${cc.length} bedrijven, ${ct.length} contacten, ${op.length} deals, ${tk.length} taken`:`Loaded: ${cc.length} companies, ${ct.length} contacts, ${op.length} deals, ${tk.length} tasks`);
     }catch(e){console.error('Force reload error:',e);toast(lang==='nl'?'Herladen mislukt':'Reload failed','info');}
@@ -864,6 +894,14 @@ const App = function(){
   const[intText,setIntText]=useState('');
   const[expandedInts,setExpandedInts]=useState({});
   const toggleInt=(id)=>setExpandedInts(p=>({...p,[id]:!p[id]}));
+  const noteTimerRef=useRef(null);
+  const debouncedNoteUpdate=useCallback((id,val)=>{
+    // Update local state immediately for responsiveness
+    setOpps(p=>p.map(x=>x.id===id?{...x,dealNotes:val}:x));
+    // Debounce server save (800ms after last keystroke)
+    if(noteTimerRef.current)clearTimeout(noteTimerRef.current);
+    noteTimerRef.current=setTimeout(()=>{serverUpdate('opportunities',{id,dealNotes:val}).catch(e=>showErr('updateNotes',e));},800);
+  },[]);
   const[reasonModal,setReasonModal]=useState(null); // {oppId,stage,reasons[],title}
 
   // ── FIX: track both type AND id so editing always re-initialises the form ──
@@ -1992,7 +2030,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             {/* Deal notes (rich text) */}
             <div style={{marginTop:16}}>
               <label style={{fontSize:12,fontWeight:600,color:t.dim,marginBottom:6,display:'block'}}>{tx.dealNotes}</label>
-              <RichNote t={t} value={o.dealNotes||''} onChange={v=>updateOpp(o.id,{dealNotes:v,updatedAt:new Date().toISOString()})} placeholder={tx.addNote}/>
+              <RichNote t={t} value={o.dealNotes||''} onChange={v=>debouncedNoteUpdate(o.id,v)} placeholder={tx.addNote}/>
             </div>
           </div>}
         </div>
@@ -2344,6 +2382,105 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     toast(tx.reportGenerated);
   };
 
+  // ── Checklist CRUD ──
+  const clAdd=async(text,category)=>{
+    if(!text?.trim()||!authUser?.token)return;
+    try{
+      const resp=await fetch('/api/checklist',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({text:text.trim(),category:category||''})});
+      if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'Error');}
+      const j=await resp.json();if(j.item)setChecklistItems(p=>[camelObj(j.item),...p]);
+      toast(tx.clItemAdded);
+    }catch(e){showErr('clAdd',e);}
+  };
+  const clToggle=async(id,done)=>{
+    setChecklistItems(p=>p.map(x=>x.id===id?{...x,done}:x));
+    try{
+      const resp=await fetch('/api/checklist',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({id,done})});
+      if(!resp.ok)throw new Error('Toggle failed');
+    }catch(e){setChecklistItems(p=>p.map(x=>x.id===id?{...x,done:!done}:x));showErr('clToggle',e);}
+  };
+  const clEdit=async(id,text)=>{
+    if(!text?.trim())return;
+    setChecklistItems(p=>p.map(x=>x.id===id?{...x,text}:x));
+    try{
+      const resp=await fetch('/api/checklist',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({id,text})});
+      if(!resp.ok)throw new Error('Edit failed');
+    }catch(e){showErr('clEdit',e);}
+  };
+  const clDelete=async(id)=>{
+    const prev=checklistItems.find(x=>x.id===id);
+    setChecklistItems(p=>p.filter(x=>x.id!==id));
+    try{
+      const resp=await fetch('/api/checklist?id='+id,{method:'DELETE',headers:{'Authorization':'Bearer '+authUser.token}});
+      if(!resp.ok)throw new Error('Delete failed');
+      toast(tx.clItemDeleted,'info');
+    }catch(e){if(prev)setChecklistItems(p=>[...p,prev]);showErr('clDelete',e);}
+  };
+  const clClearDone=async()=>{
+    const doneItems=checklistItems.filter(x=>x.done);
+    if(doneItems.length===0)return;
+    setChecklistItems(p=>p.filter(x=>!x.done));
+    try{
+      const resp=await fetch('/api/checklist?clear_done=true',{method:'DELETE',headers:{'Authorization':'Bearer '+authUser.token}});
+      if(!resp.ok)throw new Error('Clear failed');
+      toast(tx.clCleared,'info');
+    }catch(e){setChecklistItems(p=>[...p,...doneItems]);showErr('clClear',e);}
+  };
+
+  const renderChecklist=()=>{
+    const categories=[...new Set(checklistItems.filter(x=>x.category).map(x=>x.category))].sort();
+    const filtered=clFilter==='all'?checklistItems:checklistItems.filter(x=>x.category===clFilter);
+    const open=filtered.filter(x=>!x.done);
+    const done=filtered.filter(x=>x.done);
+    const doneCount=checklistItems.filter(x=>x.done).length;
+
+    return <div style={{maxWidth:640,margin:'0 auto'}}>
+      {/* Add item */}
+      <div style={{display:'flex',gap:6,marginBottom:16}}>
+        <input style={{...inp,flex:1}} value={clInput} onChange={e=>setClInput(e.target.value)} placeholder={tx.clAddItem}
+          onKeyDown={e=>{if(e.key==='Enter'&&clInput.trim()){clAdd(clInput,clCategory);setClInput('');}}} autoFocus/>
+        <select style={{...inp,width:120,flexShrink:0}} value={clCategory} onChange={e=>setClCategory(e.target.value)}>
+          <option value="">{tx.clCategory}...</option>
+          {categories.map(c=><option key={c} value={c}>{c}</option>)}
+        </select>
+        <button onClick={()=>{if(clInput.trim()){clAdd(clInput,clCategory);setClInput('');}}} style={{...btnP,padding:'8px 16px',whiteSpace:'nowrap'}}>+</button>
+      </div>
+
+      {/* New category input (if typing a new one) */}
+      {clCategory===''&&<div style={{display:'flex',gap:6,marginBottom:12}}>
+        <input style={{...inp,flex:1,fontSize:11}} placeholder={lang==='nl'?'Of typ een nieuwe categorie...':'Or type a new category...'} onKeyDown={e=>{if(e.key==='Enter'&&e.target.value.trim()){setClCategory(e.target.value.trim());}}} onBlur={e=>{if(e.target.value.trim())setClCategory(e.target.value.trim());}}/>
+      </div>}
+
+      {/* Category filter pills */}
+      {categories.length>0&&<div style={{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap'}}>
+        <button onClick={()=>setClFilter('all')} style={{padding:'4px 12px',borderRadius:20,fontSize:11,fontWeight:clFilter==='all'?700:500,border:`1.5px solid ${clFilter==='all'?t.accent:'transparent'}`,background:clFilter==='all'?t.accentS:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:clFilter==='all'?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{tx.clAll} ({checklistItems.length})</button>
+        {categories.map(c=>{const cnt=checklistItems.filter(x=>x.category===c).length;return <button key={c} onClick={()=>setClFilter(clFilter===c?'all':c)} style={{padding:'4px 12px',borderRadius:20,fontSize:11,fontWeight:clFilter===c?700:500,border:`1.5px solid ${clFilter===c?t.accent:'transparent'}`,background:clFilter===c?t.accentS:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:clFilter===c?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{c} ({cnt})</button>;})}
+      </div>}
+
+      {/* Open items */}
+      <div style={{display:'flex',flexDirection:'column',gap:3}}>
+        {open.map(item=><ChecklistItem key={item.id} item={item} t={t} dark={dark} onToggle={()=>clToggle(item.id,true)} onDelete={()=>clDelete(item.id)} onEdit={(txt)=>clEdit(item.id,txt)} categories={categories} onCategory={(cat)=>{setChecklistItems(p=>p.map(x=>x.id===item.id?{...x,category:cat}:x));fetch('/api/checklist',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({id:item.id,category:cat})}).catch(()=>{});}}/>)}
+        {open.length===0&&done.length===0&&<div style={{padding:24,textAlign:'center',color:t.muted,fontSize:13}}>{tx.clEmpty}</div>}
+      </div>
+
+      {/* Done items */}
+      {done.length>0&&<div style={{marginTop:16}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+          <span style={{fontSize:12,color:t.muted,fontWeight:600}}>{doneCount} {tx.clDone}</span>
+          <button onClick={clClearDone} style={{fontSize:11,color:t.red,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:'2px 8px',opacity:.7}}>{tx.clClearDone}</button>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:2,opacity:.5}}>
+          {done.map(item=><div key={item.id} style={{display:'flex',alignItems:'center',gap:10,padding:'6px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.03)':'rgba(118,118,128,0.02)'}}>
+            <div onClick={()=>clToggle(item.id,false)} style={{width:18,height:18,borderRadius:5,background:t.green,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#fff',fontWeight:700}}>✓</div>
+            <span style={{flex:1,textDecoration:'line-through',fontSize:13,color:t.dim}}>{item.text}</span>
+            {item.category&&<span style={{fontSize:9,padding:'1px 6px',borderRadius:4,background:t.accentS,color:t.accent}}>{item.category}</span>}
+            <span onClick={()=>clDelete(item.id)} style={{cursor:'pointer',color:t.muted,fontSize:11}}>✕</span>
+          </div>)}
+        </div>
+      </div>}
+    </div>;
+  };
+
   const renderReports=()=>{
     const now=new Date();const cutoff=reportPeriod==='30'?new Date(now-30*864e5):reportPeriod==='90'?new Date(now-90*864e5):reportPeriod==='year'?new Date(now.getFullYear(),0,1):null;
     const rOpps=cutoff?opps.filter(o=>new Date(o.createdAt||o.updatedAt)>=cutoff):opps;
@@ -2664,8 +2801,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   };
 
   const isAdmin=authUser?.email==='hvanarkel@gmail.com';
-  const titles={pipeline:tx.pipeline,contacts:tx.contacts,companies:tx.companies,atos:tx.atos,tasks:tx.tasks,dashboard:tx.dashboard,reports:tx.reports,admin:tx.adminPanel};
-  const nav=[{id:'dashboard',ic:'◆',l:tx.dashboard},{id:'pipeline',ic:'📊',l:tx.pipeline},{id:'companies',ic:'🏢',l:tx.companies},{id:'contacts',ic:'👤',l:tx.contacts},{id:'atos',ic:'🔵',l:tx.atos},{id:'tasks',ic:'☑',l:tx.tasks},{id:'reports',ic:'📈',l:tx.reports},...(isAdmin?[{id:'admin',ic:'🛡',l:tx.adminPanel}]:[])];
+  const titles={pipeline:tx.pipeline,contacts:tx.contacts,companies:tx.companies,atos:tx.atos,tasks:tx.tasks,dashboard:tx.dashboard,reports:tx.reports,admin:tx.adminPanel,checklist:tx.checklist};
+  const nav=[{id:'dashboard',ic:'◆',l:tx.dashboard},{id:'pipeline',ic:'📊',l:tx.pipeline},{id:'companies',ic:'🏢',l:tx.companies},{id:'contacts',ic:'👤',l:tx.contacts},{id:'atos',ic:'🔵',l:tx.atos},{id:'tasks',ic:'☑',l:tx.tasks},{id:'checklist',ic:'✅',l:tx.checklist},{id:'reports',ic:'📈',l:tx.reports},...(isAdmin?[{id:'admin',ic:'🛡',l:tx.adminPanel}]:[])];
 
   // Admin: state
   const[pendingUsers,setPendingUsers]=useState([]);
@@ -2925,7 +3062,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:36,height:36,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,color:'#fff',animation:'glow 3s ease infinite'}}>D</div><div><div style={{fontSize:18,fontWeight:800,letterSpacing:-.3}}>DPM CRM</div><div style={{fontSize:9,color:t.muted,letterSpacing:2,textTransform:'uppercase',fontWeight:600}}>Sales Pipeline</div></div></div>
         </div>
         <nav style={{flex:1,padding:'12px 10px'}}>
-          {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSb(false);if(n.id==='admin')loadPendingUsers();}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:view===n.id?t.accent:t.dim,background:view===n.id?t.accentS:'transparent',fontSize:14,fontWeight:view===n.id?600:400,marginBottom:2,transition:`all .15s ${sp}`}}><span style={{fontSize:15}}>{n.ic}</span>{n.l}{n.id==='admin'&&pendingUsers.length>0&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:t.red,color:'#fff',fontWeight:700,marginLeft:'auto'}}>{pendingUsers.length}</span>}</div>)}
+          {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSb(false);if(n.id==='admin')loadPendingUsers();}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:view===n.id?t.accent:t.dim,background:view===n.id?t.accentS:'transparent',fontSize:14,fontWeight:view===n.id?600:400,marginBottom:2,transition:`all .15s ${sp}`}}><span style={{fontSize:15}}>{n.ic}</span>{n.l}{n.id==='checklist'&&checklistItems.filter(x=>!x.done).length>0&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:t.accent,color:'#fff',fontWeight:700,marginLeft:'auto'}}>{checklistItems.filter(x=>!x.done).length}</span>}{n.id==='admin'&&pendingUsers.length>0&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:t.red,color:'#fff',fontWeight:700,marginLeft:'auto'}}>{pendingUsers.length}</span>}</div>)}
           <div style={{borderTop:`0.5px solid ${t.border}`,marginTop:16,paddingTop:12}}>
             <div onClick={()=>setDark(!dark)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>{dark?'🌙':'☀️'} {tx.dark}/{tx.light}</div>
             <div onClick={()=>{const nl=lang==='nl'?'en':'nl';setLang(nl);LS.set('lang',nl);}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🌐 {lang==='nl'?'English':'Nederlands'}</div>
@@ -2978,6 +3115,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {view==='contacts'&&renderContacts()}
           {view==='atos'&&renderAtosView()}
           {view==='tasks'&&renderTasks()}
+          {view==='checklist'&&renderChecklist()}
           {view==='reports'&&renderReports()}
           {view==='admin'&&isAdmin&&renderAdmin()}
         </div>

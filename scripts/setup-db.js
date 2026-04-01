@@ -153,6 +153,9 @@ async function setup() {
     { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ DEFAULT NULL", v: '33' },
     // v34: last login tracking
     { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ DEFAULT NULL", v: '34' },
+    // v35: personal checklist
+    { sql: "CREATE TABLE IF NOT EXISTS checklist_items (id SERIAL PRIMARY KEY, text TEXT NOT NULL, done BOOLEAN DEFAULT false, position INTEGER DEFAULT 0, category VARCHAR(100) DEFAULT '', user_id INTEGER NOT NULL REFERENCES users(id), created_at TIMESTAMPTZ DEFAULT NOW())", v: '35' },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_checklist_user ON checklist_items(user_id)", v: '35' },
   ];
 
   let migrated = 0;
