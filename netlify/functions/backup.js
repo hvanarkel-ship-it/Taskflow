@@ -49,56 +49,63 @@ exports.handler = async (event) => {
         return err(400, `Restore geweigerd: huidige data heeft ${existingTotal} records, backup heeft er maar ${incomingTotal}. Gebruik force=true om toch door te gaan.`);
       }
 
+      // Build all queries into an array for atomic transaction
+      const queries = [];
+      const now = new Date().toISOString();
+
       // Delete existing data in correct order (respecting FK constraints)
-      await sql`DELETE FROM interactions WHERE user_id = ${user.id}`;
-      await sql`DELETE FROM opp_notes WHERE opp_id IN (SELECT id FROM opportunities WHERE user_id = ${user.id})`;
-      await sql`DELETE FROM tasks WHERE user_id = ${user.id}`;
-      await sql`DELETE FROM opportunities WHERE user_id = ${user.id}`;
-      await sql`DELETE FROM contacts WHERE user_id = ${user.id}`;
-      await sql`DELETE FROM companies WHERE user_id = ${user.id}`;
-      await sql`DELETE FROM atos_team WHERE user_id = ${user.id}`;
+      queries.push(sql`DELETE FROM interactions WHERE user_id = ${user.id}`);
+      queries.push(sql`DELETE FROM opp_notes WHERE opp_id IN (SELECT id FROM opportunities WHERE user_id = ${user.id})`);
+      queries.push(sql`DELETE FROM tasks WHERE user_id = ${user.id}`);
+      queries.push(sql`DELETE FROM opportunities WHERE user_id = ${user.id}`);
+      queries.push(sql`DELETE FROM contacts WHERE user_id = ${user.id}`);
+      queries.push(sql`DELETE FROM companies WHERE user_id = ${user.id}`);
+      queries.push(sql`DELETE FROM atos_team WHERE user_id = ${user.id}`);
 
       // Restore companies
       for (const c of (b.companies || [])) {
-        await sql`INSERT INTO companies (id, name, website, industry, address, size, phone, email, notes, tags, user_id, created_at, updated_at)
-          VALUES (${c.id}, ${c.name}, ${c.website || ''}, ${c.industry || ''}, ${c.address || ''}, ${c.size || ''}, ${c.phone || ''}, ${c.email || ''}, ${c.notes || ''}, ${JSON.stringify(c.tags || [])}, ${user.id}, ${c.created_at || new Date().toISOString()}, ${c.updated_at || new Date().toISOString()})`;
+        queries.push(sql`INSERT INTO companies (id, name, website, industry, address, size, phone, email, notes, tags, user_id, created_at, updated_at)
+          VALUES (${c.id}, ${c.name}, ${c.website || ''}, ${c.industry || ''}, ${c.address || ''}, ${c.size || ''}, ${c.phone || ''}, ${c.email || ''}, ${c.notes || ''}, ${JSON.stringify(c.tags || [])}::jsonb, ${user.id}, ${c.created_at || now}, ${c.updated_at || now})`);
       }
 
       // Restore contacts
       for (const c of (b.contacts || [])) {
-        await sql`INSERT INTO contacts (id, name, email, phone, company_id, role, tags, category, user_id, created_at, updated_at)
-          VALUES (${c.id}, ${c.name}, ${c.email || ''}, ${c.phone || ''}, ${c.company_id || null}, ${c.role || ''}, ${JSON.stringify(c.tags || [])}, ${c.category || ''}, ${user.id}, ${c.created_at || new Date().toISOString()}, ${c.updated_at || new Date().toISOString()})`;
+        queries.push(sql`INSERT INTO contacts (id, name, email, phone, company_id, role, tags, category, user_id, created_at, updated_at)
+          VALUES (${c.id}, ${c.name}, ${c.email || ''}, ${c.phone || ''}, ${c.company_id || null}, ${c.role || ''}, ${JSON.stringify(c.tags || [])}::jsonb, ${c.category || ''}, ${user.id}, ${c.created_at || now}, ${c.updated_at || now})`);
       }
 
       // Restore atos_team
       for (const a of (b.atos_team || [])) {
-        await sql`INSERT INTO atos_team (id, name, role, email, phone, user_id, created_at)
-          VALUES (${a.id}, ${a.name}, ${a.role || 'sales'}, ${a.email || ''}, ${a.phone || ''}, ${user.id}, ${a.created_at || new Date().toISOString()})`;
+        queries.push(sql`INSERT INTO atos_team (id, name, role, email, phone, user_id, created_at)
+          VALUES (${a.id}, ${a.name}, ${a.role || 'sales'}, ${a.email || ''}, ${a.phone || ''}, ${user.id}, ${a.created_at || now})`);
       }
 
-      // Restore opportunities
+      // Restore opportunities (ALL columns)
       for (const o of (b.opportunities || [])) {
-        await sql`INSERT INTO opportunities (id, title, contact_id, contact_ids, company_id, stage, value, probability, priority, next_action, next_action_date, tech_tags, atos_sales_id, atos_delivery_id, expected_close_date, closed_at, user_id, created_at, updated_at)
-          VALUES (${o.id}, ${o.title}, ${o.contact_id || null}, ${JSON.stringify(o.contact_ids || [])}, ${o.company_id || null}, ${o.stage || 'lead'}, ${o.value || 0}, ${o.probability || 20}, ${o.priority || 'medium'}, ${o.next_action || ''}, ${o.next_action_date || null}, ${JSON.stringify(o.tech_tags || [])}, ${o.atos_sales_id || null}, ${o.atos_delivery_id || null}, ${o.expected_close_date || null}, ${o.closed_at || null}, ${user.id}, ${o.created_at || new Date().toISOString()}, ${o.updated_at || new Date().toISOString()})`;
+        queries.push(sql`INSERT INTO opportunities (id, title, contact_id, contact_ids, company_id, stage, value, probability, priority, next_action, next_action_date, tech_tags, atos_sales_id, atos_delivery_id, atos_contact_ids, expected_close_date, stage_changed_at, closed_at, closed_reason, closed_note, deal_notes, salesforce_url, folder_url, user_id, created_at, updated_at)
+          VALUES (${o.id}, ${o.title}, ${o.contact_id || null}, ${JSON.stringify(o.contact_ids || [])}::jsonb, ${o.company_id || null}, ${o.stage || 'lead'}, ${o.value != null ? o.value : 0}, ${o.probability != null ? o.probability : 20}, ${o.priority || 'medium'}, ${o.next_action || ''}, ${o.next_action_date || null}, ${JSON.stringify(o.tech_tags || [])}::jsonb, ${o.atos_sales_id || null}, ${o.atos_delivery_id || null}, ${JSON.stringify(o.atos_contact_ids || [])}::jsonb, ${o.expected_close_date || null}, ${o.stage_changed_at || null}, ${o.closed_at || null}, ${o.closed_reason || ''}, ${o.closed_note || ''}, ${o.deal_notes || ''}, ${o.salesforce_url || ''}, ${o.folder_url || ''}, ${user.id}, ${o.created_at || now}, ${o.updated_at || now})`);
       }
 
-      // Restore tasks
+      // Restore tasks (ALL columns)
       for (const t of (b.tasks || [])) {
-        await sql`INSERT INTO tasks (id, title, contact_id, opp_id, due_date, due_time, priority, reminder, reminder_min, done, user_id, created_at, updated_at)
-          VALUES (${t.id}, ${t.title}, ${t.contact_id || null}, ${t.opp_id || null}, ${t.due_date || null}, ${t.due_time || null}, ${t.priority || 'medium'}, ${t.reminder || false}, ${t.reminder_min || 15}, ${t.done || false}, ${user.id}, ${t.created_at || new Date().toISOString()}, ${t.updated_at || new Date().toISOString()})`;
+        queries.push(sql`INSERT INTO tasks (id, title, contact_id, opp_id, due_date, due_time, priority, reminder, reminder_min, done, progress, status, notes, atos_id, company_contact_id, user_id, created_at, updated_at)
+          VALUES (${t.id}, ${t.title}, ${t.contact_id || null}, ${t.opp_id || null}, ${t.due_date || null}, ${t.due_time || null}, ${t.priority || 'medium'}, ${t.reminder || false}, ${t.reminder_min || 15}, ${t.done || false}, ${t.progress || 0}, ${t.status || 'todo'}, ${t.notes || ''}, ${t.atos_id || null}, ${t.company_contact_id || null}, ${user.id}, ${t.created_at || now}, ${t.updated_at || now})`);
       }
 
       // Restore opp_notes
       for (const n of (b.opp_notes || [])) {
-        await sql`INSERT INTO opp_notes (id, opp_id, text, created_at)
-          VALUES (${n.id}, ${n.opp_id}, ${n.text}, ${n.created_at || new Date().toISOString()})`;
+        queries.push(sql`INSERT INTO opp_notes (id, opp_id, text, created_at)
+          VALUES (${n.id}, ${n.opp_id}, ${n.text}, ${n.created_at || now})`);
       }
 
       // Restore interactions
       for (const i of (b.interactions || [])) {
-        await sql`INSERT INTO interactions (id, contact_id, opp_id, type, text, user_id, created_at)
-          VALUES (${i.id}, ${i.contact_id || null}, ${i.opp_id || null}, ${i.type || 'note'}, ${i.text}, ${user.id}, ${i.created_at || new Date().toISOString()})`;
+        queries.push(sql`INSERT INTO interactions (id, contact_id, opp_id, type, text, user_id, created_at)
+          VALUES (${i.id}, ${i.contact_id || null}, ${i.opp_id || null}, ${i.type || 'note'}, ${i.text}, ${user.id}, ${i.created_at || now})`);
       }
+
+      // Execute all queries in a single transaction (all-or-nothing)
+      await sql.transaction(queries);
 
       return ok({ restored: true, counts: {
         companies: (b.companies || []).length,
