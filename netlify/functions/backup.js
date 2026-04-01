@@ -5,7 +5,7 @@ exports.handler = async (event) => {
   if (!checkRate(event)) return err(429, 'Too many requests');
 
   try {
-    const user = requireAuth(event);
+    const user = await requireAuth(event);
     if (!sql) return err(503, 'Database not configured');
 
     // GET = export backup

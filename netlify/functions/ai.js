@@ -61,7 +61,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return err(405, 'Method not allowed');
 
   try {
-    requireAuth(event);
+    await requireAuth(event);
     const { message, context, history } = parseBody(event);
     if (!message?.trim()) return err(400, 'Bericht vereist');
     if (message.length > 2000) return err(400, 'Bericht te lang');

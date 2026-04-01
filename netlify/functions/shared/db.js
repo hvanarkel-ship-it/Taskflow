@@ -45,12 +45,17 @@ const signToken = (user) => {
   return jwt.sign({ id: user.id, email: user.email, name: user.name }, JWT_SECRET, { expiresIn: '30d', issuer: 'dpm-crm' });
 };
 
-const requireAuth = (event) => {
+const requireAuth = async (event) => {
   if (!JWT_SECRET) throw { status: 500, message: 'Server configuratie fout' };
   const auth = event.headers?.authorization || event.headers?.Authorization || '';
   if (!auth.startsWith('Bearer ')) throw { status: 401, message: 'Niet ingelogd' };
-  try { return jwt.verify(auth.slice(7), JWT_SECRET, { issuer: 'dpm-crm' }); }
+  let decoded;
+  try { decoded = jwt.verify(auth.slice(7), JWT_SECRET, { issuer: 'dpm-crm' }); }
   catch { throw { status: 401, message: 'Ongeldige sessie' }; }
+  const [dbUser] = await sql`SELECT id, approved FROM users WHERE id = ${decoded.id}`;
+  if (!dbUser) throw { status: 401, message: 'Gebruiker niet gevonden' };
+  if (!dbUser.approved) throw { status: 403, message: 'Account niet goedgekeurd' };
+  return decoded;
 };
 
 // Safe body parser with size limit (100KB)
