@@ -36,6 +36,19 @@ exports.handler = async (event) => {
       const b = body.backup;
       if (!b) return err(400, 'No backup data provided');
 
+      // Safety: snapshot current data counts before deleting
+      const [countRow] = await sql`SELECT
+        (SELECT count(*) FROM companies WHERE user_id=${user.id})::int AS cos,
+        (SELECT count(*) FROM contacts WHERE user_id=${user.id})::int AS cts,
+        (SELECT count(*) FROM opportunities WHERE user_id=${user.id})::int AS ops,
+        (SELECT count(*) FROM tasks WHERE user_id=${user.id})::int AS tks`;
+      const existingTotal = (countRow?.cos||0)+(countRow?.cts||0)+(countRow?.ops||0)+(countRow?.tks||0);
+      const incomingTotal = (b.companies||[]).length+(b.contacts||[]).length+(b.opportunities||[]).length+(b.tasks||[]).length;
+      // Refuse restore if incoming data is drastically smaller (>80% loss) unless explicitly forced
+      if (existingTotal > 10 && incomingTotal < existingTotal * 0.2 && !body.force) {
+        return err(400, `Restore geweigerd: huidige data heeft ${existingTotal} records, backup heeft er maar ${incomingTotal}. Gebruik force=true om toch door te gaan.`);
+      }
+
       // Delete existing data in correct order (respecting FK constraints)
       await sql`DELETE FROM interactions WHERE user_id = ${user.id}`;
       await sql`DELETE FROM opp_notes WHERE opp_id IN (SELECT id FROM opportunities WHERE user_id = ${user.id})`;
