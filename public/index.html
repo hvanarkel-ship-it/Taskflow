@@ -6,7 +6,7 @@
 <title>DPM CRM</title>
 <meta name="description" content="Persoonlijk CRM systeem voor sales pipeline management">
 <meta name="theme-color" content="#000000">
-<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="DPM CRM">
@@ -3068,8 +3068,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             <div onClick={()=>{const nl=lang==='nl'?'en':'nl';setLang(nl);LS.set('lang',nl);}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🌐 {lang==='nl'?'English':'Nederlands'}</div>
             <div onClick={doBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📤 {tx.backup}</div>
             <div onClick={doRestore} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📥 {tx.restore}</div>
-            <div onClick={forceReloadFromServer} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🔄 {lang==='nl'?'Herlaad van server':'Reload from server'}</div>
-            <div onClick={restoreFromLocalBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.orange,fontSize:13,fontWeight:600}}>🛟 {lang==='nl'?'Herstel lokale backup':'Restore local backup'}</div>
+            {isAdmin&&<div onClick={forceReloadFromServer} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🔄 {lang==='nl'?'Herlaad van server':'Reload from server'}</div>}
+            {isAdmin&&<div onClick={restoreFromLocalBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.orange,fontSize:13,fontWeight:600}}>🛟 {lang==='nl'?'Herstel lokale backup':'Restore local backup'}</div>}
             {installPrompt&&<div onClick={installApp} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.accent,fontSize:13,fontWeight:600}}>{tx.installPrompt}</div>}
           </div>
         </nav>
@@ -3077,12 +3077,10 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {authUser&&<div style={{fontSize:11,color:t.dim,marginBottom:6,display:'flex',justifyContent:'space-between',alignItems:'center'}}><span>👤 {authUser.name||authUser.email}</span><span onClick={doLogout} style={{color:t.red,cursor:'pointer',fontSize:10,fontWeight:600}}>{tx.logout}</span></div>}
           <div style={{fontSize:11,color:t.muted}}>{tx.pipelineLabel} {eur(totalPipeline)}</div>
           <div style={{fontSize:11,color:t.green}}>{wonOpps.length} {tx.wonShort} · {eur(wonRevenue)}</div>
-          <div onClick={dbStatus!=='connected'?checkDb:undefined} style={{display:'flex',alignItems:'center',gap:6,marginTop:8,cursor:dbStatus!=='connected'?'pointer':'default',fontSize:11,color:dbStatus==='connected'?t.green:dbStatus==='checking'?t.accent:t.orange}}>
-            <div style={{width:7,height:7,borderRadius:'50%',background:dbStatus==='connected'?t.green:dbStatus==='checking'?t.accent:t.orange,animation:dbStatus==='checking'?'pulse 1.5s infinite':'none'}}/>
-            {dbStatus==='connected'?`${tx.neonConnected}${dbMs?' ('+dbMs+'ms)':''}`:dbStatus==='checking'?tx.connecting:tx.localStorage2}
+          <div onClick={dbStatus!=='connected'?checkDb:undefined} style={{display:'flex',alignItems:'center',gap:4,marginTop:8,cursor:dbStatus!=='connected'?'pointer':'default'}}>
+            <div style={{width:7,height:7,borderRadius:'50%',background:dbStatus==='connected'?t.green:dbStatus==='checking'?t.accent:t.orange,animation:dbStatus==='checking'?'pulse 1.5s infinite':'none'}} title={dbStatus==='connected'?'Connected':dbStatus==='checking'?'Connecting...':'Offline'}/>
           </div>
           <div style={{fontSize:9,color:t.muted,marginTop:6,letterSpacing:1}}>v{APP_VERSION}</div>
-          <div style={{fontSize:8,marginTop:2,display:'flex',alignItems:'center',gap:3}}><div style={{width:5,height:5,borderRadius:'50%',background:dataSource==='neon'?t.green:dataSource==='offline'?t.orange:t.muted}}/><span style={{color:dataSource==='neon'?t.green:dataSource==='offline'?t.orange:t.muted}}>{dataSource==='neon'?'Neon':dataSource==='offline'?'Offline':'Local'}</span></div>
         </div>
       </aside>
 
