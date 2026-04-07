@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>DPM CRM</title>
+<title>My Personal Sales Plan</title>
 <meta name="description" content="Persoonlijk CRM systeem voor sales pipeline management">
 <meta name="theme-color" content="#1A1A2E">
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
@@ -11,7 +11,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="DPM CRM">
+<meta name="apple-mobile-web-app-title" content="My Personal Sales Plan">
 <meta name="msapplication-TileColor" content="#1A1A2E">
 <meta name="msapplication-TileImage" content="/icons/icon-192.png">
 <meta name="msapplication-config" content="none">
@@ -153,7 +153,7 @@ const TX={
     installed:'App geïnstalleerd!',installPrompt:'📲 Installeer als app',
     // Auth
     login:'Inloggen',register:'Registreren',email:'E-mail',password:'Wachtwoord',name:'Naam',
-    loginTitle:'Welkom bij DPM CRM',loginSub:'Log in om verder te gaan',registerSub:'Maak een account aan',
+    loginTitle:'My Personal Sales Plan',loginSub:'Log in om verder te gaan',registerSub:'Maak een account aan',
     logout:'Uitloggen',noAccount:'Geen account?',hasAccount:'Al een account?',
     fillEmail:'Vul een e-mailadres in',fillPassword:'Wachtwoord moet minimaal 6 tekens zijn',
     loginError:'Ongeldige inloggegevens',registerError:'Registratie mislukt',emailInUse:'E-mailadres al in gebruik',
@@ -240,7 +240,7 @@ const TX={
     contactsCount:'contacten',companiesCount:'bedrijven',dealsCount:'deals',tasksCount:'taken',
     latestBackup:'Laatste backup',preUpdateBackup:'Pre-update backup',
     reminderToast:'Herinnering',inMinutes:'over {n} min',atTime:'om',
-    notifTitle:'DPM CRM Herinnering',
+    notifTitle:'My Personal Sales Plan',
     // Table view
     tableView:'Tabel',kanbanView:'Kanban',
     // DB Backup
@@ -314,7 +314,7 @@ const TX={
     installed:'App installed!',installPrompt:'📲 Install as app',
     // Auth
     login:'Log in',register:'Register',email:'Email',password:'Password',name:'Name',
-    loginTitle:'Welcome to DPM CRM',loginSub:'Log in to continue',registerSub:'Create an account',
+    loginTitle:'My Personal Sales Plan',loginSub:'Log in to continue',registerSub:'Create an account',
     logout:'Log out',noAccount:'No account?',hasAccount:'Already have an account?',
     fillEmail:'Please enter an email address',fillPassword:'Password must be at least 6 characters',
     loginError:'Invalid credentials',registerError:'Registration failed',emailInUse:'Email already in use',
@@ -401,7 +401,7 @@ const TX={
     contactsCount:'contacts',companiesCount:'companies',dealsCount:'deals',tasksCount:'tasks',
     latestBackup:'Latest backup',preUpdateBackup:'Pre-update backup',
     reminderToast:'Reminder',inMinutes:'in {n} min',atTime:'at',
-    notifTitle:'DPM CRM Reminder',
+    notifTitle:'My Personal Sales Plan',
     // Table view
     tableView:'Table',kanbanView:'Kanban',
     // DB Backup
@@ -3078,7 +3078,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       {sb&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',zIndex:150}} onClick={()=>setSb(false)}/>}
       <aside className={`sb ${sb?'open':''}`} style={{background:t.bg2,borderRight:`0.5px solid ${t.border}`,display:'flex',flexDirection:'column'}}>
         <div style={{padding:'20px 16px',borderBottom:`0.5px solid ${t.border}`}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:36,height:36,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,color:'#fff',animation:'glow 3s ease infinite'}}>D</div><div><div style={{fontSize:18,fontWeight:800,letterSpacing:-.3}}>DPM CRM</div><div style={{fontSize:9,color:t.muted,letterSpacing:2,textTransform:'uppercase',fontWeight:600}}>Sales Pipeline</div></div></div>
+          <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:36,height:36,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,color:'#fff',animation:'glow 3s ease infinite'}}>SP</div><div><div style={{fontSize:15,fontWeight:800,letterSpacing:-.3}}>My Personal Sales Plan</div><div style={{fontSize:9,color:t.muted,letterSpacing:2,textTransform:'uppercase',fontWeight:600}}>Sales Pipeline</div></div></div>
         </div>
         <nav style={{flex:1,padding:'12px 10px'}}>
           {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSb(false);if(n.id==='admin')loadPendingUsers();}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:view===n.id?t.accent:t.dim,background:view===n.id?t.accentS:'transparent',fontSize:14,fontWeight:view===n.id?600:400,marginBottom:2,transition:`all .15s ${sp}`}}><span style={{fontSize:15}}>{n.ic}</span>{n.l}{n.id==='checklist'&&checklistItems.filter(x=>!x.done).length>0&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:t.accent,color:'#fff',fontWeight:700,marginLeft:'auto'}}>{checklistItems.filter(x=>!x.done).length}</span>}{n.id==='admin'&&pendingUsers.length>0&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:t.red,color:'#fff',fontWeight:700,marginLeft:'auto'}}>{pendingUsers.length}</span>}</div>)}

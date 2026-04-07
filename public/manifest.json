@@ -1,7 +1,7 @@
 {
-  "name": "DPM CRM — Sales Pipeline",
-  "short_name": "DPM CRM",
-  "description": "Sales pipeline management CRM",
+  "name": "My Personal Sales Plan",
+  "short_name": "Sales Plan",
+  "description": "My Personal Sales Plan — pipeline management",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1A1A2E",
