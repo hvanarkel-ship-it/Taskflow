@@ -156,6 +156,8 @@ async function setup() {
     // v35: personal checklist
     { sql: "CREATE TABLE IF NOT EXISTS checklist_items (id SERIAL PRIMARY KEY, text TEXT NOT NULL, done BOOLEAN DEFAULT false, position INTEGER DEFAULT 0, category VARCHAR(100) DEFAULT '', user_id INTEGER NOT NULL REFERENCES users(id), created_at TIMESTAMPTZ DEFAULT NOW())", v: '35' },
     { sql: "CREATE INDEX IF NOT EXISTS idx_checklist_user ON checklist_items(user_id)", v: '35' },
+    // v36: deal registration URL on opportunities
+    { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS deal_registration_url TEXT DEFAULT ''", v: '36' },
   ];
 
   let migrated = 0;

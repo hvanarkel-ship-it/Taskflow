@@ -5,11 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>DPM CRM</title>
 <meta name="description" content="Persoonlijk CRM systeem voor sales pipeline management">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#1A1A2E">
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="DPM CRM">
+<meta name="msapplication-TileColor" content="#1A1A2E">
+<meta name="msapplication-TileImage" content="/icons/icon-192.png">
+<meta name="msapplication-config" content="none">
 <script>
 if('serviceWorker' in navigator && !location.hostname.includes('claudeusercontent') && !location.hostname.includes('localhost')){
   window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{});});
@@ -917,7 +922,7 @@ const App = function(){
       if(mt==='import'){setImpData([]);setImpCols([]);setImpMapping({title:'',company:'',contact:'',value:'',stage:'',probability:'',priority:'',tech:'',nextAction:'',closeDate:''});setImpStep(1);setImpResult(null);}
       if(mt==='opp'){
         if(md?.id){setMf({...md,_pendingTasks:[],_taskInput:''});}
-        else{const base={title:'',contactId:'',contactIds:[],companyId:'',stage:'lead',value:0,probability:10,priority:'medium',expectedCloseDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',atosContactIds:[],dealNotes:'',salesforceUrl:'',folderUrl:'',notes:[],_pendingTasks:[],_taskInput:'',...(md||{})};if(base.contactId&&!base.contactIds.includes(base.contactId))base.contactIds=[...base.contactIds,base.contactId];setMf(base);}
+        else{const base={title:'',contactId:'',contactIds:[],companyId:'',stage:'lead',value:0,probability:10,priority:'medium',expectedCloseDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',atosContactIds:[],dealNotes:'',salesforceUrl:'',folderUrl:'',dealRegistrationUrl:'',notes:[],_pendingTasks:[],_taskInput:'',...(md||{})};if(base.contactId&&!base.contactIds.includes(base.contactId))base.contactIds=[...base.contactIds,base.contactId];setMf(base);}
       }else if(mt==='contact'){
         setMf(md?.id?{...md}:{name:'',email:'',phone:'',companyId:md?.companyId||'',role:'',category:'',tags:[],...(md||{})});
       }else if(mt==='task'){
@@ -1394,7 +1399,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
               {stOps.map(opp=>{const age=dealAge(opp);const isStale=age>7;const nextTask=tasks.find(tk=>tk.oppId===opp.id&&!tk.done);const closeOverdue=opp.expectedCloseDate&&opp.expectedCloseDate<td();
               return <div key={opp.id} draggable onDragStart={()=>setDragOpp(opp.id)} onClick={()=>setDetail({type:'opp',id:opp.id})} style={{...card,padding:'12px 14px',cursor:'grab',transition:`all 0.15s ${sp}`,borderLeft:`3px solid ${PRIS.find(p=>p.id===opp.priority)?.c||t.accent}`,opacity:isStale?.85:1}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:3}}>
-                  <div style={{fontSize:13,fontWeight:600,flex:1,display:'flex',alignItems:'center',gap:4}}>{opp.title}{opp.salesforceUrl&&<a href={opp.salesforceUrl} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} title="Salesforce" style={{flexShrink:0,display:'inline-flex',alignItems:'center',justifyContent:'center',width:16,height:16,borderRadius:4,background:'#00A1E0',color:'#fff',fontSize:9,fontWeight:700,textDecoration:'none',lineHeight:1}}>SF</a>}</div>
+                  <div style={{fontSize:13,fontWeight:600,flex:1,display:'flex',alignItems:'center',gap:3,minWidth:0}}><span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{opp.title}</span><span style={{display:'inline-flex',alignItems:'center',gap:2,flexShrink:0}}>{opp.salesforceUrl&&<a href={opp.salesforceUrl} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} title="Salesforce" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:12,height:12,borderRadius:3,background:'#00A1E0',color:'#fff',fontSize:7,fontWeight:700,textDecoration:'none',lineHeight:1,flexShrink:0}}>SF</a>}{opp.dealRegistrationUrl?<a href={opp.dealRegistrationUrl} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} title={lang==='nl'?'Deal Registratie ✓':'Deal Registration ✓'} style={{display:'inline-block',width:9,height:9,borderRadius:'50%',background:'#34D399',boxShadow:'0 0 5px #34D39966',flexShrink:0,textDecoration:'none'}}/>:<span title={lang==='nl'?'Deal Registratie niet ingevuld':'Deal Registration missing'} style={{display:'inline-block',width:9,height:9,borderRadius:'50%',background:'#FF3B30',opacity:.75,flexShrink:0}}/>}</span></div>
                   <span style={{fontSize:9,padding:'1px 6px',borderRadius:5,color:isStale?t.red:t.muted,fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{age}{lang==='nl'?'d':'d'}</span>
                 </div>
                 <div style={{fontSize:11,color:t.dim,marginBottom:3}}>{oppWho(opp)}{oppOrg(opp)&&oppWho(opp)?' · '+oppOrg(opp):oppOrg(opp)}</div>
@@ -1911,6 +1916,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
             {o.salesforceUrl&&<a href={o.salesforceUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:t.accent,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4,fontWeight:500,padding:'3px 10px',borderRadius:8,background:t.accentS}}>☁ Salesforce <span style={{fontSize:10,opacity:.6}}>↗</span></a>}
             {o.folderUrl&&<a href={o.folderUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:t.teal||'#10B981',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4,fontWeight:500,padding:'3px 10px',borderRadius:8,background:dark?'rgba(16,185,129,0.1)':'rgba(16,185,129,0.08)'}}>📁 {tx.folderUrl} <span style={{fontSize:10,opacity:.6}}>↗</span></a>}
+            {o.dealRegistrationUrl?<a href={o.dealRegistrationUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:'#34D399',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4,fontWeight:500,padding:'3px 10px',borderRadius:8,background:dark?'rgba(52,211,153,0.1)':'rgba(52,211,153,0.08)'}}><span style={{width:8,height:8,borderRadius:'50%',background:'#34D399',display:'inline-block'}}/>{lang==='nl'?'Deal Registratie':'Deal Registration'} <span style={{fontSize:10,opacity:.6}}>↗</span></a>:<span style={{fontSize:12,display:'inline-flex',alignItems:'center',gap:4,fontWeight:500,padding:'3px 10px',borderRadius:8,background:dark?'rgba(255,59,48,0.1)':'rgba(255,59,48,0.07)',color:'#FF3B30'}}><span style={{width:8,height:8,borderRadius:'50%',background:'#FF3B30',display:'inline-block'}}/>{lang==='nl'?'Geen Deal Registratie':'No Deal Registration'}</span>}
           </div>
           <div style={{marginBottom:10}}>
             <div style={{fontSize:11,color:t.muted,fontWeight:600,marginBottom:4}}>{tx.contactPersonsUpper}</div>
@@ -2169,6 +2175,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         <div style={{marginBottom:12}}><label style={lbl}>{tx.closeDate}</label><input type="date" style={inp} value={f.expectedCloseDate||''} onChange={e=>sf({...f,expectedCloseDate:e.target.value})}/></div>
         <div style={{marginBottom:12}}><label style={lbl}>Salesforce URL</label><input style={inp} value={f.salesforceUrl||''} onChange={e=>sf({...f,salesforceUrl:e.target.value})} placeholder="https://...salesforce.com/..."/></div>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.folderUrl}</label><input style={inp} value={f.folderUrl||''} onChange={e=>sf({...f,folderUrl:e.target.value})} placeholder={tx.folderUrlPlaceholder}/></div>
+        <div style={{marginBottom:12}}><label style={lbl}><span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:'50%',background:f.dealRegistrationUrl?'#34D399':'#FF3B30',display:'inline-block',boxShadow:f.dealRegistrationUrl?'0 0 5px #34D39966':'none'}}/>{lang==='nl'?'Deal Registratie URL':'Deal Registration URL'}</span></label><input style={inp} value={f.dealRegistrationUrl||''} onChange={e=>sf({...f,dealRegistrationUrl:e.target.value})} placeholder="https://..."/></div>
         {/* Inline tasks */}
         <div style={{marginBottom:12}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><label style={lbl}>{tx.tasks2}</label></div>
