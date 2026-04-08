@@ -25,6 +25,7 @@ if(!location.hostname.includes('claudeusercontent')){
 </script>
 <style>body{margin:0;font-family:Outfit,system-ui,-apple-system,sans-serif;}
 body.dark-mode select,body.dark-mode select option{background-color:#2c2c2e;color:#f5f5f7;}</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <div id="app"></div>
@@ -270,6 +271,8 @@ const TX={
     // Table sort & bulk
     deleteSelected:'Verwijder geselecteerd',confirmDeleteN:'items verwijderen?',nSelected:'geselecteerd',
     listView:'Lijst',
+    // Pipeline export
+    exportPipelineCSV:'Exporteer als CSV',exportPipelineXLSX:'Exporteer als Excel',exportingPipeline:'Pipeline exporteren...',pipelineExportTitle:'Pipeline exporteren',
     // Contacts table
     name:'Naam',role:'Functie',email:'E-mail',phone:'Telefoon',tags:'Tags',
     searchTasks:'Zoek taken...',
@@ -430,6 +433,8 @@ const TX={
     nextStep:'Next step',noNextStep:'No next step',
     deleteSelected:'Delete selected',confirmDeleteN:'items to delete?',nSelected:'selected',
     listView:'List',
+    // Pipeline export
+    exportPipelineCSV:'Export as CSV',exportPipelineXLSX:'Export as Excel',exportingPipeline:'Exporting pipeline...',pipelineExportTitle:'Export pipeline',
     // Contacts table
     name:'Name',role:'Role',email:'Email',phone:'Phone',tags:'Tags',
     searchTasks:'Search tasks...',
@@ -1355,6 +1360,25 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     const fWon=filteredOpps.filter(o=>o.stage==='won');
     const fTotal=fActive.reduce((s,o)=>s+(o.value||0),0);
     const hasFilter=filtCompany||filtContact||filtTech||filtPhase||filtCloseP;
+    const exportCols=[tx.title,tx.company,tx.contactPersons,tx.phase,tx.value,tx.weighted,tx.chance+'%',tx.priority,tx.technology,tx.nextAction,tx.closeDate,tx.daysInStage,tx.created];
+    const exportRows=filteredOpps.map(o=>{
+      const stg=STAGES.find(s=>s.id===o.stage)||STAGES[0];
+      const daysSt=o.stageChangedAt?Math.round((Date.now()-new Date(o.stageChangedAt).getTime())/864e5):'';
+      const weightedVal=Math.round((o.value||0)*(o.probability||0)/100);
+      const pri=PRIS.find(p=>p.id===o.priority)||PRIS.find(x=>x.id==='medium');
+      return[o.title||'',compName(o.companyId)||'',oppWho(o)||'',stg.l[lang]||stg.l.nl,o.value||0,weightedVal,(o.probability||0),pri?pri.l[lang]||pri.l.nl:'',(o.techTags||[]).join(', '),o.nextAction||'',o.expectedCloseDate||'',daysSt,o.createdAt?(o.createdAt).slice(0,10):''];
+    });
+    const doExportCSV=()=>csvDownload(`pipeline-${new Date().toISOString().slice(0,10)}.csv`,exportCols,exportRows);
+    const doExportXLSX=()=>{
+      if(!window.XLSX){toast('Excel library not loaded','error');return;}
+      const ws=window.XLSX.utils.aoa_to_sheet([exportCols,...exportRows]);
+      // Column widths
+      ws['!cols']=[{wch:30},{wch:22},{wch:22},{wch:14},{wch:12},{wch:12},{wch:8},{wch:10},{wch:20},{wch:28},{wch:14},{wch:12},{wch:12}];
+      const wb=window.XLSX.utils.book_new();
+      window.XLSX.utils.book_append_sheet(wb,ws,'Pipeline');
+      window.XLSX.writeFile(wb,`pipeline-${new Date().toISOString().slice(0,10)}.xlsx`);
+      toast(tx.reportGenerated);
+    };
     return <div>
       {renderPeriodBar()}
       <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap',alignItems:'flex-start'}}>
@@ -1372,6 +1396,12 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:4}}>{tx.filterClose}:</span>
         {[{id:'overdue',l:tx.overdue,c:t.red},{id:'thisWeek',l:tx.thisWeek,c:t.orange},{id:'thisMonth',l:tx.thisMonth,c:t.accent},{id:'thisQuarter',l:tx.thisQuarter,c:t.purple},{id:'none',l:'—',c:t.muted}].map(cp=><button key={cp.id} onClick={()=>setFiltCloseP(filtCloseP===cp.id?'':cp.id)} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtCloseP===cp.id?cp.c:'transparent'}`,background:filtCloseP===cp.id?`${cp.c}20`:'transparent',color:filtCloseP===cp.id?cp.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{cp.l}</button>)}
         {hasFilter&&<button onClick={()=>{setFiltCompany('');setFiltContact('');setFiltTech('');setFiltPhase('');setFiltCloseP('');}} style={{padding:'3px 10px',borderRadius:20,fontSize:10,color:t.red,border:`1px solid ${t.red}33`,cursor:'pointer',fontFamily:'inherit',background:'transparent'}}>✕ Reset</button>}
+      </div>
+      <div style={{display:'flex',gap:6,marginBottom:14,alignItems:'center',flexWrap:'wrap'}}>
+        <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:2}}>{filteredOpps.length} {lang==='nl'?'deals':'deals'}</span>
+        <span style={{fontSize:10,color:t.border,margin:'0 2px'}}>·</span>
+        <button onClick={doExportCSV} style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${t.border}`,background:'transparent',color:t.dim,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>⬇ {tx.exportPipelineCSV}</button>
+        <button onClick={doExportXLSX} style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${t.green}44`,background:'transparent',color:t.green,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>📊 {tx.exportPipelineXLSX}</button>
       </div>
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
         {[{l:tx.pipeline,v:eur(fTotal),c:t.accent},{l:tx.weighted,v:eur(Math.round(fActive.reduce((s,o)=>s+((o.value||0)*(o.probability||0)/100),0))),c:t.purple},{l:tx.wonLabel,v:eur(fWon.reduce((s,o)=>s+(o.value||0),0)),c:t.green},{l:tx.deals,v:fActive.length,c:t.text}].map((s,i)=><div key={i} style={{...card,flex:'1 1 140px',minWidth:140}}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
