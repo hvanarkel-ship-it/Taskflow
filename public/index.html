@@ -931,7 +931,7 @@ const App = function(){
         if(md?.id){setMf({...md,_pendingTasks:[],_taskInput:''});}
         else{const base={title:'',contactId:'',contactIds:[],companyId:'',stage:'lead',value:0,probability:10,priority:'medium',expectedCloseDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',atosContactIds:[],dealNotes:'',salesforceUrl:'',folderUrl:'',dealRegistrationUrl:'',notes:[],_pendingTasks:[],_taskInput:'',...(md||{})};if(base.contactId&&!base.contactIds.includes(base.contactId))base.contactIds=[...base.contactIds,base.contactId];setMf(base);}
       }else if(mt==='contact'){
-        setMf(md?.id?{...md}:{name:'',email:'',phone:'',companyId:md?.companyId||'',role:'',category:'',tags:[],...(md||{})});
+        setMf(md?.id?{...md}:{name:'',email:'',phone:'',companyId:md?.companyId||'',role:'',category:'',tags:[],notes:'',...(md||{})});
       }else if(mt==='task'){
         setMf(md?.id?{...md}:{title:'',contactId:md?.contactId||'',oppId:md?.oppId||'',dueDate:td(),dueTime:'',done:false,priority:'medium',reminder:true,reminderMin:15,status:'todo',notes:'',atosId:'',companyContactId:'',...(md||{})});
       }else if(mt==='company'){
@@ -1362,20 +1362,23 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     const fWon=filteredOpps.filter(o=>o.stage==='won');
     const fTotal=fActive.reduce((s,o)=>s+(o.value||0),0);
     const hasFilter=filtCompany||filtContact||filtTech||filtPhase||filtCloseP;
-    const exportCols=[tx.title,tx.company,tx.contactPersons,tx.phase,tx.value,tx.weighted,tx.chance+'%',tx.priority,tx.technology,tx.nextAction,tx.closeDate,tx.daysInStage,tx.created];
+    const exportCols=[tx.title,tx.company,tx.contactPersons,tx.phase,tx.value,tx.weighted,tx.chance+'%',tx.priority,tx.technology,tx.nextAction,tx.closeDate,tx.daysInStage,lang==='nl'?'Sales collega':'Sales colleague',lang==='nl'?'Delivery collega':'Delivery colleague',lang==='nl'?'Actiedatum':'Action date',lang==='nl'?'Gesloten reden':'Close reason',lang==='nl'?'Toelichting':'Note',lang==='nl'?'Deal notities':'Deal notes','Salesforce URL',lang==='nl'?'Deal Registratie':'Deal Registration',lang==='nl'?'Klantenmap URL':'Folder URL',tx.created];
     const exportRows=filteredOpps.map(o=>{
       const stg=STAGES.find(s=>s.id===o.stage)||STAGES[0];
       const daysSt=o.stageChangedAt?Math.round((Date.now()-new Date(o.stageChangedAt).getTime())/864e5):'';
       const weightedVal=Math.round((o.value||0)*(o.probability||0)/100);
       const pri=PRIS.find(p=>p.id===o.priority)||PRIS.find(x=>x.id==='medium');
-      return[o.title||'',compName(o.companyId)||'',oppWho(o)||'',stg.l[lang]||stg.l.nl,o.value||0,weightedVal,(o.probability||0),pri?pri.l[lang]||pri.l.nl:'',(o.techTags||[]).join(', '),o.nextAction||'',o.expectedCloseDate||'',daysSt,o.createdAt?(o.createdAt).slice(0,10):''];
+      const atSales=atosTeam.find(a=>a.id===o.atosSalesId);
+      const atDeliv=atosTeam.find(a=>a.id===o.atosDeliveryId);
+      const closedReason=o.closedReason?(tx[o.closedReason]||o.closedReason):'';
+      return[o.title||'',compName(o.companyId)||'',oppWho(o)||'',stg.l[lang]||stg.l.nl,o.value||0,weightedVal,(o.probability||0),pri?pri.l[lang]||pri.l.nl:'',(o.techTags||[]).join(', '),o.nextAction||'',o.expectedCloseDate||'',daysSt,atSales?.name||'',atDeliv?.name||'',o.nextActionDate||'',closedReason,o.closedNote||'',o.dealNotes||'',o.salesforceUrl||'',o.dealRegistrationUrl?'✓':'',o.folderUrl||'',o.createdAt?(o.createdAt).slice(0,10):''];
     });
     const doExportCSV=()=>csvDownload(`pipeline-${new Date().toISOString().slice(0,10)}.csv`,exportCols,exportRows);
     const doExportXLSX=()=>{
       if(!window.XLSX){toast('Excel library not loaded','error');return;}
       const ws=window.XLSX.utils.aoa_to_sheet([exportCols,...exportRows]);
       // Column widths
-      ws['!cols']=[{wch:30},{wch:22},{wch:22},{wch:14},{wch:12},{wch:12},{wch:8},{wch:10},{wch:20},{wch:28},{wch:14},{wch:12},{wch:12}];
+      ws['!cols']=[{wch:30},{wch:22},{wch:22},{wch:14},{wch:12},{wch:12},{wch:8},{wch:10},{wch:20},{wch:28},{wch:14},{wch:12},{wch:18},{wch:18},{wch:14},{wch:18},{wch:28},{wch:36},{wch:30},{wch:10},{wch:30},{wch:12}];
       const wb=window.XLSX.utils.book_new();
       window.XLSX.utils.book_append_sheet(wb,ws,'Pipeline');
       window.XLSX.writeFile(wb,`pipeline-${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -1887,6 +1890,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           </div>
         </div>
         <div style={{padding:24}}>
+          {c.notes&&<div style={{marginBottom:20,padding:'12px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',border:`0.5px solid ${t.border}`}}><div style={{fontSize:11,color:t.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>{tx.internalNotes}</div><div style={{fontSize:13,color:t.dim,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{c.notes}</div></div>}
           <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>{tx.deals} ({cOpps.length})</div>
           <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
             {cOpps.map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:10}}>
@@ -2151,6 +2155,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         </div>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.tags}</label><div style={{display:'flex',gap:5}}><input style={inp} value={mfTag} onChange={e=>setMfTag(e.target.value)} placeholder={tx.addTag} onKeyDown={e=>{if(e.key==='Enter'&&mfTag.trim()){sf({...f,tags:[...new Set([...(f.tags||[]),mfTag.trim().toLowerCase()])]});setMfTag('');}}}/><button onClick={()=>{if(mfTag.trim()){sf({...f,tags:[...new Set([...(f.tags||[]),mfTag.trim().toLowerCase()])]});setMfTag('');}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
           {(f.tags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.tags.map((t2,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,display:'flex',alignItems:'center',gap:4}}>{t2}<span onClick={()=>sf({...f,tags:f.tags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}</div>
+        <div style={{marginBottom:4}}><label style={lbl}>{tx.internalNotes}</label><textarea style={{...inp,minHeight:80,resize:'vertical'}} value={f.notes||''} onChange={e=>sf({...f,notes:e.target.value})} placeholder={lang==='nl'?'Achtergrond, context, aantekeningen...':'Background, context, notes...'}/></div>
       </div>
       <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!f.name?.trim()){toast(tx.fillName,'info');return;}const av=f.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);if(d?.id){updateContact_(d.id,{...f,avatar:av});toast(tx.contactUpdated);setModal(null);}else{const saved=await addContact_({...f,avatar:av});if(saved){if(d?._linkToOpp){updateOpp(d._linkToOpp,{contactId:saved.id,contactIds:[...(opps.find(o=>o.id===d._linkToOpp)?.contactIds||[]),saved.id],companyId:f.companyId||opps.find(o=>o.id===d._linkToOpp)?.companyId||''});}toast(tx.contactAdded);setModal(null);}}}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
     </div>
