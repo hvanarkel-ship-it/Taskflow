@@ -25,6 +25,7 @@ if(!location.hostname.includes('claudeusercontent')){
 </script>
 <style>body{margin:0;font-family:Outfit,system-ui,-apple-system,sans-serif;}
 body.dark-mode select,body.dark-mode select option{background-color:#2c2c2e;color:#f5f5f7;}</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <div id="app"></div>
@@ -270,6 +271,8 @@ const TX={
     // Table sort & bulk
     deleteSelected:'Verwijder geselecteerd',confirmDeleteN:'items verwijderen?',nSelected:'geselecteerd',
     listView:'Lijst',
+    // Pipeline export
+    exportPipelineCSV:'Exporteer als CSV',exportPipelineXLSX:'Exporteer als Excel',exportingPipeline:'Pipeline exporteren...',pipelineExportTitle:'Pipeline exporteren',
     // Contacts table
     name:'Naam',role:'Functie',email:'E-mail',phone:'Telefoon',tags:'Tags',
     searchTasks:'Zoek taken...',
@@ -289,6 +292,7 @@ const TX={
     taskStatus:'Status',taskNotes:'Notities',taskNotesPlaceholder:'Notities toevoegen...',
     assignedTo:'Toegewezen aan',atosContact:'Atos contact',companyContact:'Bedrijfscontact',
     waitingOn:'Wachtend op',
+    colleague:'Collega',addColleague:'+ Collega toevoegen',contactPerson:'Contactpersoon',
   },
   en:{
     pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',atos:'Atos Team',tasks:'Tasks',reports:'Reports',checklist:'Checklist',
@@ -430,6 +434,8 @@ const TX={
     nextStep:'Next step',noNextStep:'No next step',
     deleteSelected:'Delete selected',confirmDeleteN:'items to delete?',nSelected:'selected',
     listView:'List',
+    // Pipeline export
+    exportPipelineCSV:'Export as CSV',exportPipelineXLSX:'Export as Excel',exportingPipeline:'Exporting pipeline...',pipelineExportTitle:'Export pipeline',
     // Contacts table
     name:'Name',role:'Role',email:'Email',phone:'Phone',tags:'Tags',
     searchTasks:'Search tasks...',
@@ -449,6 +455,7 @@ const TX={
     taskStatus:'Status',taskNotes:'Notes',taskNotesPlaceholder:'Add notes...',
     assignedTo:'Assigned to',atosContact:'Atos contact',companyContact:'Company contact',
     waitingOn:'Waiting on',
+    colleague:'Colleague',addColleague:'+ Add colleague',contactPerson:'Contact person',
   }
 };
 
@@ -924,7 +931,7 @@ const App = function(){
         if(md?.id){setMf({...md,_pendingTasks:[],_taskInput:''});}
         else{const base={title:'',contactId:'',contactIds:[],companyId:'',stage:'lead',value:0,probability:10,priority:'medium',expectedCloseDate:'',techTags:[],atosSalesId:'',atosDeliveryId:'',atosContactIds:[],dealNotes:'',salesforceUrl:'',folderUrl:'',dealRegistrationUrl:'',notes:[],_pendingTasks:[],_taskInput:'',...(md||{})};if(base.contactId&&!base.contactIds.includes(base.contactId))base.contactIds=[...base.contactIds,base.contactId];setMf(base);}
       }else if(mt==='contact'){
-        setMf(md?.id?{...md}:{name:'',email:'',phone:'',companyId:md?.companyId||'',role:'',category:'',tags:[],...(md||{})});
+        setMf(md?.id?{...md}:{name:'',email:'',phone:'',companyId:md?.companyId||'',role:'',category:'',tags:[],notes:'',...(md||{})});
       }else if(mt==='task'){
         setMf(md?.id?{...md}:{title:'',contactId:md?.contactId||'',oppId:md?.oppId||'',dueDate:td(),dueTime:'',done:false,priority:'medium',reminder:true,reminderMin:15,status:'todo',notes:'',atosId:'',companyContactId:'',...(md||{})});
       }else if(mt==='company'){
@@ -1006,7 +1013,7 @@ const App = function(){
   const showErr=(action,e)=>{const msg=e?.message||'';console.error(action,msg);toast((lang==='nl'?'Fout: ':'Error: ')+msg,'info');};
 
   // Creates: server-first, only add to state on success
-  const addOpp=async(o)=>{try{const s=await serverCreate('opportunities',o);if(!s)return null;const saved={...s,notes:s.notes||[],techTags:s.techTags||[],contactIds:s.contactIds||[]};setOpps(p=>[...p,saved]);return saved;}catch(e){showErr('addOpp',e);return null;}};
+  const addOpp=async(o)=>{try{const s=await serverCreate('opportunities',o);if(!s)return null;const saved={...s,notes:s.notes||[],techTags:s.techTags||[],contactIds:s.contactIds||[],expectedCloseDate:s.expectedCloseDate?String(s.expectedCloseDate).slice(0,10):s.expectedCloseDate};setOpps(p=>[...p,saved]);return saved;}catch(e){showErr('addOpp',e);return null;}};
   const addContact_=async(c)=>{try{const s=await serverCreate('contacts',c);if(!s)return null;setContacts(p=>[...p,s]);return s;}catch(e){showErr('addContact',e);return null;}};
   const addCompany_=async(c)=>{try{const s=await serverCreate('companies',c);if(!s)return null;setCompanies(p=>[...p,s]);return s;}catch(e){showErr('addCompany',e);return null;}};
   const addTask_=async(t)=>{try{const s=await serverCreate('tasks',t);if(!s)return null;setTasks(p=>[...p,s]);return s;}catch(e){showErr('addTask',e);return null;}};
@@ -1014,7 +1021,7 @@ const App = function(){
   const addInteraction_=async(i)=>{try{const s=await serverCreate('interactions',i);if(!s)return null;const saved={...s,at:s.at||s.createdAt};setInteractions(p=>[saved,...p]);return saved;}catch(e){showErr('addInteraction',e);return null;}};
 
   // Updates: optimistic UI + server persist (toast on failure)
-  const updateOpp=async(id,fields)=>{const prev=opps.find(x=>x.id===id);setOpps(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{const saved=await serverUpdate('opportunities',{id,...fields});if(saved)setOpps(p=>p.map(x=>x.id===id?{...x,...saved}:x));}catch(e){if(prev)setOpps(p=>p.map(x=>x.id===id?prev:x));showErr('updateOpp',e);}};
+  const updateOpp=async(id,fields)=>{const prev=opps.find(x=>x.id===id);setOpps(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{const saved=await serverUpdate('opportunities',{id,...fields});if(saved){const norm={...saved,expectedCloseDate:saved.expectedCloseDate?String(saved.expectedCloseDate).slice(0,10):saved.expectedCloseDate};setOpps(p=>p.map(x=>x.id===id?{...x,...norm}:x));}}catch(e){if(prev)setOpps(p=>p.map(x=>x.id===id?prev:x));showErr('updateOpp',e);}};
   const updateContact_=async(id,fields)=>{const prev=contacts.find(x=>x.id===id);setContacts(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{await serverUpdate('contacts',{id,...fields});}catch(e){if(prev)setContacts(p=>p.map(x=>x.id===id?prev:x));showErr('updateContact',e);}};
   const updateCompany_=async(id,fields)=>{const prev=companies.find(x=>x.id===id);setCompanies(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{await serverUpdate('companies',{id,...fields});}catch(e){if(prev)setCompanies(p=>p.map(x=>x.id===id?prev:x));showErr('updateCompany',e);}};
   const updateTask_=async(id,fields)=>{const prev=tasks.find(x=>x.id===id);setTasks(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{await serverUpdate('tasks',{id,...fields});}catch(e){if(prev)setTasks(p=>p.map(x=>x.id===id?prev:x));showErr('updateTask',e);}};
@@ -1355,6 +1362,28 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     const fWon=filteredOpps.filter(o=>o.stage==='won');
     const fTotal=fActive.reduce((s,o)=>s+(o.value||0),0);
     const hasFilter=filtCompany||filtContact||filtTech||filtPhase||filtCloseP;
+    const exportCols=[tx.title,tx.company,tx.contactPersons,tx.phase,tx.value,tx.weighted,tx.chance+'%',tx.priority,tx.technology,tx.nextAction,tx.closeDate,tx.daysInStage,lang==='nl'?'Sales collega':'Sales colleague',lang==='nl'?'Delivery collega':'Delivery colleague',lang==='nl'?'Actiedatum':'Action date',lang==='nl'?'Gesloten reden':'Close reason',lang==='nl'?'Toelichting':'Note',lang==='nl'?'Deal notities':'Deal notes','Salesforce URL',lang==='nl'?'Deal Registratie':'Deal Registration',lang==='nl'?'Klantenmap URL':'Folder URL',tx.created];
+    const exportRows=filteredOpps.map(o=>{
+      const stg=STAGES.find(s=>s.id===o.stage)||STAGES[0];
+      const daysSt=o.stageChangedAt?Math.round((Date.now()-new Date(o.stageChangedAt).getTime())/864e5):'';
+      const weightedVal=Math.round((o.value||0)*(o.probability||0)/100);
+      const pri=PRIS.find(p=>p.id===o.priority)||PRIS.find(x=>x.id==='medium');
+      const atSales=atosTeam.find(a=>a.id===o.atosSalesId);
+      const atDeliv=atosTeam.find(a=>a.id===o.atosDeliveryId);
+      const closedReason=o.closedReason?(tx[o.closedReason]||o.closedReason):'';
+      return[o.title||'',compName(o.companyId)||'',oppWho(o)||'',stg.l[lang]||stg.l.nl,o.value||0,weightedVal,(o.probability||0),pri?pri.l[lang]||pri.l.nl:'',(o.techTags||[]).join(', '),o.nextAction||'',o.expectedCloseDate||'',daysSt,atSales?.name||'',atDeliv?.name||'',o.nextActionDate||'',closedReason,o.closedNote||'',o.dealNotes||'',o.salesforceUrl||'',o.dealRegistrationUrl?'✓':'',o.folderUrl||'',o.createdAt?(o.createdAt).slice(0,10):''];
+    });
+    const doExportCSV=()=>csvDownload(`pipeline-${new Date().toISOString().slice(0,10)}.csv`,exportCols,exportRows);
+    const doExportXLSX=()=>{
+      if(!window.XLSX){toast('Excel library not loaded','error');return;}
+      const ws=window.XLSX.utils.aoa_to_sheet([exportCols,...exportRows]);
+      // Column widths
+      ws['!cols']=[{wch:30},{wch:22},{wch:22},{wch:14},{wch:12},{wch:12},{wch:8},{wch:10},{wch:20},{wch:28},{wch:14},{wch:12},{wch:18},{wch:18},{wch:14},{wch:18},{wch:28},{wch:36},{wch:30},{wch:10},{wch:30},{wch:12}];
+      const wb=window.XLSX.utils.book_new();
+      window.XLSX.utils.book_append_sheet(wb,ws,'Pipeline');
+      window.XLSX.writeFile(wb,`pipeline-${new Date().toISOString().slice(0,10)}.xlsx`);
+      toast(tx.reportGenerated);
+    };
     return <div>
       {renderPeriodBar()}
       <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap',alignItems:'flex-start'}}>
@@ -1372,6 +1401,12 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:4}}>{tx.filterClose}:</span>
         {[{id:'overdue',l:tx.overdue,c:t.red},{id:'thisWeek',l:tx.thisWeek,c:t.orange},{id:'thisMonth',l:tx.thisMonth,c:t.accent},{id:'thisQuarter',l:tx.thisQuarter,c:t.purple},{id:'none',l:'—',c:t.muted}].map(cp=><button key={cp.id} onClick={()=>setFiltCloseP(filtCloseP===cp.id?'':cp.id)} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtCloseP===cp.id?cp.c:'transparent'}`,background:filtCloseP===cp.id?`${cp.c}20`:'transparent',color:filtCloseP===cp.id?cp.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{cp.l}</button>)}
         {hasFilter&&<button onClick={()=>{setFiltCompany('');setFiltContact('');setFiltTech('');setFiltPhase('');setFiltCloseP('');}} style={{padding:'3px 10px',borderRadius:20,fontSize:10,color:t.red,border:`1px solid ${t.red}33`,cursor:'pointer',fontFamily:'inherit',background:'transparent'}}>✕ Reset</button>}
+      </div>
+      <div style={{display:'flex',gap:6,marginBottom:14,alignItems:'center',flexWrap:'wrap'}}>
+        <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:2}}>{filteredOpps.length} {lang==='nl'?'deals':'deals'}</span>
+        <span style={{fontSize:10,color:t.border,margin:'0 2px'}}>·</span>
+        <button onClick={doExportCSV} style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${t.border}`,background:'transparent',color:t.dim,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>⬇ {tx.exportPipelineCSV}</button>
+        <button onClick={doExportXLSX} style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${t.green}44`,background:'transparent',color:t.green,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>📊 {tx.exportPipelineXLSX}</button>
       </div>
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
         {[{l:tx.pipeline,v:eur(fTotal),c:t.accent},{l:tx.weighted,v:eur(Math.round(fActive.reduce((s,o)=>s+((o.value||0)*(o.probability||0)/100),0))),c:t.purple},{l:tx.wonLabel,v:eur(fWon.reduce((s,o)=>s+(o.value||0),0)),c:t.green},{l:tx.deals,v:fActive.length,c:t.text}].map((s,i)=><div key={i} style={{...card,flex:'1 1 140px',minWidth:140}}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
@@ -1855,6 +1890,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           </div>
         </div>
         <div style={{padding:24}}>
+          {c.notes&&<div style={{marginBottom:20,padding:'12px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',border:`0.5px solid ${t.border}`}}><div style={{fontSize:11,color:t.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>{tx.internalNotes}</div><div style={{fontSize:13,color:t.dim,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{c.notes}</div></div>}
           <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>{tx.deals} ({cOpps.length})</div>
           <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
             {cOpps.map(o=><div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{...card,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:10}}>
@@ -2119,6 +2155,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         </div>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.tags}</label><div style={{display:'flex',gap:5}}><input style={inp} value={mfTag} onChange={e=>setMfTag(e.target.value)} placeholder={tx.addTag} onKeyDown={e=>{if(e.key==='Enter'&&mfTag.trim()){sf({...f,tags:[...new Set([...(f.tags||[]),mfTag.trim().toLowerCase()])]});setMfTag('');}}}/><button onClick={()=>{if(mfTag.trim()){sf({...f,tags:[...new Set([...(f.tags||[]),mfTag.trim().toLowerCase()])]});setMfTag('');}}} style={{...btnG,padding:'6px 10px'}}>+</button></div>
           {(f.tags||[]).length>0&&<div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>{f.tags.map((t2,i)=><span key={i} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:t.accentS,color:t.accent,display:'flex',alignItems:'center',gap:4}}>{t2}<span onClick={()=>sf({...f,tags:f.tags.filter((_,j)=>j!==i)})} style={{cursor:'pointer'}}>✕</span></span>)}</div>}</div>
+        <div style={{marginBottom:4}}><label style={lbl}>{tx.internalNotes}</label><textarea style={{...inp,minHeight:80,resize:'vertical'}} value={f.notes||''} onChange={e=>sf({...f,notes:e.target.value})} placeholder={lang==='nl'?'Achtergrond, context, aantekeningen...':'Background, context, notes...'}/></div>
       </div>
       <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!f.name?.trim()){toast(tx.fillName,'info');return;}const av=f.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);if(d?.id){updateContact_(d.id,{...f,avatar:av});toast(tx.contactUpdated);setModal(null);}else{const saved=await addContact_({...f,avatar:av});if(saved){if(d?._linkToOpp){updateOpp(d._linkToOpp,{contactId:saved.id,contactIds:[...(opps.find(o=>o.id===d._linkToOpp)?.contactIds||[]),saved.id],companyId:f.companyId||opps.find(o=>o.id===d._linkToOpp)?.companyId||''});}toast(tx.contactAdded);setModal(null);}}}} style={btnP}>{d?.id?tx.save:tx.add}</button></div>
     </div>
@@ -2234,21 +2271,21 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         </div>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.contact}</label><SearchSelect t={t} lang={lang} value={f.contactId||''} onChange={v=>sf({...f,contactId:v})} placeholder={tx.optional} options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)||(c.role||'')}))}/></div>
         <div style={{marginBottom:12}}><label style={lbl}>Deal / Opportunity</label><select style={{...inp,cursor:'pointer'}} value={f.oppId||''} onChange={e=>{const opp=opps.find(o=>o.id===e.target.value);sf({...f,oppId:e.target.value,contactId:opp?.contactId||f.contactId});}}><option value="">{tx.dealNotLinked}</option>{opps.filter(o=>o.stage!=='won'&&o.stage!=='lost').map(o=><option key={o.id} value={o.id}>{o.title} — {eur(o.value)} ({stageC(o.stage,lang).l})</option>)}</select></div>
-        {/* Assignees: Atos contact + Company contact */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
-          <div><label style={lbl}>{tx.atosContact}</label><SearchSelect t={t} lang={lang} value={f.atosId||''} onChange={v=>sf({...f,atosId:v})} placeholder={tx.optional} options={atosTeam.map(a=>({value:a.id,label:a.name,sub:a.role==='sales'?'🔵 Sales':'🟢 Delivery'}))}/></div>
-          <div><label style={lbl}>{tx.companyContact}</label><SearchSelect t={t} lang={lang} value={f.companyContactId||''} onChange={v=>sf({...f,companyContactId:v})} placeholder={tx.optional} options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)||(c.role||'')}))}/></div>
-        </div>
-        {/* Inline add contacts */}
-        <div style={{display:'flex',gap:6,marginBottom:12}}>
-          <button onClick={()=>setMfShowAtosAdd(!mfShowAtosAdd)} style={{fontSize:11,color:t.accent,cursor:'pointer',background:'none',border:'none',fontFamily:'inherit',minHeight:28,minWidth:0,padding:0}}>{mfShowAtosAdd?tx.cancelAdd:tx.addAtosContact}</button>
-          <button onClick={()=>setMfShowNewCt(!mfShowNewCt)} style={{fontSize:11,color:t.accent,cursor:'pointer',background:'none',border:'none',fontFamily:'inherit',minHeight:28,minWidth:0,padding:0}}>{mfShowNewCt?tx.cancelAdd:'+ '+tx.newContact}</button>
+        {/* Collega + optionele contactpersoon */}
+        <div style={{marginBottom:8}}><label style={lbl}>{tx.colleague}</label>
+          <SearchSelect t={t} lang={lang} value={f.atosId||''} onChange={v=>sf({...f,atosId:v})} placeholder={tx.optional} options={atosTeam.map(a=>({value:a.id,label:a.name,sub:a.role==='sales'?'🔵 Sales':'🟢 Delivery'}))}/>
+          <button onClick={()=>setMfShowAtosAdd(!mfShowAtosAdd)} style={{fontSize:11,color:t.accent,cursor:'pointer',background:'none',border:'none',fontFamily:'inherit',padding:'4px 0 0 0',display:'block'}}>{mfShowAtosAdd?tx.cancelAdd:tx.addColleague}</button>
         </div>
         {mfShowAtosAdd&&<div style={{display:'flex',gap:6,marginBottom:10,alignItems:'center'}}>
           <input value={mfNewAtosName} onChange={e=>setMfNewAtosName(e.target.value)} placeholder={tx.name+'...'} style={{...inp,flex:1,padding:'6px 10px',fontSize:12}}/>
           <select value={mfNewAtosRole} onChange={e=>setMfNewAtosRole(e.target.value)} style={{...inp,width:100,padding:'6px 8px',fontSize:12}}><option value="sales">Sales</option><option value="delivery">Delivery</option></select>
           <button onClick={async()=>{if(!mfNewAtosName.trim())return;const a=await addAtos_({name:mfNewAtosName.trim(),role:mfNewAtosRole});if(a){sf({...f,atosId:a.id});setMfNewAtosName('');setMfShowAtosAdd(false);toast(tx.atosContactAdded);}}} style={{...btnP,padding:'6px 10px',fontSize:11,minHeight:32,minWidth:32}}>+</button>
         </div>}
+        <div style={{marginBottom:12}}><label style={{...lbl,color:t.muted}}>{tx.contactPerson} <span style={{fontWeight:400,fontSize:10}}>({lang==='nl'?'optioneel':'optional'})</span></label>
+          <SearchSelect t={t} lang={lang} value={f.companyContactId||''} onChange={v=>sf({...f,companyContactId:v})} placeholder={tx.optional} options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)||(c.role||'')}))}/></div>
+        <div style={{display:'flex',gap:6,marginBottom:4}}>
+          <button onClick={()=>setMfShowNewCt(!mfShowNewCt)} style={{fontSize:11,color:t.accent,cursor:'pointer',background:'none',border:'none',fontFamily:'inherit',minHeight:28,minWidth:0,padding:0}}>{mfShowNewCt?tx.cancelAdd:'+ '+tx.newContact}</button>
+        </div>
         {mfShowNewCt&&<div style={{display:'flex',gap:6,marginBottom:10,alignItems:'center'}}>
           <input value={mfNewCt} onChange={e=>setMfNewCt(e.target.value)} placeholder={tx.name+'...'} style={{...inp,flex:1,padding:'6px 10px',fontSize:12}}/>
           <button onClick={async()=>{if(!mfNewCt.trim())return;const c=await addContact_({name:mfNewCt.trim(),email:'',phone:'',companyId:f.companyId||'',role:'',tags:[]});if(c){sf({...f,companyContactId:c.id});setMfNewCt('');setMfShowNewCt(false);toast(tx.contactCreated);}}} style={{...btnP,padding:'6px 10px',fontSize:11,minHeight:32,minWidth:32}}>+</button>

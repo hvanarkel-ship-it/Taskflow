@@ -30,7 +30,7 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'POST') {
       const b = parseBody(event);
       if (!b.name) return err(400, 'Naam is vereist');
-      const [ct] = await sql`INSERT INTO contacts (name, email, phone, company_id, role, tags, category, user_id) VALUES (
+      const [ct] = await sql`INSERT INTO contacts (name, email, phone, company_id, role, tags, category, notes, user_id) VALUES (
         ${b.name},
         ${toNull(b.email) || ''},
         ${toNull(b.phone) || ''},
@@ -38,6 +38,7 @@ exports.handler = async (event) => {
         ${toNull(b.role) || ''},
         ${toJsonb(b.tags)}::jsonb,
         ${toNull(b.category) || ''},
+        ${toNull(b.notes) || ''},
         ${user.id}
       ) RETURNING *`;
       return ok({ contact: ct });
@@ -55,6 +56,7 @@ exports.handler = async (event) => {
         role=COALESCE(${b.role !== undefined ? (toNull(b.role) || '') : null},role),
         tags=COALESCE(${b.tags !== undefined ? toJsonb(b.tags) : null}::jsonb,tags),
         category=COALESCE(${toNull(b.category)},category),
+        notes=COALESCE(${b.notes !== undefined ? b.notes : null},notes),
         updated_at=NOW()
       WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
       return ok({ contact: ct });
