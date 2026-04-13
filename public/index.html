@@ -991,7 +991,7 @@ const App = function(){
     if(!authUser?.token){toast(lang==='nl'?'Niet ingelogd':'Not logged in','info');return null;}
     const body=snakeObj(data);
     // Clean: remove client-only fields, convert empty strings to null for FK/date fields
-    delete body.id;delete body.created_at;delete body.updated_at;delete body.notes;delete body.avatar;
+    delete body.id;delete body.created_at;delete body.updated_at;delete body.avatar;
     ['contact_id','company_id','opp_id','atos_sales_id','atos_delivery_id'].forEach(k=>{if(body[k]==='')body[k]=null;});
     ['due_date','due_time','next_action_date','expected_close_date','stage_changed_at'].forEach(k=>{if(body[k]==='')body[k]=null;});
     if(Array.isArray(body.contact_ids))body.contact_ids=JSON.stringify(body.contact_ids);
@@ -1014,7 +1014,7 @@ const App = function(){
     if(Array.isArray(body.tags))body.tags=JSON.stringify(body.tags);
     if(Array.isArray(body.atos_contact_ids))body.atos_contact_ids=JSON.stringify(body.atos_contact_ids);
     // Remove client-only / read-only fields that shouldn't be sent
-    delete body.notes;delete body.created_at;delete body.updated_at;delete body.avatar;
+    delete body.created_at;delete body.updated_at;delete body.avatar;
     const resp=await fetch('/api/'+endpoint,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(body)});
     if(!resp.ok){const e=await resp.json().catch(()=>({}));console.error('serverUpdate error',endpoint,resp.status,e);throw new Error(e.error||'Server error '+resp.status);}
     const j=await resp.json();const rec=j.company||j.contact||j.opportunity||j.task||j.member||j.interaction;
@@ -2353,7 +2353,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{TASK_STATUSES.map(s=><button key={s.k} onClick={()=>sf({...f,status:s.k,done:s.k==='done'||s.k==='cancelled'})} style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:f.status===s.k?600:400,border:`1.5px solid ${f.status===s.k?s.c:'transparent'}`,background:f.status===s.k?s.c+'20':'transparent',color:f.status===s.k?s.c:t.dim,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4,minHeight:32}}><span>{s.ic}</span>{s.l[lang]}</button>)}</div>
         </div>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.contact}</label><SearchSelect t={t} lang={lang} value={f.contactId||''} onChange={v=>sf({...f,contactId:v})} placeholder={tx.optional} options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)||(c.role||'')}))}/></div>
-        <div style={{marginBottom:12}}><label style={lbl}>Deal / Opportunity</label><select style={{...inp,cursor:'pointer'}} value={f.oppId||''} onChange={e=>{const opp=opps.find(o=>o.id===e.target.value);sf({...f,oppId:e.target.value,contactId:opp?.contactId||f.contactId});}}><option value="">{tx.dealNotLinked}</option>{opps.filter(o=>o.stage!=='won'&&o.stage!=='lost').map(o=><option key={o.id} value={o.id}>{o.title} — {eur(o.value)} ({stageC(o.stage,lang).l})</option>)}</select></div>
+        <div style={{marginBottom:12}}><label style={lbl}>Deal / Opportunity</label><select style={{...inp,cursor:'pointer'}} value={f.oppId||''} onChange={e=>{const opp=opps.find(o=>String(o.id)===e.target.value);sf({...f,oppId:e.target.value,contactId:opp?.contactId||f.contactId});}}><option value="">{tx.dealNotLinked}</option>{opps.filter(o=>o.stage!=='won'&&o.stage!=='lost').map(o=><option key={o.id} value={o.id}>{o.title} — {eur(o.value)} ({stageC(o.stage,lang).l})</option>)}</select></div>
         {/* Collega + optionele contactpersoon */}
         <div style={{marginBottom:8}}><label style={lbl}>{tx.colleague}</label>
           <SearchSelect t={t} lang={lang} value={f.atosId||''} onChange={v=>sf({...f,atosId:v})} placeholder={tx.optional} options={atosTeam.map(a=>({value:a.id,label:a.name,sub:a.role==='sales'?'🔵 Sales':'🟢 Delivery'}))}/>

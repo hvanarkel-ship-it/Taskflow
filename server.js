@@ -36,8 +36,9 @@ const adapt = (fn) => async (req, res) => {
     if (result.headers) Object.entries(result.headers).forEach(([k, v]) => res.set(k, v));
     res.status(result.statusCode || 200).send(result.body || '');
   } catch (e) {
-    console.error('Handler error:', e.message);
-    res.status(500).json({ success: false, error: 'Er ging iets mis' });
+    console.error('Handler error:', e.message, e.stack);
+    const msg = e.message || 'Er ging iets mis';
+    res.status(500).json({ success: false, error: msg });
   }
 };
 
