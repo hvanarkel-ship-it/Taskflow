@@ -156,6 +156,7 @@ const TX={
     login:'Inloggen',register:'Registreren',email:'E-mail',password:'Wachtwoord',name:'Naam',
     loginTitle:'My Personal Sales Plan',loginSub:'Log in om verder te gaan',registerSub:'Maak een account aan',
     logout:'Uitloggen',noAccount:'Geen account?',hasAccount:'Al een account?',
+    syncApp:'App synchroniseren',syncDone:'App bijgewerkt! Ververs de pagina.',syncUpToDate:'Al up-to-date.',syncError:'Synchronisatie mislukt.',syncing:'Synchroniseren...',
     fillEmail:'Vul een e-mailadres in',fillPassword:'Wachtwoord moet minimaal 6 tekens zijn',
     loginError:'Ongeldige inloggegevens',registerError:'Registratie mislukt',emailInUse:'E-mailadres al in gebruik',
     pendingApproval:'Je registratie is ontvangen! Een beheerder moet je account goedkeuren voordat je kunt inloggen.',pendingLogin:'Je account wacht nog op goedkeuring door een beheerder.',backToLogin:'Terug naar inloggen',
@@ -320,6 +321,7 @@ const TX={
     login:'Log in',register:'Register',email:'Email',password:'Password',name:'Name',
     loginTitle:'My Personal Sales Plan',loginSub:'Log in to continue',registerSub:'Create an account',
     logout:'Log out',noAccount:'No account?',hasAccount:'Already have an account?',
+    syncApp:'Sync app',syncDone:'App updated! Refresh the page.',syncUpToDate:'Already up-to-date.',syncError:'Sync failed.',syncing:'Syncing...',
     fillEmail:'Please enter an email address',fillPassword:'Password must be at least 6 characters',
     loginError:'Invalid credentials',registerError:'Registration failed',emailInUse:'Email already in use',
     pendingApproval:'Your registration has been received! An administrator must approve your account before you can log in.',pendingLogin:'Your account is still waiting for administrator approval.',backToLogin:'Back to login',
@@ -573,6 +575,8 @@ const App = function(){
   const[pipeFilter,setPipeFilter]=useState('all');
   const[pipePhase,setPipePhase]=useState('');
   const[installPrompt,setInstallPrompt]=useState(null);
+  const[syncing,setSyncing]=useState(false);
+  const isLocalDev=window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1';
   const t=dark?DARK:LIGHT;
   useEffect(()=>{document.body.classList.toggle('dark-mode',dark);},[dark]);
 
@@ -1093,6 +1097,17 @@ const App = function(){
   };
 
   // ── Unified backup: export current state as JSON ──
+  const doSync=async()=>{
+    if(syncing)return;
+    setSyncing(true);
+    try{
+      const r=await fetch('/api/sync',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token}});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.error||tx.syncError);
+      toast(d.upToDate?tx.syncUpToDate:tx.syncDone);
+    }catch(e){toast(e.message||tx.syncError);}
+    finally{setSyncing(false);}
+  };
   const doBackup=async()=>{
     try{
       let data;
@@ -3127,6 +3142,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             {isAdmin&&<div onClick={forceReloadFromServer} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🔄 {lang==='nl'?'Herlaad van server':'Reload from server'}</div>}
             {isAdmin&&<div onClick={restoreFromLocalBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.orange,fontSize:13,fontWeight:600}}>🛟 {lang==='nl'?'Herstel lokale backup':'Restore local backup'}</div>}
             {installPrompt&&<div onClick={installApp} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.accent,fontSize:13,fontWeight:600}}>{tx.installPrompt}</div>}
+            {isLocalDev&&<div onClick={doSync} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:syncing?'default':'pointer',color:syncing?t.muted:t.green,fontSize:13,fontWeight:600,opacity:syncing?.6:1}}>{syncing?'⏳':'⬇'} {syncing?tx.syncing:tx.syncApp}</div>}
           </div>
         </nav>
         <div style={{padding:'12px 16px',borderTop:`0.5px solid ${t.border}`}}>
