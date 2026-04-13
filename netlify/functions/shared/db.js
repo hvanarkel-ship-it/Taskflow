@@ -1,11 +1,28 @@
-const { neon } = require('@neondatabase/serverless');
 const jwt = require('jsonwebtoken');
 
 // Fail hard if env vars are missing in production
 if (!process.env.DATABASE_URL) { console.error('FATAL: DATABASE_URL not set'); }
 if (!process.env.JWT_SECRET) { console.error('FATAL: JWT_SECRET not set'); }
 
-const sql = process.env.DATABASE_URL ? neon(process.env.DATABASE_URL) : null;
+// Auto-detect local vs Neon: local URLs contain localhost/127.0.0.1
+const isLocal = process.env.DATABASE_URL?.includes('localhost') || process.env.DATABASE_URL?.includes('127.0.0.1');
+
+let sql;
+if (process.env.DATABASE_URL) {
+  if (isLocal) {
+    // Local PostgreSQL — uses same template-literal API as neon
+    const postgres = require('postgres');
+    const pg = postgres(process.env.DATABASE_URL, { ssl: false, max: 5 });
+    // Wrap to match neon's return shape (array of rows)
+    sql = (strings, ...values) => pg(strings, ...values);
+  } else {
+    // Neon serverless (production / Neon dev branch)
+    const { neon } = require('@neondatabase/serverless');
+    sql = neon(process.env.DATABASE_URL);
+  }
+} else {
+  sql = null;
+}
 const JWT_SECRET = process.env.JWT_SECRET; // No fallback — must be set
 
 // Rate limiting: simple in-memory tracker (resets per function cold start)
