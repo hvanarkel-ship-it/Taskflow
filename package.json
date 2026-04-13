@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "netlify dev",
     "db:setup": "node scripts/setup-db.js",
+    "db:copy-local": "node scripts/copy-to-local.js",
     "db:reset": "node scripts/reset-db.js",
     "db:health": "node scripts/health-check.js"
   },
