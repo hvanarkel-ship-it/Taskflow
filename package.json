@@ -7,7 +7,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "dev": "netlify dev",
+    "dev": "node server.js",
     "db:setup": "node scripts/setup-db.js",
     "db:copy-local": "node scripts/copy-to-local.js",
     "db:reset": "node scripts/reset-db.js",
@@ -16,10 +16,8 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.6.1",
+    "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
     "postgres": "^3.0.0"
-  },
-  "devDependencies": {
-    "netlify-cli": "^17.0.0"
   }
 }

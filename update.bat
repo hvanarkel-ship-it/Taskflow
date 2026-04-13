@@ -29,6 +29,6 @@ if %errorlevel% neq 0 (
 
 echo [4/4] Starting app...
 echo.
-echo App will be available at: http://localhost:8888
+echo App available at: http://localhost:8888
 echo.
-npm run dev
+node server.js
