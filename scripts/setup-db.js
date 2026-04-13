@@ -1,19 +1,31 @@
 require('dotenv').config();
-const { neon } = require('@neondatabase/serverless');
 
 /**
  * DPM CRM — Database Setup & Migration
- * 
+ *
  * SAFETY: This script ONLY uses CREATE IF NOT EXISTS and ALTER ADD IF NOT EXISTS.
  * It NEVER drops tables, deletes data, or alters existing columns.
  * Safe to run on every deploy — idempotent by design.
  */
 async function setup() {
   if (!process.env.DATABASE_URL) { console.error('❌ DATABASE_URL not set'); process.exit(1); }
-  const sql = neon(process.env.DATABASE_URL);
-  
+
+  const isLocal = process.env.DATABASE_URL.includes('localhost') || process.env.DATABASE_URL.includes('127.0.0.1');
+  let sql, runRaw;
+
+  if (isLocal) {
+    const postgres = require('postgres');
+    const pg = postgres(process.env.DATABASE_URL, { ssl: false, max: 3 });
+    sql = pg;
+    runRaw = (rawSql) => pg.unsafe(rawSql);
+  } else {
+    const { neon } = require('@neondatabase/serverless');
+    sql = neon(process.env.DATABASE_URL);
+    runRaw = (rawSql) => sql([rawSql]);
+  }
+
   const start = Date.now();
-  console.log('🔌 Connecting to Neon...');
+  console.log(`🔌 Connecting to ${isLocal ? 'local PostgreSQL' : 'Neon'}...`);
   await sql`SELECT 1`;
   console.log(`✅ Connected (${Date.now()-start}ms)`);
 
@@ -164,7 +176,7 @@ async function setup() {
 
   let migrated = 0;
   for (const m of migrations) {
-    try { await sql([m.sql]); migrated++; } catch (e) { /* column already exists */ }
+    try { await runRaw(m.sql); migrated++; } catch (e) { /* column already exists */ }
   }
   console.log(`✅ ${migrations.length} migrations checked (${migrated} applied)`);
 
