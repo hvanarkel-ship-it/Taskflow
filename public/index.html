@@ -65,6 +65,7 @@ const toCamel=s=>s.replace(/_([a-z])/g,(_,c)=>c.toUpperCase());
 const snakeObj=o=>{const r={};for(const k in o)r[toSnake(k)]=o[k];return r;};
 const camelObj=o=>{const r={};for(const k in o)r[toCamel(k)]=o[k];return r;};
 const camelArr=a=>(a||[]).map(camelObj);
+const parseArr=v=>Array.isArray(v)?v:(v&&typeof v==='string'?JSON.parse(v)||[]:v||[]);
 
 const apiCall=async(endpoint,method='GET',body=null)=>{
   const token=LS.get('auth_session',null)?.token;
@@ -775,7 +776,7 @@ const App = function(){
         const[cos,cts,ops,tks,ats,ints,clRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
         const cc=camelArr(cos.companies||cos.data||[]);
         const ct=camelArr(cts.contacts||cts.data||[]);
-        const op=camelArr(ops.opportunities||ops.data||[]).map(o=>({...o,techTags:o.techTags||[],contactIds:o.contactIds||[],atosContactIds:o.atosContactIds||[],notes:o.notes||[],expectedCloseDate:o.expectedCloseDate?o.expectedCloseDate.slice(0,10):o.expectedCloseDate}));
+        const op=camelArr(ops.opportunities||ops.data||[]).map(o=>({...o,techTags:parseArr(o.techTags),contactIds:parseArr(o.contactIds),atosContactIds:parseArr(o.atosContactIds),notes:parseArr(o.notes),expectedCloseDate:o.expectedCloseDate?o.expectedCloseDate.slice(0,10):o.expectedCloseDate}));
         const tk=camelArr(tks.tasks||tks.data||[]).map(t=>({...t,dueDate:t.dueDate?t.dueDate.slice(0,10):t.dueDate}));
         const at=camelArr(ats.team||ats.data||[]);
         const it=camelArr(ints.interactions||ints.data||[]).map(i=>({...i,at:i.at||i.createdAt}));
@@ -815,7 +816,7 @@ const App = function(){
       if(resps.slice(0,6).some(r=>r.status===401||r.status===403)){toast(lang==='nl'?'Sessie verlopen':'Session expired','info');return;}
       const[cos,cts,ops,tks,ats,ints,clRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
       const cc=camelArr(cos.companies||[]);const ct=camelArr(cts.contacts||[]);
-      const op=camelArr(ops.opportunities||[]).map(o=>({...o,techTags:o.techTags||[],contactIds:o.contactIds||[],atosContactIds:o.atosContactIds||[],notes:o.notes||[],expectedCloseDate:o.expectedCloseDate?o.expectedCloseDate.slice(0,10):o.expectedCloseDate}));
+      const op=camelArr(ops.opportunities||[]).map(o=>({...o,techTags:parseArr(o.techTags),contactIds:parseArr(o.contactIds),atosContactIds:parseArr(o.atosContactIds),notes:parseArr(o.notes),expectedCloseDate:o.expectedCloseDate?o.expectedCloseDate.slice(0,10):o.expectedCloseDate}));
       const tk=camelArr(tks.tasks||[]).map(t=>({...t,dueDate:t.dueDate?t.dueDate.slice(0,10):t.dueDate}));
       const at=camelArr(ats.team||[]);const it=camelArr(ints.interactions||[]).map(i=>({...i,at:i.at||i.createdAt}));
       const cl=camelArr(clRes.items||[]);
