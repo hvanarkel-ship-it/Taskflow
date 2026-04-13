@@ -791,8 +791,8 @@ const App = function(){
         if(failedCount===6){console.warn('Neon: all APIs failed');setDataSource('offline');dbReady.current=true;return;}
         if(failedCount>0)console.warn(`Neon: ${failedCount} API(s) failed, loading available data`);
         const[cos,cts,ops,tks,ats,ints,clRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
-        const cc=camelArr(cos.companies||cos.data||[]);
-        const ct=camelArr(cts.contacts||cts.data||[]);
+        const cc=camelArr(cos.companies||cos.data||[]).map(c=>({...c,tags:parseArr(c.tags)}));
+        const ct=camelArr(cts.contacts||cts.data||[]).map(c=>({...c,tags:parseArr(c.tags)}));
         const op=camelArr(ops.opportunities||ops.data||[]).map(o=>({...o,techTags:parseArr(o.techTags),contactIds:parseArr(o.contactIds),atosContactIds:parseArr(o.atosContactIds),notes:parseArr(o.notes),expectedCloseDate:o.expectedCloseDate?o.expectedCloseDate.slice(0,10):o.expectedCloseDate}));
         const tk=camelArr(tks.tasks||tks.data||[]).map(t=>({...t,dueDate:t.dueDate?t.dueDate.slice(0,10):t.dueDate}));
         const at=camelArr(ats.team||ats.data||[]);
@@ -832,7 +832,7 @@ const App = function(){
       ]);
       if(resps.slice(0,6).some(r=>r.status===401||r.status===403)){toast(lang==='nl'?'Sessie verlopen':'Session expired','info');return;}
       const[cos,cts,ops,tks,ats,ints,clRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
-      const cc=camelArr(cos.companies||[]);const ct=camelArr(cts.contacts||[]);
+      const cc=camelArr(cos.companies||[]).map(c=>({...c,tags:parseArr(c.tags)}));const ct=camelArr(cts.contacts||[]).map(c=>({...c,tags:parseArr(c.tags)}));
       const op=camelArr(ops.opportunities||[]).map(o=>({...o,techTags:parseArr(o.techTags),contactIds:parseArr(o.contactIds),atosContactIds:parseArr(o.atosContactIds),notes:parseArr(o.notes),expectedCloseDate:o.expectedCloseDate?o.expectedCloseDate.slice(0,10):o.expectedCloseDate}));
       const tk=camelArr(tks.tasks||[]).map(t=>({...t,dueDate:t.dueDate?t.dueDate.slice(0,10):t.dueDate}));
       const at=camelArr(ats.team||[]);const it=camelArr(ints.interactions||[]).map(i=>({...i,at:i.at||i.createdAt}));
@@ -1036,8 +1036,8 @@ const App = function(){
 
   // Creates: server-first, only add to state on success
   const addOpp=async(o)=>{try{const s=await serverCreate('opportunities',o);if(!s)return null;const saved={...s,notes:parseArr(s.notes),techTags:parseArr(s.techTags),contactIds:parseArr(s.contactIds),atosContactIds:parseArr(s.atosContactIds),expectedCloseDate:s.expectedCloseDate?String(s.expectedCloseDate).slice(0,10):s.expectedCloseDate};setOpps(p=>[...p,saved]);return saved;}catch(e){showErr('addOpp',e);return null;}};
-  const addContact_=async(c)=>{try{const s=await serverCreate('contacts',c);if(!s)return null;setContacts(p=>[...p,s]);return s;}catch(e){showErr('addContact',e);return null;}};
-  const addCompany_=async(c)=>{try{const s=await serverCreate('companies',c);if(!s)return null;setCompanies(p=>[...p,s]);return s;}catch(e){showErr('addCompany',e);return null;}};
+  const addContact_=async(c)=>{try{const s=await serverCreate('contacts',c);if(!s)return null;const saved={...s,tags:parseArr(s.tags)};setContacts(p=>[...p,saved]);return saved;}catch(e){showErr('addContact',e);return null;}};
+  const addCompany_=async(c)=>{try{const s=await serverCreate('companies',c);if(!s)return null;const saved={...s,tags:parseArr(s.tags)};setCompanies(p=>[...p,saved]);return saved;}catch(e){showErr('addCompany',e);return null;}};
   const addTask_=async(t)=>{try{const s=await serverCreate('tasks',t);if(!s)return null;setTasks(p=>[...p,s]);return s;}catch(e){showErr('addTask',e);return null;}};
   const addAtos_=async(a)=>{try{const s=await serverCreate('atos',a);if(!s)return null;setAtosTeam(p=>[...p,s]);return s;}catch(e){showErr('addAtos',e);return null;}};
   const addInteraction_=async(i)=>{try{const s=await serverCreate('interactions',i);if(!s)return null;const saved={...s,at:s.at||s.createdAt};setInteractions(p=>[saved,...p]);return saved;}catch(e){showErr('addInteraction',e);return null;}};
@@ -1168,7 +1168,7 @@ const App = function(){
         }
         // Restore to local state (convert snake_case to camelCase if needed)
         const toCamelArr=arr=>arr.map(x=>x.company_id!==undefined||x.contact_id!==undefined||x.user_id!==undefined?camelObj(x):x);
-        setContacts(toCamelArr(cts));setCompanies(toCamelArr(cos));setOpps(toCamelArr(ops).map(o=>({...o,techTags:o.techTags||o.tech_tags||[],contactIds:o.contactIds||o.contact_ids||[],notes:o.notes||[]})));
+        setContacts(toCamelArr(cts).map(c=>({...c,tags:parseArr(c.tags)})));setCompanies(toCamelArr(cos).map(c=>({...c,tags:parseArr(c.tags)})));setOpps(toCamelArr(ops).map(o=>({...o,techTags:parseArr(o.techTags||o.tech_tags),contactIds:parseArr(o.contactIds||o.contact_ids),notes:parseArr(o.notes)})));
         setTasks(toCamelArr(tks));setAtosTeam(toCamelArr(ats));setInteractions(toCamelArr(ints));
         toast(tx.dbRestoreSuccess);
       }catch(err){console.error('Restore error:',err);toast(tx.dbBackupError,'info');}
