@@ -1,6 +1,6 @@
 {
-  "name": "My Personal Sales Plan",
-  "short_name": "Sales Plan",
+  "name": "mypersonalsalesplanhva",
+  "short_name": "mypersonalsalesplanhva",
   "description": "My Personal Sales Plan — pipeline management",
   "start_url": "/",
   "display": "standalone",
