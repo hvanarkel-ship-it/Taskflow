@@ -245,7 +245,7 @@ const TX={
     reminderToast:'Herinnering',inMinutes:'over {n} min',atTime:'om',
     notifTitle:'My Personal Sales Plan',
     // Table view
-    tableView:'Tabel',kanbanView:'Kanban',
+    tableView:'Tabel',kanbanView:'Kanban',funnelView:'Funnel',funnelTitle:'Pipeline Funnel',funnelDeals:'deals',funnelConv:'Conversie',
     // DB Backup
     dbBackup:'Database backup',dbRestore:'Database terugzetten',dbBackupSuccess:'Database backup gedownload',dbRestoreSuccess:'Database teruggezet',dbRestoreConfirm:'Database terugzetten van',dbBackupError:'Backup fout — database niet verbonden',dbRestoring:'Terugzetten...',
     // Next action task
@@ -410,7 +410,7 @@ const TX={
     reminderToast:'Reminder',inMinutes:'in {n} min',atTime:'at',
     notifTitle:'My Personal Sales Plan',
     // Table view
-    tableView:'Table',kanbanView:'Kanban',
+    tableView:'Table',kanbanView:'Kanban',funnelView:'Funnel',funnelTitle:'Pipeline Funnel',funnelDeals:'deals',funnelConv:'Conversion',
     // DB Backup
     dbBackup:'Database backup',dbRestore:'Restore database',dbBackupSuccess:'Database backup downloaded',dbRestoreSuccess:'Database restored',dbRestoreConfirm:'Restore database from',dbBackupError:'Backup error — database not connected',dbRestoring:'Restoring...',
     // Next action task
@@ -518,6 +518,23 @@ const ChecklistItem=({item,t,dark,onToggle,onDelete,onEdit,onCategory,categories
     {!item.category&&<span onClick={()=>setShowCat(true)} style={{fontSize:10,color:t.muted,cursor:'pointer',opacity:.4,flexShrink:0}}>+tag</span>}
     <span onClick={onDelete} style={{cursor:'pointer',color:t.muted,fontSize:11,opacity:.4,flexShrink:0}}>✕</span>
   </div>;
+};
+
+// ═══ LOGO AVATAR — company logo via Clearbit with initial fallback ═══
+const LOGO_COLORS=['#007AFF','#5856D6','#BF5AF2','#FF2D55','#FF9F0A','#30D158','#5AC8FA','#FF6B35','#34C759'];
+const LogoAvatar=({company,size=36,border='#fff'})=>{
+  const[err,setErr]=useState(false);
+  if(!company)return null;
+  const initials=(company.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const color=LOGO_COLORS[(company.id||0)%LOGO_COLORS.length];
+  let logoUrl=null;
+  if(!err&&company.website){
+    const domain=company.website.replace(/^https?:\/\//,'').replace(/^www\./,'').split('/')[0].split('?')[0];
+    if(domain)logoUrl=`https://logo.clearbit.com/${domain}`;
+  }
+  const style={width:size,height:size,borderRadius:'50%',flexShrink:0,border:`2px solid ${border}`,boxShadow:'0 1px 4px rgba(0,0,0,.15)'};
+  if(logoUrl)return <img src={logoUrl} alt={company.name} title={company.name} onError={()=>setErr(true)} style={{...style,objectFit:'contain',background:'#fff'}}/>;
+  return <div title={company.name} style={{...style,background:color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*.33,fontWeight:700,color:'#fff'}}>{initials}</div>;
 };
 
 // ═══ SEARCHABLE SELECT ═════════════════════════════════
@@ -1400,6 +1417,65 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       window.XLSX.writeFile(wb,`pipeline-${new Date().toISOString().slice(0,10)}.xlsx`);
       toast(tx.reportGenerated);
     };
+
+    const renderFunnel=()=>{
+      const funnelStages=STAGES.filter(s=>s.id!=='lost'&&s.id!=='dropped');
+      const activeFS=funnelStages.filter(s=>s.id!=='won');
+      const topCount=filteredOpps.filter(o=>o.id&&activeFS[0]&&o.stage===activeFS[0].id).length||1;
+      const getCompany=(companyId)=>companies.find(c=>c.id===companyId);
+      const widths=[100,87,74,61,48,38];
+      return <div style={{paddingBottom:32}}>
+        <div style={{display:'flex',gap:12,marginBottom:24,flexWrap:'wrap'}}>
+          {[{l:lang==='nl'?'Actieve deals':'Active deals',v:fActive.length,c:t.accent},{l:lang==='nl'?'Pipeline waarde':'Pipeline value',v:eur(fTotal),c:t.purple},{l:lang==='nl'?'Gewogen waarde':'Weighted value',v:eur(Math.round(fActive.reduce((s,o)=>s+((o.value||0)*(o.probability||0)/100),0))),c:t.green}].map((s,i)=><div key={i} style={{...card,padding:'12px 18px',flex:'1 1 160px'}}><div style={{fontSize:11,color:t.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:1}}>{s.l}</div><div style={{fontSize:22,fontWeight:800,color:s.c,marginTop:4}}>{s.v}</div></div>)}
+        </div>
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+          {funnelStages.map((stage,i)=>{
+            const stageOpps=filteredOpps.filter(o=>o.stage===stage.id);
+            const totalVal=stageOpps.reduce((s,o)=>s+(o.value||0),0);
+            const wPct=widths[i]||38;
+            const nextStage=funnelStages[i+1];
+            const nextCount=nextStage?filteredOpps.filter(o=>o.stage===nextStage.id).length:null;
+            const convRate=stageOpps.length>0&&nextCount!=null?Math.round(nextCount/stageOpps.length*100):null;
+            const isWon=stage.id==='won';
+            return <div key={stage.id} style={{width:`${wPct}%`,transition:'width .3s'}}>
+              <div style={{background:isWon?`${stage.c}18`:`${stage.c}12`,border:`1.5px solid ${stage.c}${isWon?'66':'33'}`,borderRadius:i===0?'14px 14px 0 0':isWon?'0 0 14px 14px':'0',padding:'14px 20px',position:'relative'}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:stageOpps.length?10:0}}>
+                  <span style={{fontSize:20,lineHeight:1}}>{stage.ic}</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:800,color:stage.c,letterSpacing:.3}}>{(stage.l[lang]||stage.l.nl).toUpperCase()}</div>
+                  </div>
+                  <div style={{textAlign:'right'}}>
+                    <div style={{fontSize:13,fontWeight:700,color:t.text}}>{eur(totalVal)}</div>
+                    <div style={{fontSize:11,color:t.muted}}>{stageOpps.length} {tx.funnelDeals}</div>
+                  </div>
+                </div>
+                {stageOpps.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:4,alignItems:'center'}}>
+                  {stageOpps.map(o=>{const co=getCompany(o.companyId);return <div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:5,background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.04)',borderRadius:20,padding:'3px 8px 3px 3px',fontSize:11,color:t.dim,transition:'background .15s'}} title={o.title}>
+                    <LogoAvatar company={co} size={26} border={dark?'#1c1c2e':'#f5f5f5'}/>
+                    <span style={{maxWidth:80,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500}}>{co?.name||o.title}</span>
+                  </div>;})}
+                </div>}
+                {stageOpps.length===0&&<div style={{fontSize:12,color:t.muted,fontStyle:'italic'}}>—</div>}
+              </div>
+              {convRate!=null&&<div style={{display:'flex',justifyContent:'center',alignItems:'center',height:18,position:'relative'}}>
+                <div style={{position:'absolute',width:1,height:'100%',background:stage.c+'44'}}/>
+                <div style={{position:'relative',fontSize:10,fontWeight:700,color:stage.c,background:t.bg,padding:'0 6px',borderRadius:10,border:`1px solid ${stage.c}33`}}>▼ {convRate}%</div>
+              </div>}
+            </div>;
+          })}
+        </div>
+        {filteredOpps.filter(o=>o.stage==='lost'||o.stage==='dropped').length>0&&<div style={{marginTop:24,padding:'14px 20px',borderRadius:12,background:dark?'rgba(255,69,58,.06)':'rgba(255,69,58,.04)',border:'1px solid rgba(255,69,58,.15)'}}>
+          <div style={{fontSize:12,fontWeight:700,color:t.red,marginBottom:10,textTransform:'uppercase',letterSpacing:1}}>{lang==='nl'?'Verloren / Afgevallen':'Lost / Dropped'}</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+            {filteredOpps.filter(o=>o.stage==='lost'||o.stage==='dropped').map(o=>{const co=getCompany(o.companyId);return <div key={o.id} onClick={()=>setDetail({type:'opp',id:o.id})} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:5,background:dark?'rgba(255,255,255,.05)':'rgba(0,0,0,.04)',borderRadius:20,padding:'3px 8px 3px 3px',fontSize:11,color:t.muted,opacity:.7}} title={o.title}>
+              <LogoAvatar company={co} size={24} border={dark?'#1c1c2e':'#f5f5f5'}/>
+              <span style={{maxWidth:80,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{co?.name||o.title}</span>
+            </div>;})}
+          </div>
+        </div>}
+      </div>;
+    };
+
     return <div>
       {renderPeriodBar()}
       <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap',alignItems:'flex-start'}}>
@@ -1427,7 +1503,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
         {[{l:tx.pipeline,v:eur(fTotal),c:t.accent},{l:tx.weighted,v:eur(Math.round(fActive.reduce((s,o)=>s+((o.value||0)*(o.probability||0)/100),0))),c:t.purple},{l:tx.wonLabel,v:eur(fWon.reduce((s,o)=>s+(o.value||0),0)),c:t.green},{l:tx.deals,v:fActive.length,c:t.text}].map((s,i)=><div key={i} style={{...card,flex:'1 1 140px',minWidth:140}}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
       </div>
-      {pipeView==='kanban'?<div style={{display:'grid',gridTemplateColumns:`repeat(${activeStages.length},1fr)`,gap:10,overflowX:'auto'}}>
+      {pipeView==='funnel'?renderFunnel():pipeView==='kanban'?<div style={{display:'grid',gridTemplateColumns:`repeat(${activeStages.length},1fr)`,gap:10,overflowX:'auto'}}>
         {activeStages.map(stage=>{
           const stOps=filteredOpps.filter(o=>o.stage===stage.id);const stVal=stOps.reduce((s,o)=>s+(o.value||0),0);
           return <div key={stage.id} onDragOver={e=>e.preventDefault()} onDrop={()=>{if(dragOpp){const dOpp=opps.find(x=>x.id===dragOpp);
@@ -3161,7 +3237,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         <header style={{padding:'10px 16px',borderBottom:`0.5px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexWrap:'wrap',background:t.bg}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}><button className="ham" onClick={()=>setSb(true)} style={{display:'none',width:36,height:36,border:'none',background:t.elev,borderRadius:10,cursor:'pointer',color:t.text,fontSize:18,alignItems:'center',justifyContent:'center'}}>☰</button><h1 style={{fontSize:20,fontWeight:800,letterSpacing:-.5}}>{titles[view]}</h1></div>
           <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
-            {view==='pipeline'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'kanban',l:tx.kanbanView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setPipeView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:pipeView===v.id?600:400,border:'none',background:pipeView===v.id?t.accent:'transparent',color:pipeView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<><button onClick={()=>setTaskPanelOpen(!taskPanelOpen)} style={{...btnG,padding:'6px 10px',fontSize:11,background:taskPanelOpen?t.accentS:t.glass,color:taskPanelOpen?t.accent:t.dim,border:`0.5px solid ${taskPanelOpen?t.accent+'44':t.border}`}}>☑ {tx.taskPanel}</button><button onClick={()=>setModal({type:'import'})} style={{...btnG,padding:'6px 10px',fontSize:11}}>📥</button><button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button></>}</>}
+            {view==='pipeline'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'kanban',l:tx.kanbanView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'},{id:'funnel',l:tx.funnelView,ic:'▽'}].map(v=><button key={v.id} onClick={()=>setPipeView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:pipeView===v.id?600:400,border:'none',background:pipeView===v.id?t.accent:'transparent',color:pipeView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<><button onClick={()=>setTaskPanelOpen(!taskPanelOpen)} style={{...btnG,padding:'6px 10px',fontSize:11,background:taskPanelOpen?t.accentS:t.glass,color:taskPanelOpen?t.accent:t.dim,border:`0.5px solid ${taskPanelOpen?t.accent+'44':t.border}`}}>☑ {tx.taskPanel}</button><button onClick={()=>setModal({type:'import'})} style={{...btnG,padding:'6px 10px',fontSize:11}}>📥</button><button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button></>}</>}
             {view==='contacts'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setContactsView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:contactsView===v.id?600:400,border:'none',background:contactsView===v.id?t.accent:'transparent',color:contactsView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'contact'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addContact2}</button>}</>}
             {view==='companies'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setCompaniesView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:companiesView===v.id?600:400,border:'none',background:companiesView===v.id?t.accent:'transparent',color:companiesView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'company'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addCompany}</button>}</>}
             {view==='tasks'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setTasksView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:tasksView===v.id?600:400,border:'none',background:tasksView===v.id?t.accent:'transparent',color:tasksView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addTask}</button>}</>}
