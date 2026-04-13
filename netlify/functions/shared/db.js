@@ -1,29 +1,16 @@
 const jwt = require('jsonwebtoken');
+const postgres = require('postgres');
 
-// Fail hard if env vars are missing in production
 if (!process.env.DATABASE_URL) { console.error('FATAL: DATABASE_URL not set'); }
 if (!process.env.JWT_SECRET) { console.error('FATAL: JWT_SECRET not set'); }
 
-// Auto-detect local vs Neon: local URLs contain localhost/127.0.0.1
-const isLocal = process.env.DATABASE_URL?.includes('localhost') || process.env.DATABASE_URL?.includes('127.0.0.1');
-
-let sql;
+let sql = null;
 if (process.env.DATABASE_URL) {
-  if (isLocal) {
-    // Local PostgreSQL — uses same template-literal API as neon
-    const postgres = require('postgres');
-    const pg = postgres(process.env.DATABASE_URL, { ssl: false, max: 5 });
-    // Wrap to match neon's return shape (array of rows)
-    sql = (strings, ...values) => pg(strings, ...values);
-  } else {
-    // Neon serverless (production / Neon dev branch)
-    const { neon } = require('@neondatabase/serverless');
-    sql = neon(process.env.DATABASE_URL);
-  }
-} else {
-  sql = null;
+  const pg = postgres(process.env.DATABASE_URL, { ssl: false, max: 5 });
+  sql = (strings, ...values) => pg(strings, ...values);
 }
-const JWT_SECRET = process.env.JWT_SECRET; // No fallback — must be set
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Rate limiting: simple in-memory tracker (resets per function cold start)
 const rateMap = new Map();
@@ -88,7 +75,6 @@ const safeErr = (e) => {
   if (e.status) return err(e.status, e.message);
   const msg = e.message || '';
   console.error('Internal error:', msg);
-  // Surface common PostgreSQL errors that help debugging
   if (msg.includes('column') && msg.includes('does not exist')) return err(500, 'Database schema out of date — run db:setup');
   if (msg.includes('violates foreign key')) return err(400, 'Ongeldige referentie (FK fout)');
   if (msg.includes('invalid input syntax')) return err(400, 'Ongeldig veld formaat');

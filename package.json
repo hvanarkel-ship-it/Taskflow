@@ -14,10 +14,10 @@
     "db:health": "node scripts/health-check.js"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.0.0",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.6.1",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "postgres": "^3.0.0"
   },
   "devDependencies": {
     "netlify-cli": "^17.0.0"

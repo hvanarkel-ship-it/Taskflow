@@ -1,4 +1,5 @@
 require('dotenv').config();
+const postgres = require('postgres');
 
 /**
  * DPM CRM — Database Setup & Migration
@@ -10,22 +11,12 @@ require('dotenv').config();
 async function setup() {
   if (!process.env.DATABASE_URL) { console.error('❌ DATABASE_URL not set'); process.exit(1); }
 
-  const isLocal = process.env.DATABASE_URL.includes('localhost') || process.env.DATABASE_URL.includes('127.0.0.1');
-  let sql, runRaw;
-
-  if (isLocal) {
-    const postgres = require('postgres');
-    const pg = postgres(process.env.DATABASE_URL, { ssl: false, max: 3 });
-    sql = pg;
-    runRaw = (rawSql) => pg.unsafe(rawSql);
-  } else {
-    const { neon } = require('@neondatabase/serverless');
-    sql = neon(process.env.DATABASE_URL);
-    runRaw = (rawSql) => sql([rawSql]);
-  }
+  const pg = postgres(process.env.DATABASE_URL, { ssl: false, max: 3 });
+  const sql = pg;
+  const runRaw = (rawSql) => pg.unsafe(rawSql);
 
   const start = Date.now();
-  console.log(`🔌 Connecting to ${isLocal ? 'local PostgreSQL' : 'Neon'}...`);
+  console.log('🔌 Connecting to local PostgreSQL...');
   await sql`SELECT 1`;
   console.log(`✅ Connected (${Date.now()-start}ms)`);
 
@@ -103,7 +94,7 @@ async function setup() {
 
   console.log('✅ 8 tables verified');
 
-  // ─── INDEXES (CREATE IF NOT EXISTS — safe) ───
+  // ─── INDEXES ───
 
   await sql`CREATE INDEX IF NOT EXISTS idx_companies_user ON companies(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_contacts_user ON contacts(user_id)`;
@@ -126,51 +117,36 @@ async function setup() {
   console.log('✅ 18 indexes verified');
 
   // ─── COLUMN MIGRATIONS (ADD IF NOT EXISTS — safe for existing data) ───
-  // These add new columns to existing tables without touching existing data.
 
   const migrations = [
-    // v2.0: added multi-contact, tech tags, atos team to opportunities
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS contact_ids JSONB DEFAULT '[]'", v: '2.0' },
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS tech_tags JSONB DEFAULT '[]'", v: '2.0' },
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS atos_sales_id INTEGER", v: '2.0' },
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS atos_delivery_id INTEGER", v: '2.0' },
-    // v3.0: tags on contacts/companies (may already exist from CREATE)
     { sql: "ALTER TABLE contacts ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'", v: '3.0' },
     { sql: "ALTER TABLE companies ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'", v: '3.0' },
-    // v4.0: expected close date, contact category
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS expected_close_date DATE", v: '4.0' },
     { sql: "ALTER TABLE contacts ADD COLUMN IF NOT EXISTS category VARCHAR(100) DEFAULT ''", v: '4.0' },
-    // v16: win/loss reasons, deal notes, stage velocity
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS stage_changed_at TIMESTAMPTZ", v: '16' },
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS closed_reason VARCHAR(100) DEFAULT ''", v: '16' },
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS closed_note TEXT DEFAULT ''", v: '16' },
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS deal_notes TEXT DEFAULT ''", v: '16' },
-    // v29: task progress and status tracking
     { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS progress INTEGER DEFAULT 0", v: '29' },
     { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'todo'", v: '29' },
     { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''", v: '29' },
     { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS atos_id INTEGER", v: '29' },
     { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS company_contact_id INTEGER", v: '29' },
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS salesforce_url TEXT DEFAULT ''", v: '30' },
-    // v31: atos contacts linked to deals (internal colleagues)
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS atos_contact_ids JSONB DEFAULT '[]'", v: '31' },
-    // v31: client folder URL on deals
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS folder_url TEXT DEFAULT ''", v: '31' },
-    // v32: user approval system — new users must be approved by admin
     { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT false", v: '32' },
-    // v32: auto-approve admin user
     { sql: "UPDATE users SET approved = true WHERE email = 'hvanarkel@gmail.com'", v: '32' },
-    // v33: password reset tokens
     { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_hash TEXT DEFAULT NULL", v: '33' },
     { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ DEFAULT NULL", v: '33' },
-    // v34: last login tracking
     { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ DEFAULT NULL", v: '34' },
-    // v35: personal checklist
     { sql: "CREATE TABLE IF NOT EXISTS checklist_items (id SERIAL PRIMARY KEY, text TEXT NOT NULL, done BOOLEAN DEFAULT false, position INTEGER DEFAULT 0, category VARCHAR(100) DEFAULT '', user_id INTEGER NOT NULL REFERENCES users(id), created_at TIMESTAMPTZ DEFAULT NOW())", v: '35' },
     { sql: "CREATE INDEX IF NOT EXISTS idx_checklist_user ON checklist_items(user_id)", v: '35' },
-    // v36: deal registration URL on opportunities
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS deal_registration_url TEXT DEFAULT ''", v: '36' },
-    // v37: notes on contacts
     { sql: "ALTER TABLE contacts ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''", v: '37' },
   ];
 
@@ -183,8 +159,8 @@ async function setup() {
   // ─── VERIFY ───
   const tables = await sql`SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename`;
   console.log(`\n📊 Tables: ${tables.map(t=>t.tablename).join(', ')}`);
-  
-  const [counts] = await sql`SELECT 
+
+  const [counts] = await sql`SELECT
     (SELECT count(*) FROM users) as users,
     (SELECT count(*) FROM companies) as companies,
     (SELECT count(*) FROM contacts) as contacts,
@@ -193,7 +169,9 @@ async function setup() {
     (SELECT count(*) FROM atos_team) as atos,
     (SELECT count(*) FROM interactions) as interactions`;
   console.log(`📊 Records: ${JSON.stringify(counts)}`);
-  console.log(`\n🎉 DPM CRM database ready! (${Date.now()-start}ms)`);
+  console.log(`\n🎉 Database ready! (${Date.now()-start}ms)`);
+
+  await pg.end();
 }
 
 setup().catch(e => { console.error('❌', e.message); process.exit(1); });
