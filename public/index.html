@@ -283,8 +283,6 @@ const TX={
     // Tasks table
     task:'Taak',contact:'Contact',deal:'Deal',dueDate:'Deadline',status:'Status',
     open:'Open',
-    // Task side panel
-    taskPanel:'Taken',showTasks:'Taken tonen',hideTasks:'Taken verbergen',
     allTasks:'Alle taken',filterByContact:'Per contact',filterByDeal:'Per deal',
     noTasksForFilter:'Geen taken voor dit filter',
     addInline:'+ Toevoegen',quickAdd:'Snel toevoegen...',
@@ -447,8 +445,6 @@ const TX={
     // Tasks table
     task:'Task',contact:'Contact',deal:'Deal',dueDate:'Due date',status:'Status',
     open:'Open',
-    // Task side panel
-    taskPanel:'Tasks',showTasks:'Show tasks',hideTasks:'Hide tasks',
     allTasks:'All tasks',filterByContact:'By contact',filterByDeal:'By deal',
     noTasksForFilter:'No tasks for this filter',
     addInline:'+ Add',quickAdd:'Quick add...',
@@ -902,13 +898,8 @@ const App = function(){
   const[editCellCt,setEditCellCt]=useState(null);
   const[editCellCo,setEditCellCo]=useState(null);
   const[editCellTk,setEditCellTk]=useState(null);
-  const[taskPanelOpen,setTaskPanelOpen]=useState(false);
-  const[taskPanelFilter,setTaskPanelFilter]=useState('all');
-  const[taskPanelContactId,setTaskPanelContactId]=useState('');
-  const[taskPanelOppId,setTaskPanelOppId]=useState('');
   const[quickAddCt,setQuickAddCt]=useState('');
   const[quickAddCo,setQuickAddCo]=useState('');
-  const[taskPanelSel,setTaskPanelSel]=useState([]);
   const[atQ,setAtQ]=useState('');
   const[atModal,setAtModal]=useState(null);
   const[mf,setMf]=useState({});
@@ -1612,86 +1603,6 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     </div>;
   };
 
-  const renderTaskPanel=()=>{
-    const panelTasks=tasks.filter(tk=>{
-      if(tk.done||tk.status==='done'||tk.status==='cancelled')return false;
-      if(taskPanelFilter==='contact'&&taskPanelContactId) return tk.contactId===taskPanelContactId;
-      if(taskPanelFilter==='opp'&&taskPanelOppId) return tk.oppId===taskPanelOppId;
-      return true;
-    }).sort((a,b)=>{const si=s=>TASK_STATUSES.findIndex(x=>x.k===s);const sd=si(a.status||'todo')-si(b.status||'todo');if(sd!==0)return sd;return(a.dueDate||'9').localeCompare(b.dueDate||'9');});
-    const panelContactIds=[...new Set(tasks.filter(tk=>!tk.done&&tk.contactId).map(tk=>tk.contactId))];
-    const panelOppIds=[...new Set(tasks.filter(tk=>!tk.done&&tk.oppId).map(tk=>tk.oppId))];
-    const allPanelIds=panelTasks.map(tk=>tk.id);
-    const allPanelSel=allPanelIds.length>0&&allPanelIds.every(id=>taskPanelSel.includes(id));
-    const togglePanelSel=id=>setTaskPanelSel(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
-    const togglePanelAll=()=>setTaskPanelSel(allPanelSel?[]:allPanelIds);
-    const bulkPanelComplete=()=>{for(const id of taskPanelSel)completeTask(id);setTaskPanelSel([]);};
-    const bulkPanelDel=async()=>{if(!confirm(`${taskPanelSel.length} ${tx.confirmDeleteN}`))return;for(const id of taskPanelSel)await deleteTask_(id);setTaskPanelSel([]);};
-    const totalTasks=panelTasks.length;
-    const doneTasks=tasks.filter(tk=>tk.done&&(taskPanelFilter==='all'||
-      (taskPanelFilter==='contact'&&taskPanelContactId?tk.contactId===taskPanelContactId:true)&&
-      (taskPanelFilter==='opp'&&taskPanelOppId?tk.oppId===taskPanelOppId:true))).length;
-    const totalAll=totalTasks+doneTasks;
-    const completionPct=totalAll?Math.round(doneTasks/totalAll*100):0;
-    return <div style={{width:360,flexShrink:0,background:t.card,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:14,padding:16,boxShadow:t.shadow,overflowY:'auto',maxHeight:'calc(100vh - 160px)',alignSelf:'flex-start',position:'sticky',top:0}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-        <div style={{fontSize:15,fontWeight:700}}>☑ {tx.taskPanel}</div>
-        <button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'4px 10px',fontSize:11,minHeight:28,minWidth:28}}>+ {tx.addTask}</button>
-      </div>
-      {/* Completion summary */}
-      <div style={{marginBottom:12,padding:'8px 10px',borderRadius:10,background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-          <span style={{fontSize:10,fontWeight:600,color:t.muted,textTransform:'uppercase',letterSpacing:.5}}>{tx.taskPanel}</span>
-          <span style={{fontSize:12,fontWeight:700,color:completionPct>=80?t.green:completionPct>=50?t.orange:t.accent}}>{doneTasks}/{totalAll}</span>
-        </div>
-        <div style={{height:6,borderRadius:3,background:dark?'rgba(118,118,128,0.2)':'rgba(118,118,128,0.12)',overflow:'hidden'}}>
-          <div style={{height:'100%',borderRadius:3,background:completionPct>=80?t.green:completionPct>=50?t.orange:t.accent,width:`${completionPct}%`,transition:'width .3s ease'}}/>
-        </div>
-      </div>
-      <div style={{display:'flex',gap:3,marginBottom:10,flexWrap:'wrap'}}>
-        {[{id:'all',l:tx.allTasks},{id:'contact',l:tx.filterByContact},{id:'opp',l:tx.filterByDeal}].map(f=><button key={f.id} onClick={()=>{setTaskPanelFilter(f.id);setTaskPanelSel([]);if(f.id==='all'){setTaskPanelContactId('');setTaskPanelOppId('');}}} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:taskPanelFilter===f.id?600:400,border:`1.5px solid ${taskPanelFilter===f.id?t.accent:'transparent'}`,background:taskPanelFilter===f.id?t.accentS:'transparent',color:taskPanelFilter===f.id?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:28,minWidth:0}}>{f.l}</button>)}
-      </div>
-      {taskPanelFilter==='contact'&&<select value={taskPanelContactId} onChange={e=>{setTaskPanelContactId(e.target.value);setTaskPanelSel([]);}} style={{...inp,padding:'6px 10px',fontSize:12,marginBottom:10,minHeight:32}}>
-        <option value="">{tx.allTasks}</option>
-        {panelContactIds.map(id=><option key={id} value={id}>{cName(id)}</option>)}
-      </select>}
-      {taskPanelFilter==='opp'&&<select value={taskPanelOppId} onChange={e=>{setTaskPanelOppId(e.target.value);setTaskPanelSel([]);}} style={{...inp,padding:'6px 10px',fontSize:12,marginBottom:10,minHeight:32}}>
-        <option value="">{tx.allTasks}</option>
-        {panelOppIds.map(id=><option key={id} value={id}>{oppName(id)}</option>)}
-      </select>}
-      {/* Select all / bulk actions */}
-      {panelTasks.length>0&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
-        <div onClick={togglePanelAll} style={{width:14,height:14,borderRadius:3,border:`2px solid ${allPanelSel?t.accent:t.muted}`,background:allPanelSel?t.accent:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:8,color:'#fff',fontWeight:700,flexShrink:0}}>{allPanelSel&&'✓'}</div>
-        <span style={{fontSize:10,color:t.dim,cursor:'pointer'}} onClick={togglePanelAll}>{allPanelSel?tx.deselectAll:tx.selectAll}</span>
-        {taskPanelSel.length>0&&<>
-          <span style={{fontSize:10,color:t.accent,fontWeight:600,marginLeft:'auto'}}>{taskPanelSel.length}</span>
-          <button onClick={bulkPanelComplete} style={{padding:'2px 8px',borderRadius:6,border:'none',background:t.green,color:'#fff',fontSize:9,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:22,minWidth:0}}>✓ {tx.bulkComplete}</button>
-          <button onClick={bulkPanelDel} style={{padding:'2px 8px',borderRadius:6,border:'none',background:t.red,color:'#fff',fontSize:9,fontWeight:600,cursor:'pointer',fontFamily:'inherit',minHeight:22,minWidth:0}}>✕</button>
-        </>}
-      </div>}
-      <div style={{display:'flex',flexDirection:'column',gap:5}}>
-        {panelTasks.length===0&&<div style={{textAlign:'center',padding:20,color:t.muted,fontSize:12}}>{tx.noTasksForFilter}</div>}
-        {panelTasks.map(tk=>{const isOverdue=tk.dueDate&&tk.dueDate<td();const isSel=taskPanelSel.includes(tk.id);const tks=TASK_STATUSES.find(s=>s.k===(tk.status||'todo'))||TASK_STATUSES[0];const atosName=atosTeam.find(a=>a.id===tk.atosId)?.name;return <div key={tk.id} draggable onDragStart={e=>onTaskDragStart(e,tk)} style={{padding:'8px 10px',borderRadius:10,background:isSel?(dark?'rgba(10,132,255,0.12)':'rgba(0,122,255,0.08)'):(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),borderLeft:`3px solid ${tk.priority==='urgent'?'#FF2D55':tks.c}`,display:'flex',alignItems:'flex-start',gap:6,transition:'background .1s',cursor:'grab'}}>
-          <div onClick={()=>togglePanelSel(tk.id)} style={{width:14,height:14,borderRadius:3,border:`2px solid ${isSel?t.accent:t.muted}`,background:isSel?t.accent:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:8,color:'#fff',fontWeight:700,flexShrink:0,marginTop:2}}>{isSel&&'✓'}</div>
-          <div style={{flex:1,minWidth:0}} onClick={()=>setModal({type:'task',data:tk})}>
-            <div style={{fontSize:12,fontWeight:500,display:'flex',alignItems:'center',gap:5}}>
-              <span style={{flex:1,display:'flex',alignItems:'center',gap:4}}>{tk.priority==='urgent'&&<span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'#FF2D55',boxShadow:'0 0 5px #FF2D55',animation:'pulse 1.5s infinite',flexShrink:0}}/>}{tk.title}</span>
-              <span style={{fontSize:8,padding:'1px 5px',borderRadius:4,background:tks.c+'20',color:tks.c,fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{tks.ic} {tks.l[lang]}</span>
-            </div>
-            <div style={{fontSize:10,color:t.dim,display:'flex',gap:5,marginTop:2,flexWrap:'wrap',alignItems:'center'}}>
-              {tk.contactId&&<span style={{color:t.accent,cursor:'pointer'}} onClick={()=>setDetail({type:'contact',id:tk.contactId})}>👤 {cName(tk.contactId)}</span>}
-              {(()=>{const cn=tk.contactId?cCompany(tk.contactId):(tk.oppId?compName(opps.find(o=>o.id===tk.oppId)?.companyId):'');return cn?<span style={{color:t.teal}}>🏢 {cn}</span>:null;})()}
-              {tk.oppId&&<span style={{color:t.accent,cursor:'pointer'}} onClick={()=>setDetail({type:'opp',id:tk.oppId})}>📊 {oppName(tk.oppId)}</span>}
-              {atosName&&<span style={{color:t.purple}}>🔵 {atosName}</span>}
-              {tk.dueDate&&<span style={{color:isOverdue?t.red:t.dim}}>{fds(tk.dueDate)}</span>}
-            </div>
-            {tk.notes&&<div style={{fontSize:10,color:t.dim,marginTop:2,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📝 {linkify(tk.notes.slice(0,60))}{tk.notes.length>60?'...':''}</div>}
-          </div>
-          <span onClick={()=>{deleteTask_(tk.id);toast(tx.removed,'info');}} style={{cursor:'pointer',color:t.red,fontSize:11,opacity:.4,flexShrink:0,marginTop:2}}>✕</span>
-        </div>;})}
-      </div>
-    </div>;
-  };
 
   const renderContacts=()=>{
     const filtered=contacts.filter(c=>{if(!search)return true;const q=search.toLowerCase();return c.name.toLowerCase().includes(q)||compName(c.companyId).toLowerCase().includes(q)||c.email.toLowerCase().includes(q)||(c.tags||[]).some(t=>t.includes(q));});
@@ -3288,7 +3199,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         <header style={{padding:'10px 16px',borderBottom:`0.5px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexWrap:'wrap',background:t.bg}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}><button className="ham" onClick={()=>setSb(true)} style={{display:'none',width:36,height:36,border:'none',background:t.elev,borderRadius:10,cursor:'pointer',color:t.text,fontSize:18,alignItems:'center',justifyContent:'center'}}>☰</button><h1 style={{fontSize:20,fontWeight:800,letterSpacing:-.5}}>{titles[view]}</h1></div>
           <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
-            {view==='pipeline'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'kanban',l:tx.kanbanView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'},{id:'funnel',l:tx.funnelView,ic:'▽'}].map(v=><button key={v.id} onClick={()=>setPipeView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:pipeView===v.id?600:400,border:'none',background:pipeView===v.id?t.accent:'transparent',color:pipeView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<><button onClick={()=>setTaskPanelOpen(!taskPanelOpen)} style={{...btnG,padding:'6px 10px',fontSize:11,background:taskPanelOpen?t.accentS:t.glass,color:taskPanelOpen?t.accent:t.dim,border:`0.5px solid ${taskPanelOpen?t.accent+'44':t.border}`}}>☑ {tx.taskPanel}</button><button onClick={()=>setModal({type:'import'})} style={{...btnG,padding:'6px 10px',fontSize:11}}>📥</button><button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button></>}</>}
+            {view==='pipeline'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'kanban',l:tx.kanbanView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'},{id:'funnel',l:tx.funnelView,ic:'▽'}].map(v=><button key={v.id} onClick={()=>setPipeView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:pipeView===v.id?600:400,border:'none',background:pipeView===v.id?t.accent:'transparent',color:pipeView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<><button onClick={()=>setModal({type:'import'})} style={{...btnG,padding:'6px 10px',fontSize:11}}>📥</button><button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button></>}</>}
             {view==='contacts'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setContactsView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:contactsView===v.id?600:400,border:'none',background:contactsView===v.id?t.accent:'transparent',color:contactsView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'contact'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addContact2}</button>}</>}
             {view==='companies'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setCompaniesView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:companiesView===v.id?600:400,border:'none',background:companiesView===v.id?t.accent:'transparent',color:companiesView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'company'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addCompany}</button>}</>}
             {view==='tasks'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setTasksView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:tasksView===v.id?600:400,border:'none',background:tasksView===v.id?t.accent:'transparent',color:tasksView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addTask}</button>}</>}
@@ -3308,7 +3219,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           </div>}
           {dbStatus==='checking'&&!location.hostname.includes('claudeusercontent')&&<div style={{padding:'8px 16px',marginBottom:16,borderRadius:12,background:t.accentS,fontSize:12,color:t.accent,animation:'pulse 1.5s infinite'}}>{tx.connecting2}</div>}
           {view==='dashboard'&&renderDash()}
-          {view==='pipeline'&&<div style={{display:'flex',gap:16}}><div style={{flex:1,minWidth:0}}>{renderPipeline()}</div>{taskPanelOpen&&renderTaskPanel()}</div>}
+          {view==='pipeline'&&renderPipeline()}
           {view==='companies'&&renderCompanies()}
           {view==='contacts'&&renderContacts()}
           {view==='atos'&&renderAtosView()}
