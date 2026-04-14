@@ -1017,14 +1017,14 @@ const App = function(){
   };
   const serverDelete=async(endpoint,id)=>{
     await waitForDb();
-    if(!authUser?.token)return false;
+    if(!authUser?.token)throw new Error(lang==='nl'?'Niet ingelogd':'Not logged in');
     const resp=await fetch('/api/'+endpoint+'?id='+id,{method:'DELETE',headers:{'Authorization':'Bearer '+authUser.token}});
     if(!resp.ok){const e=await resp.json().catch(()=>({}));console.error('serverDelete error',endpoint,resp.status,e);throw new Error(e.error||'Server error '+resp.status);}
     return true;
   };
 
   // ── CRUD helpers: server-first, state only updated on success ──
-  const showErr=(action,e)=>{const msg=e?.message||'';console.error(action,msg);toast((lang==='nl'?'Fout: ':'Error: ')+msg,'info');};
+  const showErr=(action,e)=>{const msg=e?.message||'';console.error(action,msg);toast((lang==='nl'?'Fout: ':'Error: ')+msg,'error');};
 
   // Creates: server-first, only add to state on success
   const addOpp=async(o)=>{try{const s=await serverCreate('opportunities',o);if(!s)return null;const saved={...s,notes:parseArr(s.notes),techTags:parseArr(s.techTags),contactIds:parseArr(s.contactIds),atosContactIds:parseArr(s.atosContactIds),expectedCloseDate:s.expectedCloseDate?String(s.expectedCloseDate).slice(0,10):s.expectedCloseDate};setOpps(p=>[...p,saved]);return saved;}catch(e){showErr('addOpp',e);return null;}};
@@ -1043,12 +1043,12 @@ const App = function(){
 
 
   // Deletes: server-first, only remove from state on success
-  const deleteOpp=async(id)=>{try{await serverDelete('opportunities',id);setOpps(p=>p.filter(x=>x.id!==id));return true;}catch(e){showErr('deleteOpp',e);return false;}};
-  const deleteContact_=async(id)=>{try{await serverDelete('contacts',id);setContacts(p=>p.filter(x=>x.id!==id));return true;}catch(e){showErr('deleteContact',e);return false;}};
-  const deleteCompany_=async(id)=>{try{await serverDelete('companies',id);setCompanies(p=>p.filter(x=>x.id!==id));return true;}catch(e){showErr('deleteCompany',e);return false;}};
-  const deleteTask_=async(id)=>{try{await serverDelete('tasks',id);setTasks(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteTask',e);}};
-  const deleteAtos_=async(id)=>{try{await serverDelete('atos',id);setAtosTeam(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteAtos',e);}};
-  const deleteInteraction_=async(id)=>{try{await serverDelete('interactions',id);setInteractions(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteInteraction',e);}};
+  const deleteOpp=async(id)=>{const n=Number(id);try{await serverDelete('opportunities',id);setOpps(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteOpp',e);return false;}};
+  const deleteContact_=async(id)=>{const n=Number(id);try{await serverDelete('contacts',id);setContacts(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteContact',e);return false;}};
+  const deleteCompany_=async(id)=>{const n=Number(id);try{await serverDelete('companies',id);setCompanies(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteCompany',e);return false;}};
+  const deleteTask_=async(id)=>{const n=Number(id);try{await serverDelete('tasks',id);setTasks(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteTask',e);return false;}};
+  const deleteAtos_=async(id)=>{const n=Number(id);try{await serverDelete('atos',id);setAtosTeam(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteAtos',e);return false;}};
+  const deleteInteraction_=async(id)=>{const n=Number(id);try{await serverDelete('interactions',id);setInteractions(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteInteraction',e);return false;}};
 
   // ── iCal export for tasks (Outlook/Google Calendar/Apple Calendar) ──
   const exportTasksIcal=(taskList)=>{
@@ -1182,7 +1182,7 @@ const App = function(){
     return()=>clearInterval(iv);
   },[checkDb]);
 
-  const toast=(m,ty='ok')=>{const i=uid();setToasts(p=>[...p,{id:i,m,ty}]);setTimeout(()=>setToasts(p=>p.filter(x=>x.id!==i)),3000);};
+  const toast=(m,ty='ok')=>{const i=uid();setToasts(p=>[...p,{id:i,m,ty}]);setTimeout(()=>setToasts(p=>p.filter(x=>x.id!==i)),ty==='error'?7000:3000);};
   const cName=id=>contacts.find(c=>c.id===id)?.name||'';
   const compName=id=>companies.find(c=>c.id===id)?.name||'';
   const cCompany=id=>{const c=contacts.find(x=>x.id===id);return c?compName(c.companyId):'';}
@@ -3359,7 +3359,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setAtModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!atModal.name?.trim()){toast(tx.fillName,'info');return;}if(atModal.id){updateAtos_(atModal.id,atModal);toast(tx.updated);setAtModal(null);}else{const saved=await addAtos_({...atModal});if(saved){toast(tx.teamAdded);setAtModal(null);}}}} style={btnP}>{atModal.id?tx.save:tx.add}</button></div>
         </div>
       </div>}
-      <div style={{position:'fixed',bottom:20,right:20,zIndex:9999,display:'flex',flexDirection:'column',gap:6}}>{toasts.map(x=><div key={x.id} style={{padding:'10px 16px',background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:12,fontSize:13,boxShadow:t.shadow,animation:'fadeIn .3s',borderLeft:`3px solid ${x.ty==='ok'?t.green:t.accent}`}}>{x.ty==='ok'?'✓':'ℹ'} {x.m}</div>)}</div>
+      <div style={{position:'fixed',bottom:20,right:20,zIndex:9999,display:'flex',flexDirection:'column',gap:6}}>{toasts.map(x=><div key={x.id} style={{padding:'10px 16px',background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:12,fontSize:13,boxShadow:t.shadow,animation:'fadeIn .3s',borderLeft:`3px solid ${x.ty==='ok'?t.green:x.ty==='error'?t.red:t.accent}`}}>{x.ty==='ok'?'✓':x.ty==='error'?'✕':'ℹ'} {x.m}</div>)}</div>
       {intModal&&<div onClick={()=>setIntModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
         <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:480,maxHeight:'90vh',overflowY:'auto'}}>
           <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
