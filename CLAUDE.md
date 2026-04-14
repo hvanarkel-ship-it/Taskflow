@@ -7,20 +7,20 @@ Personal CRM with pipeline kanban, companies, contacts, deals, tasks, team manag
 | Layer    | Tool                              |
 |----------|-----------------------------------|
 | Frontend | React 18 + Babel (single-file SPA) — `public/index.html` |
-| Backend  | Netlify Functions (serverless) — `netlify/functions/` |
-| Database | Neon (PostgreSQL) via `@neondatabase/serverless` |
-| AI       | Claude Sonnet via server-side proxy — `netlify/functions/ai.js` |
-| Hosting  | Netlify (paid plan) |
+| Backend  | Express.js + handler functions — `api/` |
+| Database | PostgreSQL via `postgres` npm package |
+| AI       | Claude Sonnet via server-side proxy — `api/ai.js` |
+| Hosting  | Self-hosted, `node server.js` |
 | Auth     | JWT (`jsonwebtoken` + `bcryptjs`) |
 
 ## Key Files
 
 - `public/index.html` — entire React frontend (single file, Babel transpiled in browser)
-- `netlify/functions/shared/db.js` — shared DB client, JWT helpers, rate limiter
-- `netlify/functions/*.js` — one file per API route (auth, companies, contacts, opportunities, tasks, atos, interactions, health)
+- `api/shared/db.js` — shared DB client, JWT helpers, rate limiter
+- `api/*.js` — one file per API route (auth, companies, contacts, opportunities, tasks, atos, interactions, health)
+- `server.js` — Express server; adapts `api/*.js` handlers to Express req/res
 - `scripts/setup-db.js` — safe additive DB migration (run once, idempotent)
 - `scripts/reset-db.js` — DESTRUCTIVE reset, triple confirmation required
-- `netlify.toml` — build config + redirect rules
 - `public/sw.js` — service worker for PWA/offline
 - `public/manifest.json` — PWA manifest
 
@@ -28,17 +28,17 @@ Personal CRM with pipeline kanban, companies, contacts, deals, tasks, team manag
 
 ```bash
 npm install          # install dependencies
-npm run dev          # local dev via Netlify CLI (port 8888)
+npm run dev          # start local server (port 8888)
 npm run db:setup     # run DB migrations (safe, idempotent)
 npm run db:health    # check DB connection
 npm run db:reset     # DESTRUCTIVE — drops all tables
 ```
 
-## Environment Variables (Netlify)
+## Environment Variables
 
 | Variable          | Description                        |
 |-------------------|------------------------------------|
-| `DATABASE_URL`    | Neon pooled connection string      |
+| `DATABASE_URL`    | PostgreSQL connection string       |
 | `JWT_SECRET`      | Random 64-byte hex string          |
 | `ANTHROPIC_API_KEY` | From console.anthropic.com       |
 
@@ -47,11 +47,11 @@ For local dev, copy these to a `.env` file in the project root (gitignored).
 ## Architecture Notes
 
 - **Frontend is a single-file React SPA** — all components, state, and styles live in `public/index.html`. No build step for the frontend.
-- **Netlify Functions** handle all API calls. Each function exports a `handler`. Shared utilities are in `netlify/functions/shared/db.js`.
-- **All API routes** are prefixed `/api/*` and rewritten to `/.netlify/functions/:splat` by `netlify.toml`.
-- **Rate limiting** is in-memory per function cold start (120 req/min/IP) — not shared across instances.
+- **API handlers** in `api/` each export a `handler(event, context)` function. `server.js` adapts them to Express req/res.
+- **All API routes** are prefixed `/api/*` and mapped to the matching handler in `api/`.
+- **Rate limiting** is in-memory per process (120 req/min/IP).
 - **Data safety**: `setup-db.js` only uses `CREATE IF NOT EXISTS` / `ALTER ADD IF NOT EXISTS` — never drops or truncates. Never run `reset-db.js` in production.
-- **Auth**: JWT tokens expire in 30 days, issued by `/api/auth`, validated in `requireAuth()` in `shared/db.js`.
+- **Auth**: JWT tokens expire in 30 days, issued by `/api/auth`, validated in `requireAuth()` in `api/shared/db.js`.
 
 ## Code Conventions
 

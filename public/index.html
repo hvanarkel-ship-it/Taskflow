@@ -59,7 +59,7 @@ const LS={
   has:(k)=>{try{return localStorage.getItem('pf_'+k)!==null;}catch{return false;}},
 };
 
-// ── Neon API helper — camelCase ↔ snake_case ──
+// ── API helper — camelCase ↔ snake_case ──
 const toSnake=s=>s.replace(/[A-Z]/g,c=>'_'+c.toLowerCase());
 const toCamel=s=>s.replace(/_([a-z])/g,(_,c)=>c.toUpperCase());
 const snakeObj=o=>{const r={};for(const k in o)r[toSnake(k)]=o[k];return r;};
@@ -208,8 +208,8 @@ const TX={
     searchTeam:'Zoek teamleden...',sales:'Sales',delivery:'Delivery',total:'Totaal',
     deleteTeamConfirm:'Teamlid verwijderen?',
     // Misc
-    neonConnected:'Neon verbonden',connecting:'Verbinden...',localStorage2:'Lokale opslag',
-    neonWarning:'Database niet verbonden',neonWarningDesc:'Controleer of PostgreSQL lokaal draait en herstart de app.',
+    dbConnected:'Database verbonden',connecting:'Verbinden...',localStorage2:'Lokale opslag',
+    dbWarning:'Database niet verbonden',dbWarningDesc:'Controleer of de server draait en herstart de app.',
     checkConn:'↻ Check',connecting2:'⏳ Verbinding controleren...',
     scanBtn:'Scan',aiTitle:'AI Sales Assistent',
     pipelineLabel:'Pipeline:',wonShort:'gewonnen',
@@ -371,8 +371,8 @@ const TX={
     searchTeam:'Search team members...',sales:'Sales',delivery:'Delivery',total:'Total',
     deleteTeamConfirm:'Delete team member?',
     // Misc
-    neonConnected:'Neon connected',connecting:'Connecting...',localStorage2:'Local storage',
-    neonWarning:'Database not connected',neonWarningDesc:'Check if PostgreSQL is running locally and restart the app.',
+    dbConnected:'Database connected',connecting:'Connecting...',localStorage2:'Local storage',
+    dbWarning:'Database not connected',dbWarningDesc:'Check if the server is running and restart the app.',
     checkConn:'↻ Check',connecting2:'⏳ Checking connection...',
     scanBtn:'Scan',aiTitle:'AI Sales Assistant',
     pipelineLabel:'Pipeline:',wonShort:'won',
@@ -683,7 +683,7 @@ const App = function(){
   const[clFilter,setClFilter]=useState('all'); // 'all' or a category name
 
   // Auto-restore: if all data is empty and NOT logged in, offer backup restore
-  // When logged in, Neon load handles data — skip the backup prompt
+  // When logged in, server load handles data — skip the backup prompt
   const didAutoRestore=useRef(false);
   useEffect(()=>{
     if(didAutoRestore.current)return;didAutoRestore.current=true;
@@ -746,30 +746,30 @@ const App = function(){
   const[aiOpen,setAiOpen]=useState(false);
   const aiEnd=useRef(null);
 
-  // ── Neon-first data layer: ALL writes go to server, state updated only on success ──
+  // ── Server-first data layer: ALL writes go to server, state updated only on success ──
   const dbReady=useRef(false);
   const[dataSource,setDataSource]=useState('local');
 
-  // Save to localStorage as cache (for faster initial render before Neon loads)
-  // Only sync to localStorage AFTER Neon data has loaded (prevents overwriting good cache with empty/partial data)
-  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('contacts',contacts);},[contacts]);
-  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('companies',companies);},[companies]);
-  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('opps',opps);},[opps]);
-  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('tasks',tasks);},[tasks]);
-  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('atos',atosTeam);},[atosTeam]);
-  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('interactions',interactions);},[interactions]);
+  // Save to localStorage as cache (for faster initial render before server loads)
+  // Only sync to localStorage AFTER server data has loaded (prevents overwriting good cache with empty/partial data)
+  useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('contacts',contacts);},[contacts]);
+  useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('companies',companies);},[companies]);
+  useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('opps',opps);},[opps]);
+  useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('tasks',tasks);},[tasks]);
+  useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('atos',atosTeam);},[atosTeam]);
+  useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('interactions',interactions);},[interactions]);
 
-  // ── Load data from Neon on login ──
-  const neonLoaded=useRef(false);
-  const neonLoadAttempts=useRef(0);
+  // ── Load data from server on login ──
+  const dataLoaded=useRef(false);
+  const loadAttempts=useRef(0);
   useEffect(()=>{
-    if(neonLoaded.current||!authUser?.token||location.hostname.includes('claudeusercontent'))return;
+    if(dataLoaded.current||!authUser?.token||location.hostname.includes('claudeusercontent'))return;
     const token=authUser.token;
     const headers={'Authorization':'Bearer '+token};
     const load=async()=>{
       try{
         let h;try{h=await fetch('/api/health',{signal:AbortSignal.timeout(8000)});}catch{try{h=await fetch('/api/health',{signal:AbortSignal.timeout(10000)});}catch{h={ok:false};}}
-        if(!h.ok){neonLoadAttempts.current++;if(neonLoadAttempts.current<3){setTimeout(load,neonLoadAttempts.current*2000);return;}setDataSource('offline');dbReady.current=true;return;}
+        if(!h.ok){loadAttempts.current++;if(loadAttempts.current<3){setTimeout(load,loadAttempts.current*2000);return;}setDataSource('offline');dbReady.current=true;return;}
         // Fetch all data — check HTTP status before trusting response
         const resps=await Promise.all([
           fetch('/api/companies',{headers,signal:AbortSignal.timeout(10000)}),
@@ -784,8 +784,8 @@ const App = function(){
         if(resps.slice(0,6).some(r=>r.status===401||r.status===403)){LS.set('auth_session',null);setAuthUser(null);return;}
         // If any API returned an error, don't trust the data — keep localStorage
         const failedCount=resps.slice(0,6).filter(r=>!r.ok).length;
-        if(failedCount===6){console.warn('Neon: all APIs failed');setDataSource('offline');dbReady.current=true;return;}
-        if(failedCount>0)console.warn(`Neon: ${failedCount} API(s) failed, loading available data`);
+        if(failedCount===6){console.warn('Server: all APIs failed');setDataSource('offline');dbReady.current=true;return;}
+        if(failedCount>0)console.warn(`Server: ${failedCount} API(s) failed, loading available data`);
         const[cos,cts,ops,tks,ats,ints,clRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
         const cc=camelArr(cos.companies||cos.data||[]).map(c=>({...c,tags:parseArr(c.tags)}));
         const ct=camelArr(cts.contacts||cts.data||[]).map(c=>({...c,tags:parseArr(c.tags)}));
@@ -794,17 +794,17 @@ const App = function(){
         const at=camelArr(ats.team||ats.data||[]);
         const it=camelArr(ints.interactions||ints.data||[]).map(i=>({...i,at:i.at||i.createdAt}));
         const cl=camelArr(clRes.items||[]);
-        // Neon is the single source of truth — always use server data
+        // Server is the single source of truth — always use server data
         setCompanies(cc); setContacts(ct); setOpps(op); setTasks(tk); setAtosTeam(at); setInteractions(it);
         setChecklistItems(cl);
-        setDataSource('neon');
+        setDataSource('server');
         // Only mark as loaded AFTER successful data fetch
-        neonLoaded.current=true;
+        dataLoaded.current=true;
         dbReady.current=true;
       }catch(e){
-        console.error('Neon load error:',e);
-        neonLoadAttempts.current++;
-        if(neonLoadAttempts.current<3){setTimeout(load,neonLoadAttempts.current*2000);return;}
+        console.error('Server load error:',e);
+        loadAttempts.current++;
+        if(loadAttempts.current<3){setTimeout(load,loadAttempts.current*2000);return;}
         setDataSource('offline');dbReady.current=true;
       }
     };
@@ -834,7 +834,7 @@ const App = function(){
       const at=camelArr(ats.team||[]);const it=camelArr(ints.interactions||[]).map(i=>({...i,at:i.at||i.createdAt}));
       const cl=camelArr(clRes.items||[]);
       setCompanies(cc);setContacts(ct);setOpps(op);setTasks(tk);setAtosTeam(at);setInteractions(it);setChecklistItems(cl);
-      neonLoaded.current=true;setDataSource('neon');
+      dataLoaded.current=true;setDataSource('server');
       toast(lang==='nl'?`Geladen: ${cc.length} bedrijven, ${ct.length} contacten, ${op.length} deals, ${tk.length} taken`:`Loaded: ${cc.length} companies, ${ct.length} contacts, ${op.length} deals, ${tk.length} tasks`);
     }catch(e){console.error('Force reload error:',e);toast(lang==='nl'?'Herladen mislukt':'Reload failed','info');}
   },[authUser,lang]);
@@ -870,7 +870,7 @@ const App = function(){
       if(b.opps)setOpps(b.opps);if(b.tasks)setTasks(b.tasks);
       if(b.atosTeam||b.atos)setAtosTeam(b.atosTeam||b.atos);
       if(b.interactions)setInteractions(b.interactions);
-      neonLoaded.current=true;
+      dataLoaded.current=true;
       toast(lang==='nl'?'Data hersteld van lokale backup':'Data restored from local backup');
     }catch(e){console.error('Restore error:',e);toast(lang==='nl'?'Restore mislukt':'Restore failed','info');}
   },[authUser,lang]);
@@ -970,8 +970,8 @@ const App = function(){
 
   const backupTimer=useRef(null);
   useEffect(()=>{
-    // Don't overwrite backup until Neon data is loaded (prevents destroying good backup with partial data)
-    if(authUser?.token&&!neonLoaded.current)return;
+    // Don't overwrite backup until server data is loaded (prevents destroying good backup with partial data)
+    if(authUser?.token&&!dataLoaded.current)return;
     if(backupTimer.current)clearTimeout(backupTimer.current);
     backupTimer.current=setTimeout(()=>{
       try{localStorage.setItem('pf_backup',JSON.stringify({...dataRef.current,ts:new Date().toISOString(),v:APP_VERSION}));}catch{}
@@ -985,7 +985,7 @@ const App = function(){
     setTimeout(()=>{clearInterval(iv);resolve();},15000);
   });
 
-  // ── Server API helpers: ALL data must go through Neon ──
+  // ── Server API helpers ──
   const serverCreate=async(endpoint,data)=>{
     await waitForDb();
     if(!authUser?.token){toast(lang==='nl'?'Niet ingelogd':'Not logged in','info');return null;}
@@ -1049,9 +1049,9 @@ const App = function(){
 
 
   // Deletes: server-first, only remove from state on success
-  const deleteOpp=async(id)=>{try{await serverDelete('opportunities',id);setOpps(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteOpp',e);}};
-  const deleteContact_=async(id)=>{try{await serverDelete('contacts',id);setContacts(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteContact',e);}};
-  const deleteCompany_=async(id)=>{try{await serverDelete('companies',id);setCompanies(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteCompany',e);}};
+  const deleteOpp=async(id)=>{try{await serverDelete('opportunities',id);setOpps(p=>p.filter(x=>x.id!==id));return true;}catch(e){showErr('deleteOpp',e);return false;}};
+  const deleteContact_=async(id)=>{try{await serverDelete('contacts',id);setContacts(p=>p.filter(x=>x.id!==id));return true;}catch(e){showErr('deleteContact',e);return false;}};
+  const deleteCompany_=async(id)=>{try{await serverDelete('companies',id);setCompanies(p=>p.filter(x=>x.id!==id));return true;}catch(e){showErr('deleteCompany',e);return false;}};
   const deleteTask_=async(id)=>{try{await serverDelete('tasks',id);setTasks(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteTask',e);}};
   const deleteAtos_=async(id)=>{try{await serverDelete('atos',id);setAtosTeam(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteAtos',e);}};
   const deleteInteraction_=async(id)=>{try{await serverDelete('interactions',id);setInteractions(p=>p.filter(x=>x.id!==id));}catch(e){showErr('deleteInteraction',e);}};
@@ -1127,7 +1127,7 @@ const App = function(){
   const doBackup=async()=>{
     try{
       let data;
-      // Try Neon first if connected
+      // Try server first if connected
       if(dbStatus==='connected'&&authUser?.token){
         const r=await fetch('/api/backup',{headers:{'Authorization':'Bearer '+authUser.token}});
         const d=await r.json();
@@ -1143,14 +1143,14 @@ const App = function(){
     }catch{toast(tx.dbBackupError,'info');}
   };
 
-  // ── Unified restore: import JSON → local state + Neon ──
+  // ── Unified restore: import JSON → local state + server ──
   const doRestore=()=>{
     const input=document.createElement('input');input.type='file';input.accept='.json';
     input.onchange=async(e)=>{
       const file=e.target.files?.[0];if(!file)return;
       try{
         const text=await file.text();const d=JSON.parse(text);
-        // Support both old (camelCase) and new (snake_case/Neon) format
+        // Support both old (camelCase) and new (snake_case) format
         const cts=d.contacts||[];const cos=d.companies||[];
         const ops=d.opportunities||d.opps||[];const tks=d.tasks||[];
         const ats=d.atos_team||d.atosTeam||d.atos||[];const ints=d.interactions||[];
@@ -1159,7 +1159,7 @@ const App = function(){
         const ts=d.exported_at||d.exportedAt;
         if(!confirm(`${tx.dbRestoreConfirm} ${ts?new Date(ts).toLocaleString(loc):tx.unknown}?\n\n${cos.length} ${tx.companiesCount}, ${cts.length} ${tx.contactsCount}, ${ops.length} ${tx.dealsCount}, ${tks.length} ${tx.tasksCount}\n\n${tx.overwriteWarning}`))return;
         toast(tx.dbRestoring);
-        // Restore to Neon if connected
+        // Restore to server if connected
         if(dbStatus==='connected'&&authUser?.token){
           const backup={companies:cos,contacts:cts,opportunities:ops,tasks:tks,atos_team:ats,interactions:ints};
           await fetch('/api/backup',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({backup,force:true})}).catch(()=>{});
@@ -1475,31 +1475,34 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     };
 
     return <div>
-      {renderPeriodBar()}
-      <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap',alignItems:'flex-start'}}>
-        <SearchSelect t={t} lang={lang} value={filtCompany} onChange={setFiltCompany} placeholder={tx.filterAll+' '+tx.companies.toLowerCase()} options={companies.map(co=>({value:co.id,label:co.name,sub:co.industry}))} style={{minWidth:140}}/>
-        <SearchSelect t={t} lang={lang} value={filtContact} onChange={setFiltContact} placeholder={tx.filterAll+' '+tx.contacts.toLowerCase()} options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)}))} style={{minWidth:140}}/>
-        <SearchSelect t={t} lang={lang} value={filtTech} onChange={setFiltTech} placeholder={tx.filterAll+' tech'} options={TECH_TAGS.map(tt=>({value:tt,label:tt}))} style={{minWidth:120}}/>
+      {/* ── Filter bar: row 1 — period + dropdowns + export ── */}
+      <div style={{display:'flex',gap:6,marginBottom:6,alignItems:'center',flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:1,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2,flexShrink:0}}>
+          {[{id:'all',l:tx.periodAll},{id:'week',l:tx.periodWeek},{id:'month',l:tx.periodMonth},{id:'quarter',l:tx.periodQuarter},{id:'year',l:tx.periodYear},{id:'custom',l:tx.periodCustom}].map(p=><button key={p.id} onClick={()=>setPeriod(p.id)} style={{padding:'3px 10px',borderRadius:6,fontSize:11,fontWeight:period===p.id?600:400,border:'none',background:period===p.id?t.accent:'transparent',color:period===p.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:26,whiteSpace:'nowrap'}}>{p.l}</button>)}
+        </div>
+        {period==='custom'&&<div style={{display:'flex',gap:4,alignItems:'center'}}><input type="date" value={customFrom} onChange={e=>setCustomFrom(e.target.value)} style={{...inp,width:'auto',padding:'3px 8px',fontSize:11}}/><span style={{color:t.muted,fontSize:11}}>→</span><input type="date" value={customTo} onChange={e=>setCustomTo(e.target.value)} style={{...inp,width:'auto',padding:'3px 8px',fontSize:11}}/></div>}
+        <div style={{width:1,height:20,background:t.border,opacity:.4,flexShrink:0,alignSelf:'center'}}/>
+        <SearchSelect t={t} lang={lang} value={filtCompany} onChange={setFiltCompany} placeholder={tx.filterAll+' '+tx.companies.toLowerCase()} options={companies.map(co=>({value:co.id,label:co.name,sub:co.industry}))} style={{minWidth:130}}/>
+        <SearchSelect t={t} lang={lang} value={filtContact} onChange={setFiltContact} placeholder={tx.filterAll+' '+tx.contacts.toLowerCase()} options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)}))} style={{minWidth:130}}/>
+        <SearchSelect t={t} lang={lang} value={filtTech} onChange={setFiltTech} placeholder={'Tech'} options={TECH_TAGS.map(tt=>({value:tt,label:tt}))} style={{minWidth:90}}/>
+        <div style={{flex:1}}/>
+        <span style={{fontSize:11,color:t.muted,fontWeight:500,whiteSpace:'nowrap'}}>{filteredOpps.length} deals</span>
+        <button onClick={doExportCSV} style={{padding:'4px 10px',borderRadius:7,border:`1px solid ${t.border}`,background:'transparent',color:t.dim,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:3,whiteSpace:'nowrap'}}>⬇ CSV</button>
+        <button onClick={doExportXLSX} style={{padding:'4px 10px',borderRadius:7,border:`1px solid ${t.green}55`,background:'transparent',color:t.green,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:3,whiteSpace:'nowrap'}}>📊 Excel</button>
       </div>
-      <div style={{display:'flex',gap:4,marginBottom:10,flexWrap:'wrap',alignItems:'center'}}>
-        <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:4}}>{tx.filterPhase}:</span>
-        {activeStages.map(s=><button key={s.id} onClick={()=>setFiltPhase(filtPhase===s.id?'':s.id)} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtPhase===s.id?s.c:'transparent'}`,background:filtPhase===s.id?`${s.c}20`:'transparent',color:filtPhase===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}
-        <span style={{fontSize:10,color:t.border,margin:'0 2px'}}>|</span>
-        {STAGES.filter(s=>s.id==='won'||s.id==='lost'||s.id==='dropped').map(s=><button key={s.id} onClick={()=>setFiltPhase(filtPhase===s.id?'':s.id)} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtPhase===s.id?s.c:'transparent'}`,background:filtPhase===s.id?`${s.c}20`:'transparent',color:filtPhase===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}
+      {/* ── Filter bar: row 2 — phase chips + close chips + reset ── */}
+      <div style={{display:'flex',gap:3,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
+        <span style={{fontSize:9,color:t.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:.7,marginRight:2,whiteSpace:'nowrap'}}>{tx.filterPhase}</span>
+        {activeStages.map(s=><button key={s.id} onClick={()=>setFiltPhase(filtPhase===s.id?'':s.id)} style={{padding:'2px 9px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtPhase===s.id?s.c:'transparent'}`,background:filtPhase===s.id?`${s.c}18`:'transparent',color:filtPhase===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:22,whiteSpace:'nowrap'}}>{s.ic} {s.l[lang]}</button>)}
+        {STAGES.filter(s=>s.id==='won'||s.id==='lost'||s.id==='dropped').map(s=><button key={s.id} onClick={()=>setFiltPhase(filtPhase===s.id?'':s.id)} style={{padding:'2px 9px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtPhase===s.id?s.c:'transparent'}`,background:filtPhase===s.id?`${s.c}18`:'transparent',color:filtPhase===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:22,whiteSpace:'nowrap'}}>{s.ic} {s.l[lang]}</button>)}
+        <div style={{width:1,height:14,background:t.border,opacity:.4,margin:'0 5px',flexShrink:0}}/>
+        <span style={{fontSize:9,color:t.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:.7,marginRight:2,whiteSpace:'nowrap'}}>{tx.filterClose}</span>
+        {[{id:'overdue',l:tx.overdue,c:t.red},{id:'thisWeek',l:tx.thisWeek,c:t.orange},{id:'thisMonth',l:tx.thisMonth,c:t.accent},{id:'thisQuarter',l:tx.thisQuarter,c:t.purple},{id:'none',l:'—',c:t.muted}].map(cp=><button key={cp.id} onClick={()=>setFiltCloseP(filtCloseP===cp.id?'':cp.id)} style={{padding:'2px 9px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtCloseP===cp.id?cp.c:'transparent'}`,background:filtCloseP===cp.id?`${cp.c}18`:'transparent',color:filtCloseP===cp.id?cp.c:t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:22,whiteSpace:'nowrap'}}>{cp.l}</button>)}
+        {hasFilter&&<button onClick={()=>{setFiltCompany('');setFiltContact('');setFiltTech('');setFiltPhase('');setFiltCloseP('');}} style={{padding:'2px 9px',borderRadius:20,fontSize:10,fontWeight:600,color:t.red,border:`1px solid ${t.red}55`,cursor:'pointer',fontFamily:'inherit',background:'transparent',marginLeft:2}}>✕ Reset</button>}
       </div>
-      <div style={{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
-        <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:4}}>{tx.filterClose}:</span>
-        {[{id:'overdue',l:tx.overdue,c:t.red},{id:'thisWeek',l:tx.thisWeek,c:t.orange},{id:'thisMonth',l:tx.thisMonth,c:t.accent},{id:'thisQuarter',l:tx.thisQuarter,c:t.purple},{id:'none',l:'—',c:t.muted}].map(cp=><button key={cp.id} onClick={()=>setFiltCloseP(filtCloseP===cp.id?'':cp.id)} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtCloseP===cp.id?cp.c:'transparent'}`,background:filtCloseP===cp.id?`${cp.c}20`:'transparent',color:filtCloseP===cp.id?cp.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{cp.l}</button>)}
-        {hasFilter&&<button onClick={()=>{setFiltCompany('');setFiltContact('');setFiltTech('');setFiltPhase('');setFiltCloseP('');}} style={{padding:'3px 10px',borderRadius:20,fontSize:10,color:t.red,border:`1px solid ${t.red}33`,cursor:'pointer',fontFamily:'inherit',background:'transparent'}}>✕ Reset</button>}
-      </div>
-      <div style={{display:'flex',gap:6,marginBottom:14,alignItems:'center',flexWrap:'wrap'}}>
-        <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:2}}>{filteredOpps.length} {lang==='nl'?'deals':'deals'}</span>
-        <span style={{fontSize:10,color:t.border,margin:'0 2px'}}>·</span>
-        <button onClick={doExportCSV} style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${t.border}`,background:'transparent',color:t.dim,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>⬇ {tx.exportPipelineCSV}</button>
-        <button onClick={doExportXLSX} style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${t.green}44`,background:'transparent',color:t.green,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>📊 {tx.exportPipelineXLSX}</button>
-      </div>
-      <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
-        {[{l:tx.pipeline,v:eur(fTotal),c:t.accent},{l:tx.weighted,v:eur(Math.round(fActive.reduce((s,o)=>s+((o.value||0)*(o.probability||0)/100),0))),c:t.purple},{l:tx.wonLabel,v:eur(fWon.reduce((s,o)=>s+(o.value||0),0)),c:t.green},{l:tx.deals,v:fActive.length,c:t.text}].map((s,i)=><div key={i} style={{...card,flex:'1 1 140px',minWidth:140}}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
+      {/* ── Metric summary cards ── */}
+      <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+        {[{l:tx.pipeline,v:eur(fTotal),c:t.accent},{l:tx.weighted,v:eur(Math.round(fActive.reduce((s,o)=>s+((o.value||0)*(o.probability||0)/100),0))),c:t.purple},{l:tx.wonLabel,v:eur(fWon.reduce((s,o)=>s+(o.value||0),0)),c:t.green},{l:tx.deals,v:fActive.length,c:t.text}].map((s,i)=><div key={i} style={{...card,flex:'1 1 120px',minWidth:120,padding:'10px 16px'}}><div style={{fontSize:9,color:t.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:.7,marginBottom:3}}>{s.l}</div><div style={{fontSize:20,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
       </div>
       {pipeView==='funnel'?renderFunnel():pipeView==='kanban'?<div style={{display:'grid',gridTemplateColumns:`repeat(${activeStages.length},1fr)`,gap:10,overflowX:'auto'}}>
         {activeStages.map(stage=>{
@@ -1961,7 +1964,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       const cTasks=tasks.filter(t=>t.contactId===c.id);
       return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:500,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
         <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
-          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'contact',data:c})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={async()=>{await deleteContact_(c.id);setDetail(null);toast(tx.contactDeleted,'info');}} style={btnD}>🗑</button></div></div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'contact',data:c})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={async()=>{if(await deleteContact_(c.id)){setDetail(null);toast(tx.contactDeleted,'info');}}} style={btnD}>🗑</button></div></div>
           <div style={{display:'flex',alignItems:'center',gap:14}}><div style={{width:56,height:56,borderRadius:'50%',background:`linear-gradient(135deg,${t.accent},${t.purple})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:'#fff'}}>{c.avatar}</div><div><div style={{fontSize:20,fontWeight:700}}>{c.name}</div><div style={{fontSize:13,color:t.dim}}>{c.role}{c.category&&<span style={{marginLeft:6,fontSize:10,padding:'1px 6px',borderRadius:4,background:t.purpleS,color:t.purple,fontWeight:600}}>{c.category}</span>}{c.companyId&&<span> · <span onClick={e=>{e.stopPropagation();setDetail({type:'company',id:c.companyId});}} style={{color:t.accent,cursor:'pointer'}}>{compName(c.companyId)}</span></span>}</div></div></div>
           <div style={{display:'flex',gap:8,marginTop:14,flexWrap:'wrap'}}>
             {c.email&&<a href={`mailto:${c.email}`} style={{...btnG,padding:'6px 12px',fontSize:12,textDecoration:'none'}}>📧 {c.email}</a>}
@@ -2030,7 +2033,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
 
       return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:540,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
         <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
-          <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'opp',data:o})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={async()=>{await deleteOpp(o.id);setDetail(null);toast(tx.dealDeleted,'info');}} style={btnD}>🗑</button></div></div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'opp',data:o})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={async()=>{if(await deleteOpp(o.id)){setDetail(null);toast(tx.dealDeleted,'info');}}} style={btnD}>🗑</button></div></div>
           <div style={{fontSize:22,fontWeight:700,marginBottom:4}}>{o.title}</div>
           <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
             {o.salesforceUrl&&<a href={o.salesforceUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:t.accent,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4,fontWeight:500,padding:'3px 10px',borderRadius:8,background:t.accentS}}>☁ Salesforce <span style={{fontSize:10,opacity:.6}}>↗</span></a>}
@@ -2169,7 +2172,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       const coVal=coOpps.filter(o=>o.stage!=='lost').reduce((s,o)=>s+(o.value||0),0);
       return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
         <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
-          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'company',data:co})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={async()=>{await deleteCompany_(co.id);setDetail(null);toast(tx.companyDeleted,'info');}} style={btnD}>🗑</button></div></div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'company',data:co})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={async()=>{if(await deleteCompany_(co.id)){setDetail(null);toast(tx.companyDeleted,'info');}}} style={btnD}>🗑</button></div></div>
           <div style={{display:'flex',alignItems:'center',gap:14}}>
             <div style={{width:56,height:56,borderRadius:14,background:`linear-gradient(135deg,${t.teal},${t.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:800,color:'#fff'}}>{co.name.charAt(0)}</div>
             <div><div style={{fontSize:20,fontWeight:700}}>{co.name}</div><div style={{fontSize:13,color:t.dim}}>{co.industry}{co.size&&' · '+co.size+' '+tx.employees}{co.address&&' · '+co.address}</div></div>
@@ -3241,8 +3244,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {dbStatus==='offline'&&!location.hostname.includes('claudeusercontent')&&<div style={{padding:'12px 16px',marginBottom:16,borderRadius:12,background:t.orangeS,border:`0.5px solid ${t.orange}44`,display:'flex',alignItems:'flex-start',gap:10}}>
             <span style={{marginTop:2}}>⚠️</span>
             <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:600,color:t.orange}}>{tx.neonWarning}</div>
-              <div style={{fontSize:11,color:t.dim,marginTop:3}}>{tx.neonWarningDesc}</div>
+              <div style={{fontSize:13,fontWeight:600,color:t.orange}}>{tx.dbWarning}</div>
+              <div style={{fontSize:11,color:t.dim,marginTop:3}}>{tx.dbWarningDesc}</div>
             </div>
             <button onClick={checkDb} style={{...btnG,padding:'4px 10px',fontSize:11,color:t.orange,borderColor:`${t.orange}44`,whiteSpace:'nowrap'}}>{tx.checkConn}</button>
           </div>}

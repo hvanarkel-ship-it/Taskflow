@@ -65,7 +65,7 @@ const requireAuth = async (event) => {
 // Safe body parser with size limit (100KB)
 const parseBody = (event) => {
   if (!event.body) return {};
-  if (event.body.length > 102400) throw { status: 413, message: 'Verzoek te groot' };
+  if (event.body.length > 1048576) throw { status: 413, message: 'Verzoek te groot (max 1MB)' };
   try { return JSON.parse(event.body); }
   catch { throw { status: 400, message: 'Ongeldig verzoek' }; }
 };

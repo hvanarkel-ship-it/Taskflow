@@ -1,4 +1,4 @@
-const CACHE = 'dpm-crm-v28';
+const CACHE = 'dpm-crm-v29';
 const STATIC = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -14,8 +14,15 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   // API calls: always network-only — never serve stale cached data
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/.netlify/')) {
-    e.respondWith(fetch(e.request));
+  if (url.pathname.startsWith('/api/')) {
+    e.respondWith(
+      fetch(e.request).catch(() =>
+        new Response(JSON.stringify({ success: false, error: 'Geen verbinding met server' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    );
     return;
   }
   // HTML navigation: network-first so updates always arrive

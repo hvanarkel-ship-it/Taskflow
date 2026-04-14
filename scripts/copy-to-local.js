@@ -1,10 +1,10 @@
 /**
  * copy-to-local.js
- * Kopieert alle data van Neon (productie) naar lokale PostgreSQL.
+ * Kopieert alle data van de productie-database naar lokale PostgreSQL.
  *
  * Gebruik:
  *   1. Zet in .env:
- *        NEON_URL=postgresql://...@...neon.tech/neondb?sslmode=require
+ *        REMOTE_URL=postgresql://user:pass@host:5432/dbname?sslmode=require
  *        LOCAL_URL=postgresql://postgres:postgres@localhost:5432/crm
  *   2. Zorg dat lokale tabellen bestaan: npm run db:setup
  *   3. node scripts/copy-to-local.js
@@ -13,13 +13,13 @@
 require('dotenv').config();
 const postgres = require('postgres');
 
-const NEON_URL  = process.env.NEON_URL;
-const LOCAL_URL = process.env.LOCAL_URL || 'postgresql://postgres:postgres@localhost:5432/crm';
+const REMOTE_URL = process.env.REMOTE_URL || process.env.NEON_URL;
+const LOCAL_URL  = process.env.LOCAL_URL || 'postgresql://postgres:postgres@localhost:5432/crm';
 
-if (!NEON_URL) {
-  console.error('\n❌  Zet NEON_URL in je .env bestand.');
+if (!REMOTE_URL) {
+  console.error('\n❌  Zet REMOTE_URL in je .env bestand.');
   console.error('    Bijvoorbeeld:');
-  console.error('    NEON_URL=postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require\n');
+  console.error('    REMOTE_URL=postgresql://user:pass@host:5432/dbname?sslmode=require\n');
   process.exit(1);
 }
 
@@ -40,13 +40,13 @@ const INSERT_ORDER = [
 const TRUNCATE_ORDER = [...INSERT_ORDER].reverse();
 
 async function run() {
-  const neon  = postgres(NEON_URL,  { ssl: 'require', max: 3, idle_timeout: 20 });
-  const local = postgres(LOCAL_URL, { ssl: false,      max: 3, idle_timeout: 20 });
+  const remote = postgres(REMOTE_URL, { ssl: 'require', max: 3, idle_timeout: 20 });
+  const local  = postgres(LOCAL_URL,  { ssl: false,     max: 3, idle_timeout: 20 });
 
   try {
     // ── Verbindingen testen ──────────────────────────────────────────────
-    process.stdout.write('🔌 Verbinding Neon...  ');
-    await neon`SELECT 1`;
+    process.stdout.write('🔌 Verbinding productie...  ');
+    await remote`SELECT 1`;
     console.log('✅');
 
     process.stdout.write('🔌 Verbinding lokaal... ');
@@ -66,13 +66,13 @@ async function run() {
       process.exit(1);
     }
 
-    // ── Lees alle data van Neon ──────────────────────────────────────────
-    console.log('📥 Data ophalen van Neon...');
+    // ── Lees alle data van productie-database ───────────────────────────
+    console.log('📥 Data ophalen van productie-database...');
     const data = {};
     let totalRows = 0;
     for (const table of INSERT_ORDER) {
       try {
-        data[table] = await neon`SELECT * FROM ${neon(table)} ORDER BY id`;
+        data[table] = await remote`SELECT * FROM ${remote(table)} ORDER BY id`;
         console.log(`   ${table}: ${data[table].length} rijen`);
         totalRows += data[table].length;
       } catch (e) {
@@ -124,7 +124,7 @@ async function run() {
     console.log(`   Verbinding: ${LOCAL_URL.replace(/:([^:@]+)@/, ':***@')}\n`);
 
   } finally {
-    await neon.end();
+    await remote.end();
     await local.end();
   }
 }
