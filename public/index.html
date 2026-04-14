@@ -1469,31 +1469,34 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     };
 
     return <div>
-      {renderPeriodBar()}
-      <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap',alignItems:'flex-start'}}>
-        <SearchSelect t={t} lang={lang} value={filtCompany} onChange={setFiltCompany} placeholder={tx.filterAll+' '+tx.companies.toLowerCase()} options={companies.map(co=>({value:co.id,label:co.name,sub:co.industry}))} style={{minWidth:140}}/>
-        <SearchSelect t={t} lang={lang} value={filtContact} onChange={setFiltContact} placeholder={tx.filterAll+' '+tx.contacts.toLowerCase()} options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)}))} style={{minWidth:140}}/>
-        <SearchSelect t={t} lang={lang} value={filtTech} onChange={setFiltTech} placeholder={tx.filterAll+' tech'} options={TECH_TAGS.map(tt=>({value:tt,label:tt}))} style={{minWidth:120}}/>
+      {/* ── Filter bar: row 1 — period + dropdowns + export ── */}
+      <div style={{display:'flex',gap:6,marginBottom:6,alignItems:'center',flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:1,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2,flexShrink:0}}>
+          {[{id:'all',l:tx.periodAll},{id:'week',l:tx.periodWeek},{id:'month',l:tx.periodMonth},{id:'quarter',l:tx.periodQuarter},{id:'year',l:tx.periodYear},{id:'custom',l:tx.periodCustom}].map(p=><button key={p.id} onClick={()=>setPeriod(p.id)} style={{padding:'3px 10px',borderRadius:6,fontSize:11,fontWeight:period===p.id?600:400,border:'none',background:period===p.id?t.accent:'transparent',color:period===p.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:26,whiteSpace:'nowrap'}}>{p.l}</button>)}
+        </div>
+        {period==='custom'&&<div style={{display:'flex',gap:4,alignItems:'center'}}><input type="date" value={customFrom} onChange={e=>setCustomFrom(e.target.value)} style={{...inp,width:'auto',padding:'3px 8px',fontSize:11}}/><span style={{color:t.muted,fontSize:11}}>→</span><input type="date" value={customTo} onChange={e=>setCustomTo(e.target.value)} style={{...inp,width:'auto',padding:'3px 8px',fontSize:11}}/></div>}
+        <div style={{width:1,height:20,background:t.border,opacity:.4,flexShrink:0,alignSelf:'center'}}/>
+        <SearchSelect t={t} lang={lang} value={filtCompany} onChange={setFiltCompany} placeholder={tx.filterAll+' '+tx.companies.toLowerCase()} options={companies.map(co=>({value:co.id,label:co.name,sub:co.industry}))} style={{minWidth:130}}/>
+        <SearchSelect t={t} lang={lang} value={filtContact} onChange={setFiltContact} placeholder={tx.filterAll+' '+tx.contacts.toLowerCase()} options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)}))} style={{minWidth:130}}/>
+        <SearchSelect t={t} lang={lang} value={filtTech} onChange={setFiltTech} placeholder={'Tech'} options={TECH_TAGS.map(tt=>({value:tt,label:tt}))} style={{minWidth:90}}/>
+        <div style={{flex:1}}/>
+        <span style={{fontSize:11,color:t.muted,fontWeight:500,whiteSpace:'nowrap'}}>{filteredOpps.length} deals</span>
+        <button onClick={doExportCSV} style={{padding:'4px 10px',borderRadius:7,border:`1px solid ${t.border}`,background:'transparent',color:t.dim,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:3,whiteSpace:'nowrap'}}>⬇ CSV</button>
+        <button onClick={doExportXLSX} style={{padding:'4px 10px',borderRadius:7,border:`1px solid ${t.green}55`,background:'transparent',color:t.green,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:3,whiteSpace:'nowrap'}}>📊 Excel</button>
       </div>
-      <div style={{display:'flex',gap:4,marginBottom:10,flexWrap:'wrap',alignItems:'center'}}>
-        <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:4}}>{tx.filterPhase}:</span>
-        {activeStages.map(s=><button key={s.id} onClick={()=>setFiltPhase(filtPhase===s.id?'':s.id)} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtPhase===s.id?s.c:'transparent'}`,background:filtPhase===s.id?`${s.c}20`:'transparent',color:filtPhase===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}
-        <span style={{fontSize:10,color:t.border,margin:'0 2px'}}>|</span>
-        {STAGES.filter(s=>s.id==='won'||s.id==='lost'||s.id==='dropped').map(s=><button key={s.id} onClick={()=>setFiltPhase(filtPhase===s.id?'':s.id)} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtPhase===s.id?s.c:'transparent'}`,background:filtPhase===s.id?`${s.c}20`:'transparent',color:filtPhase===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.ic} {s.l[lang]}</button>)}
+      {/* ── Filter bar: row 2 — phase chips + close chips + reset ── */}
+      <div style={{display:'flex',gap:3,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
+        <span style={{fontSize:9,color:t.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:.7,marginRight:2,whiteSpace:'nowrap'}}>{tx.filterPhase}</span>
+        {activeStages.map(s=><button key={s.id} onClick={()=>setFiltPhase(filtPhase===s.id?'':s.id)} style={{padding:'2px 9px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtPhase===s.id?s.c:'transparent'}`,background:filtPhase===s.id?`${s.c}18`:'transparent',color:filtPhase===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:22,whiteSpace:'nowrap'}}>{s.ic} {s.l[lang]}</button>)}
+        {STAGES.filter(s=>s.id==='won'||s.id==='lost'||s.id==='dropped').map(s=><button key={s.id} onClick={()=>setFiltPhase(filtPhase===s.id?'':s.id)} style={{padding:'2px 9px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtPhase===s.id?s.c:'transparent'}`,background:filtPhase===s.id?`${s.c}18`:'transparent',color:filtPhase===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:22,whiteSpace:'nowrap'}}>{s.ic} {s.l[lang]}</button>)}
+        <div style={{width:1,height:14,background:t.border,opacity:.4,margin:'0 5px',flexShrink:0}}/>
+        <span style={{fontSize:9,color:t.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:.7,marginRight:2,whiteSpace:'nowrap'}}>{tx.filterClose}</span>
+        {[{id:'overdue',l:tx.overdue,c:t.red},{id:'thisWeek',l:tx.thisWeek,c:t.orange},{id:'thisMonth',l:tx.thisMonth,c:t.accent},{id:'thisQuarter',l:tx.thisQuarter,c:t.purple},{id:'none',l:'—',c:t.muted}].map(cp=><button key={cp.id} onClick={()=>setFiltCloseP(filtCloseP===cp.id?'':cp.id)} style={{padding:'2px 9px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtCloseP===cp.id?cp.c:'transparent'}`,background:filtCloseP===cp.id?`${cp.c}18`:'transparent',color:filtCloseP===cp.id?cp.c:t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:22,whiteSpace:'nowrap'}}>{cp.l}</button>)}
+        {hasFilter&&<button onClick={()=>{setFiltCompany('');setFiltContact('');setFiltTech('');setFiltPhase('');setFiltCloseP('');}} style={{padding:'2px 9px',borderRadius:20,fontSize:10,fontWeight:600,color:t.red,border:`1px solid ${t.red}55`,cursor:'pointer',fontFamily:'inherit',background:'transparent',marginLeft:2}}>✕ Reset</button>}
       </div>
-      <div style={{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
-        <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:4}}>{tx.filterClose}:</span>
-        {[{id:'overdue',l:tx.overdue,c:t.red},{id:'thisWeek',l:tx.thisWeek,c:t.orange},{id:'thisMonth',l:tx.thisMonth,c:t.accent},{id:'thisQuarter',l:tx.thisQuarter,c:t.purple},{id:'none',l:'—',c:t.muted}].map(cp=><button key={cp.id} onClick={()=>setFiltCloseP(filtCloseP===cp.id?'':cp.id)} style={{padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${filtCloseP===cp.id?cp.c:'transparent'}`,background:filtCloseP===cp.id?`${cp.c}20`:'transparent',color:filtCloseP===cp.id?cp.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{cp.l}</button>)}
-        {hasFilter&&<button onClick={()=>{setFiltCompany('');setFiltContact('');setFiltTech('');setFiltPhase('');setFiltCloseP('');}} style={{padding:'3px 10px',borderRadius:20,fontSize:10,color:t.red,border:`1px solid ${t.red}33`,cursor:'pointer',fontFamily:'inherit',background:'transparent'}}>✕ Reset</button>}
-      </div>
-      <div style={{display:'flex',gap:6,marginBottom:14,alignItems:'center',flexWrap:'wrap'}}>
-        <span style={{fontSize:11,color:t.muted,fontWeight:600,marginRight:2}}>{filteredOpps.length} {lang==='nl'?'deals':'deals'}</span>
-        <span style={{fontSize:10,color:t.border,margin:'0 2px'}}>·</span>
-        <button onClick={doExportCSV} style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${t.border}`,background:'transparent',color:t.dim,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>⬇ {tx.exportPipelineCSV}</button>
-        <button onClick={doExportXLSX} style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${t.green}44`,background:'transparent',color:t.green,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>📊 {tx.exportPipelineXLSX}</button>
-      </div>
-      <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
-        {[{l:tx.pipeline,v:eur(fTotal),c:t.accent},{l:tx.weighted,v:eur(Math.round(fActive.reduce((s,o)=>s+((o.value||0)*(o.probability||0)/100),0))),c:t.purple},{l:tx.wonLabel,v:eur(fWon.reduce((s,o)=>s+(o.value||0),0)),c:t.green},{l:tx.deals,v:fActive.length,c:t.text}].map((s,i)=><div key={i} style={{...card,flex:'1 1 140px',minWidth:140}}><div style={lbl}>{s.l}</div><div style={{fontSize:24,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
+      {/* ── Metric summary cards ── */}
+      <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+        {[{l:tx.pipeline,v:eur(fTotal),c:t.accent},{l:tx.weighted,v:eur(Math.round(fActive.reduce((s,o)=>s+((o.value||0)*(o.probability||0)/100),0))),c:t.purple},{l:tx.wonLabel,v:eur(fWon.reduce((s,o)=>s+(o.value||0),0)),c:t.green},{l:tx.deals,v:fActive.length,c:t.text}].map((s,i)=><div key={i} style={{...card,flex:'1 1 120px',minWidth:120,padding:'10px 16px'}}><div style={{fontSize:9,color:t.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:.7,marginBottom:3}}>{s.l}</div><div style={{fontSize:20,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
       </div>
       {pipeView==='funnel'?renderFunnel():pipeView==='kanban'?<div style={{display:'grid',gridTemplateColumns:`repeat(${activeStages.length},1fr)`,gap:10,overflowX:'auto'}}>
         {activeStages.map(stage=>{
