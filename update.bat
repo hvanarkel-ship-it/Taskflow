@@ -1,19 +1,13 @@
 @echo off
 echo ============================================
-echo   My Personal Sales Plan — Update ^& Start
+echo   My Personal Sales Plan — Update
 echo ============================================
 echo.
 
-echo [1/4] Stopping existing server on port 8888...
-for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr :8888 ^| findstr LISTENING') do (
-    taskkill /PID %%a /F >nul 2>&1
-)
-
-echo [2/4] Syncing latest version from GitHub...
+echo [1/3] Nieuwste versie ophalen van GitHub...
 cd /d C:\taskflow
 if not exist ".git" (
     echo ERROR: Map C:\taskflow bestaat niet of is geen git repository.
-    echo Controleer of de app op C:\taskflow staat.
     pause
     exit /b 1
 )
@@ -25,7 +19,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [3/4] Installing dependencies...
+echo [2/3] Dependencies installeren...
 npm install --silent
 if %errorlevel% neq 0 (
     echo ERROR: npm install mislukt.
@@ -33,16 +27,17 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [4/4] Starting app...
-echo.
-echo ============================================
-echo   App beschikbaar op: http://localhost:8888
-echo   Sluit dit venster NIET — de app stopt dan
-echo ============================================
-echo.
-node server.js
+echo [3/3] Server herstarten...
+pm2 restart taskflow
 if %errorlevel% neq 0 (
-    echo.
-    echo ERROR: Server afgesloten met foutcode %errorlevel%
-    pause
+    echo Server nog niet geregistreerd bij PM2, wordt nu gestart...
+    pm2 start server.js --name taskflow
+    pm2 save
 )
+
+echo.
+echo ============================================
+echo   Klaar! App draait op http://localhost:8888
+echo ============================================
+echo.
+pause
