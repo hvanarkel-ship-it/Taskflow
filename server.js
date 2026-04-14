@@ -6,23 +6,23 @@ const app = express();
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Load all API handlers (Netlify function format)
+// Load all API handlers
 const fns = {
-  auth:          require('./netlify/functions/auth'),
-  companies:     require('./netlify/functions/companies'),
-  contacts:      require('./netlify/functions/contacts'),
-  opportunities: require('./netlify/functions/opportunities'),
-  tasks:         require('./netlify/functions/tasks'),
-  atos:          require('./netlify/functions/atos'),
-  interactions:  require('./netlify/functions/interactions'),
-  checklist:     require('./netlify/functions/checklist'),
-  health:        require('./netlify/functions/health'),
-  backup:        require('./netlify/functions/backup'),
-  ai:            require('./netlify/functions/ai'),
-  sync:          require('./netlify/functions/sync'),
+  auth:          require('./api/auth'),
+  companies:     require('./api/companies'),
+  contacts:      require('./api/contacts'),
+  opportunities: require('./api/opportunities'),
+  tasks:         require('./api/tasks'),
+  atos:          require('./api/atos'),
+  interactions:  require('./api/interactions'),
+  checklist:     require('./api/checklist'),
+  health:        require('./api/health'),
+  backup:        require('./api/backup'),
+  ai:            require('./api/ai'),
+  sync:          require('./api/sync'),
 };
 
-// Adapter: converts Express req/res to Netlify handler format
+// Adapter: converts Express req/res to handler event format
 const adapt = (fn) => async (req, res) => {
   const event = {
     httpMethod: req.method,

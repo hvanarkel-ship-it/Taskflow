@@ -14,7 +14,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   // API calls: always network-only — never serve stale cached data
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/.netlify/')) {
+  if (url.pathname.startsWith('/api/')) {
     e.respondWith(
       fetch(e.request).catch(() =>
         new Response(JSON.stringify({ success: false, error: 'Geen verbinding met server' }), {

@@ -5,8 +5,8 @@ const { ok, err, json, requireAuth, checkRate } = require('./shared/db');
 // Only available in local development
 const isLocal = process.env.DATABASE_URL?.includes('localhost') || process.env.DATABASE_URL?.includes('127.0.0.1');
 
-// Repo root = two levels up from netlify/functions/
-const REPO_ROOT = path.join(__dirname, '..', '..');
+// Repo root = one level up from api/
+const REPO_ROOT = path.join(__dirname, '..');
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json(204, '');

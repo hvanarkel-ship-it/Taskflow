@@ -59,7 +59,7 @@ const LS={
   has:(k)=>{try{return localStorage.getItem('pf_'+k)!==null;}catch{return false;}},
 };
 
-// ── Neon API helper — camelCase ↔ snake_case ──
+// ── API helper — camelCase ↔ snake_case ──
 const toSnake=s=>s.replace(/[A-Z]/g,c=>'_'+c.toLowerCase());
 const toCamel=s=>s.replace(/_([a-z])/g,(_,c)=>c.toUpperCase());
 const snakeObj=o=>{const r={};for(const k in o)r[toSnake(k)]=o[k];return r;};
@@ -208,8 +208,8 @@ const TX={
     searchTeam:'Zoek teamleden...',sales:'Sales',delivery:'Delivery',total:'Totaal',
     deleteTeamConfirm:'Teamlid verwijderen?',
     // Misc
-    neonConnected:'Neon verbonden',connecting:'Verbinden...',localStorage2:'Lokale opslag',
-    neonWarning:'Database niet verbonden',neonWarningDesc:'Controleer of PostgreSQL lokaal draait en herstart de app.',
+    dbConnected:'Database verbonden',connecting:'Verbinden...',localStorage2:'Lokale opslag',
+    dbWarning:'Database niet verbonden',dbWarningDesc:'Controleer of de server draait en herstart de app.',
     checkConn:'↻ Check',connecting2:'⏳ Verbinding controleren...',
     scanBtn:'Scan',aiTitle:'AI Sales Assistent',
     pipelineLabel:'Pipeline:',wonShort:'gewonnen',
@@ -371,8 +371,8 @@ const TX={
     searchTeam:'Search team members...',sales:'Sales',delivery:'Delivery',total:'Total',
     deleteTeamConfirm:'Delete team member?',
     // Misc
-    neonConnected:'Neon connected',connecting:'Connecting...',localStorage2:'Local storage',
-    neonWarning:'Database not connected',neonWarningDesc:'Check if PostgreSQL is running locally and restart the app.',
+    dbConnected:'Database connected',connecting:'Connecting...',localStorage2:'Local storage',
+    dbWarning:'Database not connected',dbWarningDesc:'Check if the server is running and restart the app.',
     checkConn:'↻ Check',connecting2:'⏳ Checking connection...',
     scanBtn:'Scan',aiTitle:'AI Sales Assistant',
     pipelineLabel:'Pipeline:',wonShort:'won',
@@ -683,7 +683,7 @@ const App = function(){
   const[clFilter,setClFilter]=useState('all'); // 'all' or a category name
 
   // Auto-restore: if all data is empty and NOT logged in, offer backup restore
-  // When logged in, Neon load handles data — skip the backup prompt
+  // When logged in, server load handles data — skip the backup prompt
   const didAutoRestore=useRef(false);
   useEffect(()=>{
     if(didAutoRestore.current)return;didAutoRestore.current=true;
@@ -746,30 +746,30 @@ const App = function(){
   const[aiOpen,setAiOpen]=useState(false);
   const aiEnd=useRef(null);
 
-  // ── Neon-first data layer: ALL writes go to server, state updated only on success ──
+  // ── Server-first data layer: ALL writes go to server, state updated only on success ──
   const dbReady=useRef(false);
   const[dataSource,setDataSource]=useState('local');
 
-  // Save to localStorage as cache (for faster initial render before Neon loads)
-  // Only sync to localStorage AFTER Neon data has loaded (prevents overwriting good cache with empty/partial data)
-  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('contacts',contacts);},[contacts]);
-  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('companies',companies);},[companies]);
-  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('opps',opps);},[opps]);
-  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('tasks',tasks);},[tasks]);
-  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('atos',atosTeam);},[atosTeam]);
-  useEffect(()=>{if(neonLoaded.current||!authUser?.token)LS.set('interactions',interactions);},[interactions]);
+  // Save to localStorage as cache (for faster initial render before server loads)
+  // Only sync to localStorage AFTER server data has loaded (prevents overwriting good cache with empty/partial data)
+  useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('contacts',contacts);},[contacts]);
+  useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('companies',companies);},[companies]);
+  useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('opps',opps);},[opps]);
+  useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('tasks',tasks);},[tasks]);
+  useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('atos',atosTeam);},[atosTeam]);
+  useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('interactions',interactions);},[interactions]);
 
-  // ── Load data from Neon on login ──
-  const neonLoaded=useRef(false);
-  const neonLoadAttempts=useRef(0);
+  // ── Load data from server on login ──
+  const dataLoaded=useRef(false);
+  const loadAttempts=useRef(0);
   useEffect(()=>{
-    if(neonLoaded.current||!authUser?.token||location.hostname.includes('claudeusercontent'))return;
+    if(dataLoaded.current||!authUser?.token||location.hostname.includes('claudeusercontent'))return;
     const token=authUser.token;
     const headers={'Authorization':'Bearer '+token};
     const load=async()=>{
       try{
         let h;try{h=await fetch('/api/health',{signal:AbortSignal.timeout(8000)});}catch{try{h=await fetch('/api/health',{signal:AbortSignal.timeout(10000)});}catch{h={ok:false};}}
-        if(!h.ok){neonLoadAttempts.current++;if(neonLoadAttempts.current<3){setTimeout(load,neonLoadAttempts.current*2000);return;}setDataSource('offline');dbReady.current=true;return;}
+        if(!h.ok){loadAttempts.current++;if(loadAttempts.current<3){setTimeout(load,loadAttempts.current*2000);return;}setDataSource('offline');dbReady.current=true;return;}
         // Fetch all data — check HTTP status before trusting response
         const resps=await Promise.all([
           fetch('/api/companies',{headers,signal:AbortSignal.timeout(10000)}),
@@ -784,8 +784,8 @@ const App = function(){
         if(resps.slice(0,6).some(r=>r.status===401||r.status===403)){LS.set('auth_session',null);setAuthUser(null);return;}
         // If any API returned an error, don't trust the data — keep localStorage
         const failedCount=resps.slice(0,6).filter(r=>!r.ok).length;
-        if(failedCount===6){console.warn('Neon: all APIs failed');setDataSource('offline');dbReady.current=true;return;}
-        if(failedCount>0)console.warn(`Neon: ${failedCount} API(s) failed, loading available data`);
+        if(failedCount===6){console.warn('Server: all APIs failed');setDataSource('offline');dbReady.current=true;return;}
+        if(failedCount>0)console.warn(`Server: ${failedCount} API(s) failed, loading available data`);
         const[cos,cts,ops,tks,ats,ints,clRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
         const cc=camelArr(cos.companies||cos.data||[]).map(c=>({...c,tags:parseArr(c.tags)}));
         const ct=camelArr(cts.contacts||cts.data||[]).map(c=>({...c,tags:parseArr(c.tags)}));
@@ -794,17 +794,17 @@ const App = function(){
         const at=camelArr(ats.team||ats.data||[]);
         const it=camelArr(ints.interactions||ints.data||[]).map(i=>({...i,at:i.at||i.createdAt}));
         const cl=camelArr(clRes.items||[]);
-        // Neon is the single source of truth — always use server data
+        // Server is the single source of truth — always use server data
         setCompanies(cc); setContacts(ct); setOpps(op); setTasks(tk); setAtosTeam(at); setInteractions(it);
         setChecklistItems(cl);
-        setDataSource('neon');
+        setDataSource('server');
         // Only mark as loaded AFTER successful data fetch
-        neonLoaded.current=true;
+        dataLoaded.current=true;
         dbReady.current=true;
       }catch(e){
-        console.error('Neon load error:',e);
-        neonLoadAttempts.current++;
-        if(neonLoadAttempts.current<3){setTimeout(load,neonLoadAttempts.current*2000);return;}
+        console.error('Server load error:',e);
+        loadAttempts.current++;
+        if(loadAttempts.current<3){setTimeout(load,loadAttempts.current*2000);return;}
         setDataSource('offline');dbReady.current=true;
       }
     };
@@ -834,7 +834,7 @@ const App = function(){
       const at=camelArr(ats.team||[]);const it=camelArr(ints.interactions||[]).map(i=>({...i,at:i.at||i.createdAt}));
       const cl=camelArr(clRes.items||[]);
       setCompanies(cc);setContacts(ct);setOpps(op);setTasks(tk);setAtosTeam(at);setInteractions(it);setChecklistItems(cl);
-      neonLoaded.current=true;setDataSource('neon');
+      dataLoaded.current=true;setDataSource('server');
       toast(lang==='nl'?`Geladen: ${cc.length} bedrijven, ${ct.length} contacten, ${op.length} deals, ${tk.length} taken`:`Loaded: ${cc.length} companies, ${ct.length} contacts, ${op.length} deals, ${tk.length} tasks`);
     }catch(e){console.error('Force reload error:',e);toast(lang==='nl'?'Herladen mislukt':'Reload failed','info');}
   },[authUser,lang]);
@@ -870,7 +870,7 @@ const App = function(){
       if(b.opps)setOpps(b.opps);if(b.tasks)setTasks(b.tasks);
       if(b.atosTeam||b.atos)setAtosTeam(b.atosTeam||b.atos);
       if(b.interactions)setInteractions(b.interactions);
-      neonLoaded.current=true;
+      dataLoaded.current=true;
       toast(lang==='nl'?'Data hersteld van lokale backup':'Data restored from local backup');
     }catch(e){console.error('Restore error:',e);toast(lang==='nl'?'Restore mislukt':'Restore failed','info');}
   },[authUser,lang]);
@@ -964,8 +964,8 @@ const App = function(){
 
   const backupTimer=useRef(null);
   useEffect(()=>{
-    // Don't overwrite backup until Neon data is loaded (prevents destroying good backup with partial data)
-    if(authUser?.token&&!neonLoaded.current)return;
+    // Don't overwrite backup until server data is loaded (prevents destroying good backup with partial data)
+    if(authUser?.token&&!dataLoaded.current)return;
     if(backupTimer.current)clearTimeout(backupTimer.current);
     backupTimer.current=setTimeout(()=>{
       try{localStorage.setItem('pf_backup',JSON.stringify({...dataRef.current,ts:new Date().toISOString(),v:APP_VERSION}));}catch{}
@@ -979,7 +979,7 @@ const App = function(){
     setTimeout(()=>{clearInterval(iv);resolve();},15000);
   });
 
-  // ── Server API helpers: ALL data must go through Neon ──
+  // ── Server API helpers ──
   const serverCreate=async(endpoint,data)=>{
     await waitForDb();
     if(!authUser?.token){toast(lang==='nl'?'Niet ingelogd':'Not logged in','info');return null;}
@@ -1121,7 +1121,7 @@ const App = function(){
   const doBackup=async()=>{
     try{
       let data;
-      // Try Neon first if connected
+      // Try server first if connected
       if(dbStatus==='connected'&&authUser?.token){
         const r=await fetch('/api/backup',{headers:{'Authorization':'Bearer '+authUser.token}});
         const d=await r.json();
@@ -1137,14 +1137,14 @@ const App = function(){
     }catch{toast(tx.dbBackupError,'info');}
   };
 
-  // ── Unified restore: import JSON → local state + Neon ──
+  // ── Unified restore: import JSON → local state + server ──
   const doRestore=()=>{
     const input=document.createElement('input');input.type='file';input.accept='.json';
     input.onchange=async(e)=>{
       const file=e.target.files?.[0];if(!file)return;
       try{
         const text=await file.text();const d=JSON.parse(text);
-        // Support both old (camelCase) and new (snake_case/Neon) format
+        // Support both old (camelCase) and new (snake_case) format
         const cts=d.contacts||[];const cos=d.companies||[];
         const ops=d.opportunities||d.opps||[];const tks=d.tasks||[];
         const ats=d.atos_team||d.atosTeam||d.atos||[];const ints=d.interactions||[];
@@ -1153,7 +1153,7 @@ const App = function(){
         const ts=d.exported_at||d.exportedAt;
         if(!confirm(`${tx.dbRestoreConfirm} ${ts?new Date(ts).toLocaleString(loc):tx.unknown}?\n\n${cos.length} ${tx.companiesCount}, ${cts.length} ${tx.contactsCount}, ${ops.length} ${tx.dealsCount}, ${tks.length} ${tx.tasksCount}\n\n${tx.overwriteWarning}`))return;
         toast(tx.dbRestoring);
-        // Restore to Neon if connected
+        // Restore to server if connected
         if(dbStatus==='connected'&&authUser?.token){
           const backup={companies:cos,contacts:cts,opportunities:ops,tasks:tks,atos_team:ats,interactions:ints};
           await fetch('/api/backup',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({backup,force:true})}).catch(()=>{});
@@ -3215,8 +3215,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {dbStatus==='offline'&&!location.hostname.includes('claudeusercontent')&&<div style={{padding:'12px 16px',marginBottom:16,borderRadius:12,background:t.orangeS,border:`0.5px solid ${t.orange}44`,display:'flex',alignItems:'flex-start',gap:10}}>
             <span style={{marginTop:2}}>⚠️</span>
             <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:600,color:t.orange}}>{tx.neonWarning}</div>
-              <div style={{fontSize:11,color:t.dim,marginTop:3}}>{tx.neonWarningDesc}</div>
+              <div style={{fontSize:13,fontWeight:600,color:t.orange}}>{tx.dbWarning}</div>
+              <div style={{fontSize:11,color:t.dim,marginTop:3}}>{tx.dbWarningDesc}</div>
             </div>
             <button onClick={checkDb} style={{...btnG,padding:'4px 10px',fontSize:11,color:t.orange,borderColor:`${t.orange}44`,whiteSpace:'nowrap'}}>{tx.checkConn}</button>
           </div>}
