@@ -62,9 +62,11 @@ const requireAuth = async (event) => {
   return decoded;
 };
 
-// Safe body parser with size limit (100KB)
+// Safe body parser with 1MB size limit
 const parseBody = (event) => {
   if (!event.body) return {};
+  if (typeof event.body === 'object') return event.body; // already parsed by Express middleware
+  if (typeof event.body !== 'string') return {};
   if (event.body.length > 1048576) throw { status: 413, message: 'Verzoek te groot (max 1MB)' };
   try { return JSON.parse(event.body); }
   catch { throw { status: 400, message: 'Ongeldig verzoek' }; }

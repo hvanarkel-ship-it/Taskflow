@@ -124,7 +124,9 @@ exports.handler = async (event) => {
       const b = parseBody(event);
       const id = p.id || b.id;
       if (!id) return err(400, 'ID vereist');
-      await sql`DELETE FROM opportunities WHERE id=${id} AND user_id=${user.id}`;
+      await sql`DELETE FROM opp_notes WHERE opp_id=${id}`;
+      const [deleted] = await sql`DELETE FROM opportunities WHERE id=${id} AND user_id=${user.id} RETURNING id`;
+      if (!deleted) return err(404, 'Deal niet gevonden of geen toegang');
       return ok({ deleted: id });
     }
     return err(405, 'Method not allowed');

@@ -1,4 +1,4 @@
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const path = require('path');
 const { ok, err, json, requireAuth, checkRate } = require('./shared/db');
 
@@ -19,7 +19,7 @@ exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') return err(405, 'Method not allowed');
 
     const output = await new Promise((resolve, reject) => {
-      exec('git pull origin main', { cwd: REPO_ROOT, timeout: 30000 }, (error, stdout, stderr) => {
+      execFile('git', ['pull', 'origin', 'main'], { cwd: REPO_ROOT, timeout: 30000 }, (error, stdout, stderr) => {
         if (error) return reject(new Error((stderr || error.message || 'git pull mislukt').trim()));
         resolve((stdout || stderr || '').trim());
       });

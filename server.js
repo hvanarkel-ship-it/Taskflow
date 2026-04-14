@@ -28,7 +28,7 @@ const adapt = (fn) => async (req, res) => {
     httpMethod: req.method,
     headers: req.headers,
     queryStringParameters: req.query || {},
-    body: req.body && Object.keys(req.body).length ? JSON.stringify(req.body) : (req.body || null),
+    body: (() => { const b = req.body; if (b == null) return null; if (typeof b === 'object' && Object.keys(b).length === 0) return null; return typeof b === 'string' ? b : JSON.stringify(b); })(),
     path: req.path,
   };
   try {
