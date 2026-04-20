@@ -591,6 +591,7 @@ const App = function(){
   const[installPrompt,setInstallPrompt]=useState(null);
   const[syncing,setSyncing]=useState(false);
   const isLocalDev=window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1';
+  const isPopup=window.location.pathname.startsWith('/tasks-popup');
   const t=dark?DARK:LIGHT;
   useEffect(()=>{document.body.classList.toggle('dark-mode',dark);},[dark]);
 
@@ -889,6 +890,7 @@ const App = function(){
   const[contactsView,setContactsView]=useState('list');
   const[companiesView,setCompaniesView]=useState('list');
   const[tasksView,setTasksView]=useState('list');
+  const[kanbanDrag,setKanbanDrag]=useState(null);
   const[ctTblSel,setCtTblSel]=useState([]);
   const[coTblSel,setCoTblSel]=useState([]);
   const[tkTblSel,setTkTblSel]=useState([]);
@@ -1790,7 +1792,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       const sortIc=col=>tkTblSort.col===col?(tkTblSort.dir==='asc'?' ↑':' ↓'):'';
       const bulkDel=async()=>{if(!tkTblSel.length)return;if(!confirm(`${tkTblSel.length} ${tx.confirmDeleteN}`))return;for(const id of tkTblSel)await deleteTask_(id);setTkTblSel([]);};
       const bulkDone=async()=>{if(!tkTblSel.length)return;for(const id of tkTblSel)completeTask(id);setTkTblSel([]);};
-      return <div style={{overflowX:'auto'}}>
+      return <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
         <div style={{display:'flex',gap:8,marginBottom:12}}><div style={{flex:1,...inp,display:'flex',alignItems:'center',gap:8,padding:'8px 14px'}}><span style={{color:t.muted}}>🔍</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder={tx.searchTasks} style={{flex:1,background:'none',border:'none',color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/>{search&&<span onClick={()=>setSearch('')} style={{cursor:'pointer',color:t.muted}}>✕</span>}</div></div>
         {tkTblSel.length>0&&<div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 14px',marginBottom:8,borderRadius:10,background:t.accentS,border:`1px solid ${t.accent}44`}}>
           <span style={{fontSize:13,fontWeight:600,color:t.accent}}>{tkTblSel.length} {tx.nSelected}</span>
@@ -1825,6 +1827,78 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       </div>;
     };
 
+    const renderTasksKanban=()=>{
+      const searchLC=search.toLowerCase();
+      const filtered=search?tasks.filter(tk=>(tk.title||'').toLowerCase().includes(searchLC)||(cName(tk.contactId)||'').toLowerCase().includes(searchLC)||(oppName(tk.oppId)||'').toLowerCase().includes(searchLC)):tasks;
+      const tkCoName=(tk)=>{if(tk.contactId){const c=contacts.find(x=>x.id===tk.contactId);if(c?.companyId){const co=companies.find(x=>x.id===c.companyId);if(co)return co.name;}}if(tk.oppId){const o=opps.find(x=>x.id===tk.oppId);if(o?.companyId){const co=companies.find(x=>x.id===o.companyId);if(co)return co.name;}}return null;};
+      return <div>
+        <div style={{display:'flex',gap:8,marginBottom:14}}>
+          <div style={{flex:1,...inp,display:'flex',alignItems:'center',gap:8,padding:'8px 14px'}}>
+            <span style={{color:t.muted}}>🔍</span>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={tx.searchTasks} style={{flex:1,background:'none',border:'none',color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'}}/>
+            {search&&<span onClick={()=>setSearch('')} style={{cursor:'pointer',color:t.muted}}>✕</span>}
+          </div>
+        </div>
+        <div style={{display:'flex',gap:12,overflowX:'auto',paddingBottom:16,WebkitOverflowScrolling:'touch',alignItems:'flex-start'}}>
+          {TASK_STATUSES.map(status=>{
+            const colTasks=filtered.filter(tk=>(tk.status||'todo')===status.k);
+            return <div key={status.k}
+              onDragOver={e=>e.preventDefault()}
+              onDrop={e=>{e.preventDefault();const tid=e.dataTransfer.getData('kanban-id');if(tid){updateTask_(tid,{status:status.k,done:status.k==='done'||status.k==='cancelled'});}setKanbanDrag(null);}}
+              style={{width:270,flexShrink:0,background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)',borderRadius:14,border:`1.5px solid ${kanbanDrag&&status.k!==kanbanDrag?t.accent+'44':t.border}`,display:'flex',flexDirection:'column',minHeight:200,transition:`border-color .15s ${sp}`}}>
+              {/* column header */}
+              <div style={{padding:'12px 14px 10px',borderBottom:`1px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <div style={{display:'flex',alignItems:'center',gap:7}}>
+                  <span style={{fontSize:18,lineHeight:1}}>{status.ic}</span>
+                  <span style={{fontSize:12,fontWeight:700,color:status.c,letterSpacing:.3}}>{status.l[lang]}</span>
+                  <span style={{fontSize:10,padding:'1px 7px',borderRadius:10,background:status.c+'22',color:status.c,fontWeight:700}}>{colTasks.length}</span>
+                </div>
+                <button onClick={()=>setModal({type:'task',data:{status:status.k}})} style={{width:26,height:26,borderRadius:7,border:`1px solid ${t.border}`,background:'transparent',color:t.muted,cursor:'pointer',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit',minHeight:0,minWidth:0,lineHeight:1}} title={lang==='nl'?'Taak toevoegen':'Add task'}>+</button>
+              </div>
+              {/* cards */}
+              <div style={{padding:'8px',display:'flex',flexDirection:'column',gap:6,flex:1}}>
+                {colTasks.map(tk=>{
+                  const isOverdue=tk.dueDate&&tk.dueDate<td()&&!tk.done;
+                  const oName=oppName(tk.oppId);
+                  const coName=tkCoName(tk);
+                  const pri=PRIS.find(p=>p.id===tk.priority)||PRIS.find(p=>p.id==='medium');
+                  const priC=pri.c;
+                  const isDragging=kanbanDrag===String(tk.id);
+                  return <div key={tk.id} draggable
+                    onDragStart={e=>{e.dataTransfer.setData('kanban-id',String(tk.id));setKanbanDrag(String(tk.id));}}
+                    onDragEnd={()=>setKanbanDrag(null)}
+                    style={{background:t.card,border:`0.5px solid ${t.border}`,borderRadius:10,padding:'10px 11px',cursor:'grab',opacity:isDragging?.35:1,transition:`opacity .15s, box-shadow .15s`,boxShadow:isDragging?'none':t.shadow}}
+                  >
+                    <div style={{height:3,borderRadius:2,background:priC,marginBottom:8}}/>
+                    <div style={{fontSize:13,fontWeight:600,lineHeight:1.35,color:t.text,marginBottom:6,wordBreak:'break-word'}}>{tk.title}</div>
+                    {tk.notes&&<div style={{fontSize:11,color:t.muted,marginBottom:6,fontStyle:'italic',overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',lineHeight:1.4}}>{tk.notes.replace(/<[^>]+>/g,'').slice(0,90)}</div>}
+                    <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:6}}>
+                      {coName&&<span style={{fontSize:10,padding:'2px 6px',borderRadius:5,background:dark?'rgba(10,132,255,0.12)':'rgba(10,132,255,0.08)',color:t.accent,fontWeight:500,maxWidth:100,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>🏢 {coName}</span>}
+                      {tk.contactId&&<span style={{fontSize:10,padding:'2px 6px',borderRadius:5,background:dark?'rgba(10,132,255,0.12)':'rgba(10,132,255,0.08)',color:t.accent,maxWidth:100,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>👤 {cName(tk.contactId)}</span>}
+                      {oName&&<span style={{fontSize:10,padding:'2px 6px',borderRadius:5,background:dark?'rgba(175,82,222,0.12)':'rgba(175,82,222,0.08)',color:'#AF52DE',maxWidth:110,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📊 {oName}</span>}
+                    </div>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:4}}>
+                      <div style={{display:'flex',gap:5,alignItems:'center'}}>
+                        {tk.dueDate&&<span style={{fontSize:10,color:isOverdue?t.red:t.muted,fontWeight:isOverdue?700:400,display:'flex',alignItems:'center',gap:2}}>{isOverdue&&'⚠️'}{fds(tk.dueDate)}</span>}
+                        {tk.reminder&&<span style={{fontSize:10,color:t.orange}}>🔔</span>}
+                        {tk.priority!=='medium'&&<span style={{fontSize:9,padding:'1px 5px',borderRadius:4,background:priC+'22',color:priC,fontWeight:700}}>{pri.l[lang]}</span>}
+                      </div>
+                      <div style={{display:'flex',gap:2}}>
+                        {status.k!=='done'&&status.k!=='cancelled'&&<button onClick={()=>completeTask(tk.id)} style={{border:'none',background:'none',color:t.green,cursor:'pointer',fontSize:13,padding:'2px 4px',minHeight:0,minWidth:0,borderRadius:5,lineHeight:1}} title={lang==='nl'?'Afronden':'Complete'}>✓</button>}
+                        <button onClick={()=>setModal({type:'task',data:tk})} style={{border:'none',background:'none',color:t.dim,cursor:'pointer',fontSize:12,padding:'2px 4px',minHeight:0,minWidth:0,borderRadius:5,lineHeight:1}}>✎</button>
+                        <button onClick={()=>{if(confirm(lang==='nl'?`"${tk.title}" verwijderen?`:`Delete "${tk.title}"?`))deleteTask_(tk.id);}} style={{border:'none',background:'none',color:t.red,cursor:'pointer',fontSize:12,padding:'2px 4px',minHeight:0,minWidth:0,borderRadius:5,lineHeight:1}}>✕</button>
+                      </div>
+                    </div>
+                  </div>;
+                })}
+                {colTasks.length===0&&<div style={{textAlign:'center',padding:'24px 12px',color:t.muted,fontSize:12,fontStyle:'italic'}}>{lang==='nl'?'Geen taken':'No tasks'}</div>}
+              </div>
+            </div>;
+          })}
+        </div>
+      </div>;
+    };
+
     return <div>
       <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
         {[{l:tx.taskOverdue,v:overdue.length,c:t.red,show:overdue.length>0},{l:tx.taskToday,v:today.length,c:t.accent,show:true},{l:tx.taskUpcoming,v:upcoming.length,c:t.teal,show:true},{l:tx.taskTotalOpen,v:allOpen.length,c:t.text,show:true},{l:tx.taskReminders,v:withReminder.length,c:t.orange,show:withReminder.length>0},{l:tx.taskDone,v:done.length,c:t.green,show:true}].filter(s=>s.show).map((s,i)=><div key={i} style={{...card,padding:'8px 14px',flex:'1 1 100px',minWidth:100}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase',letterSpacing:.5,fontWeight:600}}>{s.l}</div><div style={{fontSize:22,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
@@ -1832,14 +1906,14 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       <div style={{display:'flex',gap:4,marginBottom:16,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:10,padding:3}}>
         {[{id:'today',l:`${tx.taskToday} (${overdue.length+today.length})`},{id:'upcoming',l:`${tx.taskUpcoming} (${upcoming.length})`},{id:'all',l:`${tx.all} (${allOpen.length})`},{id:'done',l:`${tx.taskDone} (${done.length})`}].map(tab=><button key={tab.id} onClick={()=>setTaskTab(tab.id)} style={{flex:1,padding:'7px 12px',borderRadius:8,fontSize:12,fontWeight:taskTab===tab.id?600:400,border:'none',background:taskTab===tab.id?t.accent:'transparent',color:taskTab===tab.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',transition:`all .15s ${sp}`}}>{tab.l}</button>)}
       </div>
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+      {tasksView!=='kanban'&&<div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}}>
         <span style={{fontSize:11,color:t.muted,fontWeight:600}}>{tx.groupBy}:</span>
         {[{id:'dueDate',l:tx.groupDate},{id:'company',l:tx.groupCompany},{id:'opp',l:tx.groupDeal},{id:'contact',l:tx.groupContact}].map(g=><button key={g.id} onClick={()=>setTaskGroup(g.id)} style={{padding:'4px 10px',borderRadius:7,fontSize:11,fontWeight:taskGroup===g.id?700:400,border:`1px solid ${taskGroup===g.id?t.accent:'transparent'}`,background:taskGroup===g.id?t.accent+'18':'transparent',color:taskGroup===g.id?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit',transition:`all .15s ${sp}`}}>{g.l}</button>)}
         <div style={{flex:1}}/>
         <span style={{fontSize:10,color:t.muted}}>{lang==='nl'?'Sleep taken naar Outlook':'Drag tasks to Outlook'} 📅</span>
         <button onClick={()=>exportTasksIcal()} style={{...btnG,fontSize:12}}>📅 {tx.exportCalendar||'Export'}</button>
-      </div>
-      {tasksView==='table'?renderTasksTable():<>
+      </div>}
+      {tasksView==='kanban'?renderTasksKanban():tasksView==='table'?renderTasksTable():<>
       {taskTab!=='done'?<div style={{display:'flex',flexDirection:'column',gap:4}}>
         {grouped.map(key=>{const groupTasks=shown.filter(tk=>getGroupKey(tk)===key);const isOverdueGroup=taskGroup==='dueDate'&&key!=='no-date'&&key<td();const isTodayGroup=taskGroup==='dueDate'&&key===td();const labelColor=isOverdueGroup?t.red:isTodayGroup?t.accent:key==='__none__'?t.muted:t.dim;return <div key={key}>
           <div style={{fontSize:12,fontWeight:700,color:labelColor,padding:'10px 4px 4px',textTransform:'uppercase',letterSpacing:1,display:'flex',alignItems:'center',gap:6}}>
@@ -3071,6 +3145,67 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   </div>;
   };
 
+  if(isPopup&&!authUser){
+    return <>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:Outfit,system-ui,sans-serif;background:${t.bg};color:${t.text}}`}</style>
+      <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+        <div style={{textAlign:'center',maxWidth:360}}>
+          <div style={{fontSize:48,marginBottom:16}}>🔒</div>
+          <div style={{fontSize:20,fontWeight:700,marginBottom:8}}>{lang==='nl'?'Niet ingelogd':'Not logged in'}</div>
+          <div style={{fontSize:14,color:t.dim,marginBottom:24}}>{lang==='nl'?'Log eerst in via de hoofdapplicatie en open dit venster daarna opnieuw.':'Please log in via the main application first, then re-open this window.'}</div>
+          <button onClick={()=>window.close()} style={{padding:'10px 24px',borderRadius:10,background:t.elev,border:`1px solid ${t.border}`,color:t.dim,cursor:'pointer',fontFamily:'inherit',fontSize:14,fontWeight:600}}>{lang==='nl'?'Sluiten':'Close'}</button>
+        </div>
+      </div>
+    </>;
+  }
+
+  if(isPopup&&authUser){
+    const popupStyles=`
+      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:Outfit,system-ui,-apple-system,sans-serif;background:${t.bg};color:${t.text};height:100vh;overflow:hidden;}
+      ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:${t.border};border-radius:3px}
+      @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+      @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+      button,a,[role="button"]{min-height:44px;min-width:44px}
+      button.sm{min-height:32px;min-width:32px}
+      input,select,textarea{min-height:44px;font-size:16px}
+    `;
+    return <>
+      <style>{popupStyles}</style>
+      <div style={{display:'flex',flexDirection:'column',height:'100vh',background:t.bg}}>
+        {/* popup header */}
+        <header style={{padding:'10px 20px',borderBottom:`0.5px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',background:t.bg2,flexShrink:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <div style={{width:32,height:32,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:800,color:'#fff'}}>T</div>
+            <div>
+              <div style={{fontSize:16,fontWeight:800,letterSpacing:-.3}}>{lang==='nl'?'Taakbeheer':'Task Manager'}</div>
+              <div style={{fontSize:9,color:t.muted,textTransform:'uppercase',letterSpacing:2,fontWeight:600}}>{tasks.filter(k=>!k.done).length} {lang==='nl'?'open':'open'} · {tasks.filter(k=>k.dueDate===td()&&!k.done).length} {lang==='nl'?'vandaag':'today'}</div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            <div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>
+              {[{id:'list',ic:'▦',l:tx.listView},{id:'table',ic:'☰',l:tx.tableView},{id:'kanban',ic:'⬛',l:lang==='nl'?'Bord':'Board'}].map(v=><button key={v.id} onClick={()=>setTasksView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:tasksView===v.id?600:400,border:'none',background:tasksView===v.id?t.accent:'transparent',color:tasksView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}
+            </div>
+            <button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'6px 14px',fontSize:12}}>{tx.addTask}</button>
+            <button onClick={()=>setDark(!dark)} style={{width:32,height:32,borderRadius:8,border:`0.5px solid ${t.border}`,background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,minHeight:32,minWidth:32}}>{dark?'🌙':'☀️'}</button>
+            <button onClick={()=>window.close()} style={{width:32,height:32,borderRadius:8,border:`0.5px solid ${t.border}`,background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,minHeight:32,minWidth:32}}>✕</button>
+          </div>
+        </header>
+        {/* toast overlay */}
+        <div style={{position:'fixed',top:16,right:16,zIndex:9999,display:'flex',flexDirection:'column',gap:8,pointerEvents:'none'}}>
+          {toasts.map(x=><div key={x.id} style={{padding:'10px 16px',borderRadius:10,background:t.card,border:`0.5px solid ${t.border}`,boxShadow:t.shadow,fontSize:13,fontWeight:500,color:t.text,display:'flex',alignItems:'center',gap:8,animation:'fadeIn .2s',borderLeft:`3px solid ${x.ty==='ok'?t.green:x.ty==='error'?t.red:t.accent}`}}><span>{x.ty==='ok'?'✓':x.ty==='error'?'✕':'ℹ'}</span>{x.m}</div>)}
+        </div>
+        {/* task content */}
+        <div style={{flex:1,overflowY:'auto',padding:'20px 24px',animation:'fadeIn .3s'}}>
+          {renderTasks()}
+        </div>
+        {/* task modal */}
+        {modal?.type==='task'&&renderTaskModal()}
+      </div>
+    </>;
+  }
+
   if(!authUser){
     return <>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:Outfit,system-ui,sans-serif;background:${t.bg};color:${t.text}}`}</style>
@@ -3205,7 +3340,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             {view==='pipeline'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'kanban',l:tx.kanbanView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'},{id:'funnel',l:tx.funnelView,ic:'▽'}].map(v=><button key={v.id} onClick={()=>setPipeView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:pipeView===v.id?600:400,border:'none',background:pipeView===v.id?t.accent:'transparent',color:pipeView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<><button onClick={()=>setModal({type:'import'})} style={{...btnG,padding:'6px 10px',fontSize:11}}>📥</button><button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button></>}</>}
             {view==='contacts'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setContactsView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:contactsView===v.id?600:400,border:'none',background:contactsView===v.id?t.accent:'transparent',color:contactsView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'contact'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addContact2}</button>}</>}
             {view==='companies'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setCompaniesView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:companiesView===v.id?600:400,border:'none',background:companiesView===v.id?t.accent:'transparent',color:companiesView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'company'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addCompany}</button>}</>}
-            {view==='tasks'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setTasksView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:tasksView===v.id?600:400,border:'none',background:tasksView===v.id?t.accent:'transparent',color:tasksView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addTask}</button>}</>}
+            {view==='tasks'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'},{id:'kanban',l:lang==='nl'?'Bord':'Board',ic:'⬛'}].map(v=><button key={v.id} onClick={()=>setTasksView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:tasksView===v.id?600:400,border:'none',background:tasksView===v.id?t.accent:'transparent',color:tasksView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div><button onClick={()=>window.open('/tasks-popup','_blank','width=1400,height=900,resizable=yes')} style={{...btnG,padding:'6px 10px',fontSize:12,display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap'}} title={lang==='nl'?'Open in apart venster':'Open in separate window'}>⧉ {lang==='nl'?'Pop-out':' Pop-out'}</button>{!isMobile&&<button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addTask}</button>}</>}
             {view==='dashboard'&&!isMobile&&<button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button>}
             {!isMobile&&<button onClick={runDailyScan} style={{height:32,padding:'0 10px',borderRadius:8,background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,fontFamily:'inherit',gap:3,minHeight:32,minWidth:32}} title={tx.dailyScan}>🔍</button>}
             {!isMobile&&<button onClick={()=>setAiOpen(!aiOpen)} style={{width:32,height:32,borderRadius:8,background:aiOpen?t.accentS:t.glass,backdropFilter:t.blur,border:`0.5px solid ${aiOpen?t.accent:t.border}`,color:aiOpen?t.accent:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,minHeight:32,minWidth:32}} title={tx.aiTitle}>✦</button>}
