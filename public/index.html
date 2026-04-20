@@ -1184,7 +1184,7 @@ const App = function(){
     return()=>clearInterval(iv);
   },[checkDb]);
 
-  const toast=(m,ty='ok')=>{const i=uid();setToasts(p=>[...p,{id:i,m,ty}]);setTimeout(()=>setToasts(p=>p.filter(x=>x.id!==i)),ty==='error'?7000:3000);};
+  const toast=(m,ty='ok',action=null)=>{const i=uid();setToasts(p=>[...p,{id:i,m,ty,action}]);setTimeout(()=>setToasts(p=>p.filter(x=>x.id!==i)),ty==='error'?7000:action?8000:3000);};
   const cName=id=>contacts.find(c=>c.id===id)?.name||'';
   const compName=id=>companies.find(c=>c.id===id)?.name||'';
   const cCompany=id=>{const c=contacts.find(x=>x.id===id);return c?compName(c.companyId):'';}
@@ -1202,10 +1202,25 @@ const App = function(){
       const opp=opps.find(o=>o.id===tk.oppId);
       if(opp&&opp.nextAction&&opp.nextAction===tk.title){
         updateOpp(tk.oppId,{nextAction:'',nextActionDate:'',updatedAt:new Date().toISOString()});
-        toast(tx.actionCleared);return;
       }
     }
-    toast(tx.taskDone);
+    const followUpLabel=lang==='nl'?'+ Opvolgtaak':'+ Follow-up';
+    toast(tx.taskDone,'ok',{label:followUpLabel,fn:()=>{
+      setModal({type:'task',data:{
+        contactId:tk.contactId||'',
+        oppId:tk.oppId||'',
+        atosId:tk.atosId||'',
+        companyContactId:tk.companyContactId||'',
+        dueDate:td(),
+        priority:tk.priority||'medium',
+        reminder:true,
+        reminderMin:15,
+        status:'todo',
+        title:'',
+        notes:'',
+        done:false,
+      }});
+    }});
   };
 
   const addTagTo=(entity,setEntity,id,tag,syncFn)=>{if(!tag.trim())return;const item=entity.find(x=>x.id===id);if(!item)return;const newTags=[...new Set([...(item.tags||[]),tag.trim().toLowerCase()])];setEntity(p=>p.map(x=>x.id===id?{...x,tags:newTags}:x));if(syncFn)syncFn(id,{tags:newTags});};
@@ -3183,8 +3198,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           </div>
         </header>
         {/* toast overlay */}
-        <div style={{position:'fixed',top:16,right:16,zIndex:9999,display:'flex',flexDirection:'column',gap:8,pointerEvents:'none'}}>
-          {toasts.map(x=><div key={x.id} style={{padding:'10px 16px',borderRadius:10,background:t.card,border:`0.5px solid ${t.border}`,boxShadow:t.shadow,fontSize:13,fontWeight:500,color:t.text,display:'flex',alignItems:'center',gap:8,animation:'fadeIn .2s',borderLeft:`3px solid ${x.ty==='ok'?t.green:x.ty==='error'?t.red:t.accent}`}}><span>{x.ty==='ok'?'✓':x.ty==='error'?'✕':'ℹ'}</span>{x.m}</div>)}
+        <div style={{position:'fixed',top:16,right:16,zIndex:9999,display:'flex',flexDirection:'column',gap:8}}>
+          {toasts.map(x=><div key={x.id} style={{padding:'10px 16px',borderRadius:10,background:t.card,border:`0.5px solid ${t.border}`,boxShadow:t.shadow,fontSize:13,fontWeight:500,color:t.text,display:'flex',alignItems:'center',gap:8,animation:'fadeIn .2s',borderLeft:`3px solid ${x.ty==='ok'?t.green:x.ty==='error'?t.red:t.accent}`,pointerEvents:x.action?'auto':'none'}}><span>{x.ty==='ok'?'✓':x.ty==='error'?'✕':'ℹ'}</span><span>{x.m}</span>{x.action&&<button onClick={()=>{setToasts(p=>p.filter(t=>t.id!==x.id));x.action.fn();}} style={{marginLeft:6,padding:'3px 10px',borderRadius:7,border:`1px solid ${t.accent}`,background:t.accentS,color:t.accent,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',minHeight:0,minWidth:0}}>{x.action.label}</button>}</div>)}
         </div>
         {/* task content */}
         <div style={{flex:1,overflowY:'auto',padding:'20px 24px',animation:'fadeIn .3s'}}>
@@ -3484,7 +3499,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setAtModal(null)} style={btnG}>{tx.cancel}</button><button onClick={async()=>{if(!atModal.name?.trim()){toast(tx.fillName,'info');return;}if(atModal.id){updateAtos_(atModal.id,atModal);toast(tx.updated);setAtModal(null);}else{const saved=await addAtos_({...atModal});if(saved){toast(tx.teamAdded);setAtModal(null);}}}} style={btnP}>{atModal.id?tx.save:tx.add}</button></div>
         </div>
       </div>}
-      <div style={{position:'fixed',bottom:20,right:20,zIndex:9999,display:'flex',flexDirection:'column',gap:6}}>{toasts.map(x=><div key={x.id} style={{padding:'10px 16px',background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:12,fontSize:13,boxShadow:t.shadow,animation:'fadeIn .3s',borderLeft:`3px solid ${x.ty==='ok'?t.green:x.ty==='error'?t.red:t.accent}`}}>{x.ty==='ok'?'✓':x.ty==='error'?'✕':'ℹ'} {x.m}</div>)}</div>
+      <div style={{position:'fixed',bottom:20,right:20,zIndex:9999,display:'flex',flexDirection:'column',gap:6}}>{toasts.map(x=><div key={x.id} style={{padding:'10px 16px',background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:12,fontSize:13,boxShadow:t.shadow,animation:'fadeIn .3s',borderLeft:`3px solid ${x.ty==='ok'?t.green:x.ty==='error'?t.red:t.accent}`,display:'flex',alignItems:'center',gap:8}}><span>{x.ty==='ok'?'✓':x.ty==='error'?'✕':'ℹ'} {x.m}</span>{x.action&&<button onClick={()=>{setToasts(p=>p.filter(t=>t.id!==x.id));x.action.fn();}} style={{padding:'3px 10px',borderRadius:7,border:`1px solid ${t.accent}`,background:t.accentS,color:t.accent,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',minHeight:0,minWidth:0}}>{x.action.label}</button>}</div>)}</div>
       {intModal&&<div onClick={()=>setIntModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
         <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:480,maxHeight:'90vh',overflowY:'auto'}}>
           <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
