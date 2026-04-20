@@ -1734,38 +1734,28 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       const priColor=tk.priority==='urgent'?'#FF2D55':tk.priority==='high'?'#FF453A':tk.priority==='low'?t.green:t.accent;
       const coName=tkGetCompany(tk);
       const coId=tkGetCoId(tk);
-      const co=coId?companies.find(c=>c.id===coId):null;
-      return <div draggable onDragStart={e=>onTaskDragStart(e,tk)} style={{...card,padding:'0',display:'flex',alignItems:'stretch',overflow:'hidden',cursor:'grab',opacity:tk.done?.55:1,transition:'opacity .2s'}}>
-        <div style={{width:4,flexShrink:0,background:tk.done?t.green:priColor,borderRadius:'8px 0 0 8px'}}/>
-        <div style={{padding:'13px 12px',display:'flex',alignItems:'center',flexShrink:0}}>
+      return <div draggable onDragStart={e=>onTaskDragStart(e,tk)} style={{display:'flex',alignItems:'center',gap:0,background:t.card,border:`0.5px solid ${t.border}`,borderRadius:8,overflow:'hidden',cursor:'grab',opacity:tk.done?.5:1,minHeight:0}}>
+        <div style={{width:3,flexShrink:0,alignSelf:'stretch',background:tk.done?t.green:priColor}}/>
+        <div style={{padding:'0 8px',display:'flex',alignItems:'center',flexShrink:0}}>
           {!tk.done
-            ?<div onClick={()=>completeTask(tk.id)} style={{width:22,height:22,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'border-color .15s'}} onMouseOver={e=>e.currentTarget.style.borderColor=t.green} onMouseOut={e=>e.currentTarget.style.borderColor=t.muted}/>
-            :<div onClick={()=>updateTask_(tk.id,{done:false})} style={{width:22,height:22,borderRadius:'50%',background:t.green,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#fff',fontWeight:700,cursor:'pointer',flexShrink:0}}>✓</div>}
+            ?<div onClick={()=>completeTask(tk.id)} style={{width:18,height:18,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'border-color .15s'}} onMouseOver={e=>e.currentTarget.style.borderColor=t.green} onMouseOut={e=>e.currentTarget.style.borderColor=t.muted}/>
+            :<div onClick={()=>updateTask_(tk.id,{done:false})} style={{width:18,height:18,borderRadius:'50%',background:t.green,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#fff',fontWeight:700,cursor:'pointer',flexShrink:0}}>✓</div>}
         </div>
-        <div style={{flex:1,minWidth:0,padding:'11px 4px 11px 0'}}>
-          <div style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:4}}>
-            <span style={{fontSize:14,fontWeight:600,textDecoration:tk.done?'line-through':'none',flex:1,lineHeight:1.3,color:t.text}}>{tk.title}</span>
-            <div style={{display:'flex',gap:4,flexShrink:0,alignItems:'center'}}>
-              {!tk.done&&<span style={{fontSize:9,padding:'2px 7px',borderRadius:5,background:tks.c+'22',color:tks.c,fontWeight:700,whiteSpace:'nowrap'}}>{tks.ic} {tks.l[lang]}</span>}
-              {!tk.done&&tk.priority!=='medium'&&<span style={{fontSize:9,padding:'2px 7px',borderRadius:5,background:priColor+'22',color:priColor,fontWeight:700,whiteSpace:'nowrap'}}>{pl(tk.priority)}</span>}
-            </div>
+        <div style={{flex:1,minWidth:0,display:'flex',alignItems:'center',gap:8,padding:'6px 4px 6px 0',overflow:'hidden'}}>
+          <span style={{fontSize:13,fontWeight:600,textDecoration:tk.done?'line-through':'none',color:t.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:320,flexShrink:0}}>{tk.title}</span>
+          <div style={{display:'flex',gap:4,alignItems:'center',flexShrink:0,overflow:'hidden'}}>
+            {coName&&<span style={{fontSize:10,color:t.teal,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:120}}>{coName}</span>}
+            {tk.contactId&&<span onClick={e=>{e.stopPropagation();setDetail({type:'contact',id:tk.contactId});}} style={{fontSize:10,color:t.accent,cursor:'pointer',whiteSpace:'nowrap'}}>· {cName(tk.contactId)}</span>}
+            {oName&&<span onClick={e=>{e.stopPropagation();setDetail({type:'opp',id:tk.oppId});}} style={{fontSize:10,color:t.purple||'#AF52DE',cursor:'pointer',whiteSpace:'nowrap',fontWeight:500}}>· {oName}</span>}
           </div>
-          <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
-            {co&&<div style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer'}} onClick={e=>{e.stopPropagation();setDetail({type:'company',id:coId});}}>
-              <LogoAvatar company={co} size={18} border={dark?'#1c1c2e':'#f5f5f5'}/>
-              <span style={{fontSize:11,color:t.teal,fontWeight:500}}>{coName}</span>
-            </div>}
-            {tk.contactId&&<span onClick={e=>{e.stopPropagation();setDetail({type:'contact',id:tk.contactId});}} style={{fontSize:11,color:t.accent,cursor:'pointer',display:'flex',alignItems:'center',gap:3}}>👤 {cName(tk.contactId)}</span>}
-            {oName&&<span onClick={e=>{e.stopPropagation();setDetail({type:'opp',id:tk.oppId});}} style={{fontSize:11,color:t.purple,cursor:'pointer',fontWeight:500,display:'flex',alignItems:'center',gap:3}}>📊 {oName}</span>}
-            {tk.atosId&&atosTeam.find(a=>a.id===tk.atosId)&&<span style={{fontSize:11,color:t.dim,display:'flex',alignItems:'center',gap:3}}>🔵 {atosTeam.find(a=>a.id===tk.atosId).name}</span>}
-            {tk.dueDate&&<span style={{fontSize:11,color:isOverdue?t.red:t.dim,fontWeight:isOverdue?600:400,display:'flex',alignItems:'center',gap:3}}>{isOverdue?'⚠️':''}{fds(tk.dueDate)}{tk.dueTime&&' · '+tk.dueTime}</span>}
-            {tk.reminder&&<span style={{fontSize:11,color:t.orange}}>🔔 {tk.reminderMin}m</span>}
-          </div>
-          {tk.notes&&<div style={{fontSize:11,color:t.muted,marginTop:4,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'90%'}}>📝 {tk.notes.slice(0,100)}{tk.notes.length>100?'...':''}</div>}
         </div>
-        <div style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,padding:'8px 12px',flexShrink:0}}>
-          {!tk.done&&<button onClick={()=>setModal({type:'task',data:tk})} style={{...btnG,padding:'3px 8px',fontSize:11}}>✎</button>}
-          <button onClick={()=>{deleteTask_(tk.id);toast(tx.removed,'info');}} style={{background:'none',border:'none',color:t.red,cursor:'pointer',fontSize:13,padding:'3px 6px'}}>✕</button>
+        <div style={{display:'flex',gap:5,alignItems:'center',flexShrink:0,padding:'0 8px'}}>
+          {tk.dueDate&&<span style={{fontSize:10,color:isOverdue?t.red:t.muted,fontWeight:isOverdue?700:400,whiteSpace:'nowrap'}}>{isOverdue&&'⚠ '}{fds(tk.dueDate)}</span>}
+          {tk.reminder&&<span style={{fontSize:10,color:t.orange}}>🔔</span>}
+          {!tk.done&&tk.priority!=='medium'&&<span style={{fontSize:9,padding:'1px 5px',borderRadius:4,background:priColor+'22',color:priColor,fontWeight:700,whiteSpace:'nowrap'}}>{pl(tk.priority)}</span>}
+          {!tk.done&&<span style={{fontSize:9,padding:'1px 5px',borderRadius:4,background:tks.c+'18',color:tks.c,fontWeight:600,whiteSpace:'nowrap'}}>{tks.ic} {tks.l[lang]}</span>}
+          <button onClick={()=>setModal({type:'task',data:tk})} style={{border:'none',background:'none',color:t.dim,cursor:'pointer',fontSize:12,padding:'2px 4px',minHeight:0,minWidth:0,opacity:.6}} onMouseOver={e=>e.target.style.opacity=1} onMouseOut={e=>e.target.style.opacity=.6}>✎</button>
+          <button onClick={()=>{if(confirm(lang==='nl'?`"${tk.title}" verwijderen?`:`Delete "${tk.title}"?`))deleteTask_(tk.id);}} style={{border:'none',background:'none',color:t.red,cursor:'pointer',fontSize:12,padding:'2px 4px',minHeight:0,minWidth:0,opacity:.6}} onMouseOver={e=>e.target.style.opacity=1} onMouseOut={e=>e.target.style.opacity=.6}>✕</button>
         </div>
       </div>;
     };
@@ -1916,18 +1906,18 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       {tasksView==='kanban'?renderTasksKanban():tasksView==='table'?renderTasksTable():<>
       {taskTab!=='done'?<div style={{display:'flex',flexDirection:'column',gap:4}}>
         {grouped.map(key=>{const groupTasks=shown.filter(tk=>getGroupKey(tk)===key);const isOverdueGroup=taskGroup==='dueDate'&&key!=='no-date'&&key<td();const isTodayGroup=taskGroup==='dueDate'&&key===td();const labelColor=isOverdueGroup?t.red:isTodayGroup?t.accent:key==='__none__'?t.muted:t.dim;return <div key={key}>
-          <div style={{fontSize:12,fontWeight:700,color:labelColor,padding:'10px 4px 4px',textTransform:'uppercase',letterSpacing:1,display:'flex',alignItems:'center',gap:6}}>
+          <div style={{fontSize:11,fontWeight:700,color:labelColor,padding:'8px 4px 3px',textTransform:'uppercase',letterSpacing:1,display:'flex',alignItems:'center',gap:6}}>
             {getGroupLabel(key,isOverdueGroup,isTodayGroup)}
             <span style={{fontSize:10,fontWeight:400,color:t.muted,textTransform:'none',letterSpacing:0}}>({groupTasks.length})</span>
           </div>
-          <div style={{display:'flex',flexDirection:'column',gap:5}}>{groupTasks.map(tk=><div key={tk.id}>{renderTaskRow(tk)}</div>)}</div>
+          <div style={{display:'flex',flexDirection:'column',gap:2}}>{groupTasks.map(tk=><div key={tk.id}>{renderTaskRow(tk)}</div>)}</div>
         </div>;})}
         {taskGroup==='dueDate'&&noDue.length>0&&taskTab==='all'&&<div><div style={{fontSize:12,fontWeight:700,color:t.muted,padding:'10px 4px 4px',textTransform:'uppercase',letterSpacing:1}}>{tx.noDeadline}</div><div style={{display:'flex',flexDirection:'column',gap:5}}>{noDue.map(tk=><div key={tk.id}>{renderTaskRow(tk)}</div>)}</div></div>}
         {shown.length===0&&<div style={{textAlign:'center',padding:40,color:t.muted}}>{taskTab==='today'?tx.noTasksToday:tx.noTasksCat}</div>}
       </div>
       :<div style={{display:'flex',flexDirection:'column',gap:4}}>
         {done.length===0&&<div style={{textAlign:'center',padding:40,color:t.muted}}>{tx.noTasksDone}</div>}
-        {done.slice(0,30).map(tk=><div key={tk.id}>{renderTaskRow(tk)}</div>)}
+        <div style={{display:'flex',flexDirection:'column',gap:2}}>{done.slice(0,30).map(tk=><div key={tk.id}>{renderTaskRow(tk)}</div>)}</div>
         {done.length>30&&<div style={{textAlign:'center',color:t.muted,fontSize:12,padding:8}}>+{done.length-30} {tx.more}</div>}
       </div>}
       </>}
