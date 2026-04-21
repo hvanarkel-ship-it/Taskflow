@@ -133,7 +133,7 @@ const PRIS=[{id:'urgent',l:{nl:'Urgent',en:'Urgent'},c:'#FF2D55'},{id:'high',l:{
 const TX={
   nl:{
     pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacten',companies:'Bedrijven',atos:'Atos Team',tasks:'Taken',reports:'Rapporten',checklist:'Checklist',
-    clAddItem:'Item toevoegen...',clClearDone:'Opgeruimd verwijderen',clCleared:'Afgeronde items verwijderd',clEmpty:'Geen items — voeg er een toe!',clCategory:'Categorie',clAll:'Alles',clDone:'afgerond',clItemAdded:'Item toegevoegd',clItemDeleted:'Item verwijderd',
+    clAddItem:'Item toevoegen...',clClearDone:'Opgeruimd verwijderen',clCleared:'Afgeronde items verwijderd',clEmpty:'Geen items — voeg er een toe!',clCategory:'Categorie',clAll:'Alles',clDone:'afgerond',clItemAdded:'Item toegevoegd',clItemDeleted:'Item verwijderd',clManageCats:'Categorieën',clNewCat:'Nieuwe categorie...',clAddCat:'Toevoegen',clNoCats:'Geen categorieën',clCatDeleted:'Categorie verwijderd',clCatRenamed:'Categorie hernoemd',clShowDone:'Afgerond tonen',clHideDone:'Afgerond verbergen',
     save:'Opslaan',add:'Toevoegen',cancel:'Annuleren',delete:'Verwijderen',edit:'Bewerken',back:'← Terug',search:'Zoeken...',
     newDeal:'Nieuwe Deal',editDeal:'Deal Bewerken',newContact:'Nieuw Contact',editContact:'Contact Bewerken',newTask:'Nieuwe Taak',editTask:'Taak Bewerken',newCompany:'Nieuw Bedrijf',editCompany:'Bedrijf Bewerken',newTeam:'Nieuw Teamlid',
     title:'Titel',company:'Bedrijf',contactPersons:'Contactpersonen',value:'Waarde',chance:'Kans',phase:'Fase',priority:'Prioriteit',technology:'Technologie',nextAction:'Volgende Actie',actionDate:'Actie Datum',closeDate:'Verwachte Sluiting',
@@ -245,7 +245,7 @@ const TX={
     reminderToast:'Herinnering',inMinutes:'over {n} min',atTime:'om',
     notifTitle:'My Personal Sales Plan',
     // Table view
-    tableView:'Tabel',kanbanView:'Kanban',funnelView:'Funnel',funnelTitle:'Pipeline Funnel',funnelDeals:'deals',funnelConv:'Conversie',groupBy:'Groepeer op',groupDate:'Datum',groupCompany:'Klant',groupDeal:'Deal',groupContact:'Contactpersoon',noCompany:'Geen klant',noDeal:'Geen deal',noContact:'Geen contactpersoon',filterTasks:'Filter',clearFilters:'Wis filters',dateFrom:'Van',dateTo:'Tot',allCompanies:'Alle klanten',allDeals:'Alle deals',allContacts:'Alle contacten',
+    tableView:'Tabel',kanbanView:'Kanban',funnelView:'Funnel',funnelTitle:'Pipeline Funnel',funnelDeals:'deals',funnelConv:'Conversie',groupBy:'Groepeer op',groupDate:'Datum',groupCompany:'Klant',groupDeal:'Deal',groupContact:'Contactpersoon',noCompany:'Geen klant',noDeal:'Geen deal',noContact:'Geen contactpersoon',filterTasks:'Filter',clearFilters:'Wis filters',dateFrom:'Van',dateTo:'Tot',allCompanies:'Alle klanten',allDeals:'Alle deals',allContacts:'Alle contacten',tkShowCompleted:'Afgerond tonen',tkHideCompleted:'Afgerond verbergen',noTasksKanban:'Geen taken',
     // DB Backup
     dbBackup:'Database backup',dbRestore:'Database terugzetten',dbBackupSuccess:'Database backup gedownload',dbRestoreSuccess:'Database teruggezet',dbRestoreConfirm:'Database terugzetten van',dbBackupError:'Backup fout — database niet verbonden',dbRestoring:'Terugzetten...',
     // Next action task
@@ -296,7 +296,7 @@ const TX={
   },
   en:{
     pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',atos:'Atos Team',tasks:'Tasks',reports:'Reports',checklist:'Checklist',
-    clAddItem:'Add item...',clClearDone:'Clear completed',clCleared:'Completed items cleared',clEmpty:'No items — add one!',clCategory:'Category',clAll:'All',clDone:'done',clItemAdded:'Item added',clItemDeleted:'Item deleted',
+    clAddItem:'Add item...',clClearDone:'Clear completed',clCleared:'Completed items cleared',clEmpty:'No items — add one!',clCategory:'Category',clAll:'All',clDone:'done',clItemAdded:'Item added',clItemDeleted:'Item deleted',clManageCats:'Categories',clNewCat:'New category...',clAddCat:'Add',clNoCats:'No categories',clCatDeleted:'Category deleted',clCatRenamed:'Category renamed',clShowDone:'Show completed',clHideDone:'Hide completed',
     save:'Save',add:'Add',cancel:'Cancel',delete:'Delete',edit:'Edit',back:'← Back',search:'Search...',
     newDeal:'New Deal',editDeal:'Edit Deal',newContact:'New Contact',editContact:'Edit Contact',newTask:'New Task',editTask:'Edit Task',newCompany:'New Company',editCompany:'Edit Company',newTeam:'New Team Member',
     title:'Title',company:'Company',contactPersons:'Contacts',value:'Value',chance:'Probability',phase:'Phase',priority:'Priority',technology:'Technology',nextAction:'Next Action',actionDate:'Action Date',closeDate:'Expected Close',
@@ -408,7 +408,7 @@ const TX={
     reminderToast:'Reminder',inMinutes:'in {n} min',atTime:'at',
     notifTitle:'My Personal Sales Plan',
     // Table view
-    tableView:'Table',kanbanView:'Kanban',funnelView:'Funnel',funnelTitle:'Pipeline Funnel',funnelDeals:'deals',funnelConv:'Conversion',groupBy:'Group by',groupDate:'Date',groupCompany:'Company',groupDeal:'Deal',groupContact:'Contact',noCompany:'No company',noDeal:'No deal',noContact:'No contact',filterTasks:'Filter',clearFilters:'Clear filters',dateFrom:'From',dateTo:'To',allCompanies:'All companies',allDeals:'All deals',allContacts:'All contacts',
+    tableView:'Table',kanbanView:'Kanban',funnelView:'Funnel',funnelTitle:'Pipeline Funnel',funnelDeals:'deals',funnelConv:'Conversion',groupBy:'Group by',groupDate:'Date',groupCompany:'Company',groupDeal:'Deal',groupContact:'Contact',noCompany:'No company',noDeal:'No deal',noContact:'No contact',filterTasks:'Filter',clearFilters:'Clear filters',dateFrom:'From',dateTo:'To',allCompanies:'All companies',allDeals:'All deals',allContacts:'All contacts',tkShowCompleted:'Show completed',tkHideCompleted:'Hide completed',noTasksKanban:'No tasks',
     // DB Backup
     dbBackup:'Database backup',dbRestore:'Restore database',dbBackupSuccess:'Database backup downloaded',dbRestoreSuccess:'Database restored',dbRestoreConfirm:'Restore database from',dbBackupError:'Backup error — database not connected',dbRestoring:'Restoring...',
     // Next action task
@@ -681,7 +681,12 @@ const App = function(){
   const[checklistItems,setChecklistItems]=useState([]);
   const[clInput,setClInput]=useState('');
   const[clCategory,setClCategory]=useState('');
-  const[clFilter,setClFilter]=useState('all'); // 'all' or a category name
+  const[clFilter,setClFilter]=useState('all');
+  const[clManageCats,setClManageCats]=useState(false);
+  const[clNewCatInput,setClNewCatInput]=useState('');
+  const[clRenamingCat,setClRenamingCat]=useState(null);
+  const[clRenameVal,setClRenameVal]=useState('');
+  const[tkShowCompleted,setTkShowCompleted]=useState(false);
 
   // Auto-restore: if all data is empty and NOT logged in, offer backup restore
   // When logged in, server load handles data — skip the backup prompt
@@ -1712,6 +1717,67 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     </div>;
   };
 
+  const renderTaskKanban=()=>{
+    const activeStatuses=TASK_STATUSES.filter(s=>s.k!=='done'&&s.k!=='cancelled');
+    const completedStatuses=TASK_STATUSES.filter(s=>s.k==='done'||s.k==='cancelled');
+    const cols=tkShowCompleted?TASK_STATUSES:[...activeStatuses];
+    const getTaskStatus=(tk)=>tk.done?'done':(tk.status||'todo');
+    const priColor=(tk)=>tk.priority==='urgent'?'#FF2D55':tk.priority==='high'?'#FF453A':tk.priority==='low'?t.green:t.accent;
+
+    const renderKanbanCard=(tk)=>{
+      const isOverdue=tk.dueDate&&tk.dueDate<td()&&!tk.done;
+      const coId=tk.contactId?contacts.find(c=>c.id===tk.contactId)?.companyId:(tk.oppId?opps.find(o=>o.id===tk.oppId)?.companyId:null);
+      const co=coId?companies.find(c=>c.id===coId):null;
+      const coName=co?co.name:null;
+      const oName=oppName(tk.oppId);
+      return <div key={tk.id} style={{...card,padding:0,overflow:'hidden',cursor:'pointer',marginBottom:6}} onClick={()=>setModal({type:'task',data:tk})}>
+        <div style={{height:3,background:priColor(tk),borderRadius:'8px 8px 0 0'}}/>
+        <div style={{padding:'8px 10px'}}>
+          <div style={{fontSize:13,fontWeight:500,marginBottom:4,lineHeight:1.3,textDecoration:tk.done?'line-through':'none',color:tk.done?t.muted:t.text}}>{tk.title}</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:4,alignItems:'center'}}>
+            {co&&<div style={{display:'flex',alignItems:'center',gap:3}} onClick={e=>{e.stopPropagation();setDetail({type:'company',id:coId});}}>
+              <LogoAvatar company={co} size={12} border={dark?'#1c1c2e':'#f5f5f5'}/>
+              <span style={{fontSize:10,color:t.teal,fontWeight:500}}>{coName}</span>
+            </div>}
+            {tk.contactId&&<span onClick={e=>{e.stopPropagation();setDetail({type:'contact',id:tk.contactId});}} style={{fontSize:10,color:t.accent,cursor:'pointer'}}>👤 {cName(tk.contactId)}</span>}
+            {oName&&<span style={{fontSize:10,color:t.purple}}>📊 {oName}</span>}
+            {tk.dueDate&&<span style={{fontSize:10,color:isOverdue?t.red:t.dim,fontWeight:isOverdue?600:400}}>{isOverdue?'⚠ ':''}{fds(tk.dueDate)}</span>}
+            {tk.priority!=='medium'&&!tk.done&&<span style={{fontSize:9,padding:'1px 5px',borderRadius:4,background:priColor(tk)+'22',color:priColor(tk),fontWeight:700}}>{pl(tk.priority)}</span>}
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}}>
+            <select value={getTaskStatus(tk)} onClick={e=>e.stopPropagation()} onChange={e=>{const ns=e.target.value;updateTask_(tk.id,{status:ns,done:ns==='done'||ns==='cancelled'});}} style={{fontSize:10,padding:'2px 4px',borderRadius:5,border:`1px solid ${t.border}`,background:t.solid,color:t.text,fontFamily:'inherit',cursor:'pointer'}}>
+              {TASK_STATUSES.map(s=><option key={s.k} value={s.k}>{s.ic} {s.l[lang]}</option>)}
+            </select>
+            <button onClick={e=>{e.stopPropagation();deleteTask_(tk.id);toast(tx.removed,'info');}} style={{background:'none',border:'none',color:t.red,cursor:'pointer',fontSize:12,padding:'2px 4px',opacity:.5}} onMouseOver={e=>e.currentTarget.style.opacity=1} onMouseOut={e=>e.currentTarget.style.opacity=.5}>✕</button>
+          </div>
+        </div>
+      </div>;
+    };
+
+    return <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <span style={{fontSize:12,color:t.muted}}>{tasks.filter(tk=>!tk.done).length} {lang==='nl'?'open taken':'open tasks'}</span>
+        <button onClick={()=>setTkShowCompleted(v=>!v)} style={{padding:'4px 12px',borderRadius:8,fontSize:11,fontWeight:600,border:`1px solid ${tkShowCompleted?t.green:t.border}`,background:tkShowCompleted?t.green+'18':'transparent',color:tkShowCompleted?t.green:t.muted,cursor:'pointer',fontFamily:'inherit'}}>{tkShowCompleted?tx.tkHideCompleted:tx.tkShowCompleted}</button>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:`repeat(${cols.length},1fr)`,gap:10,overflowX:'auto',alignItems:'start'}}>
+        {cols.map(st=>{
+          const colTasks=tasks.filter(tk=>getTaskStatus(tk)===st.k);
+          return <div key={st.k} style={{minWidth:180}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,padding:'6px 10px',borderRadius:8,background:st.c+'14',border:`1px solid ${st.c}30`}}>
+              <span style={{fontSize:14}}>{st.ic}</span>
+              <span style={{fontSize:12,fontWeight:700,color:st.c}}>{st.l[lang]}</span>
+              <span style={{fontSize:10,fontWeight:400,color:t.muted,marginLeft:'auto'}}>{colTasks.length}</span>
+            </div>
+            <div>
+              {colTasks.length===0&&<div style={{padding:'12px 10px',textAlign:'center',color:t.muted,fontSize:11,opacity:.6}}>{tx.noTasksKanban}</div>}
+              {colTasks.map(tk=>renderKanbanCard(tk))}
+            </div>
+          </div>;
+        })}
+      </div>
+    </div>;
+  };
+
   const renderTasks=()=>{
     const allOpen=tasks.filter(t=>!t.done);
     const today=allOpen.filter(t=>t.dueDate===td());
@@ -2665,6 +2731,27 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       toast(tx.clCleared,'info');
     }catch(e){setChecklistItems(p=>[...p,...doneItems]);showErr('clClear',e);}
   };
+  const clRenameCategory=async(oldCat,newCat)=>{
+    if(!newCat?.trim()||newCat.trim()===oldCat)return;
+    const affected=checklistItems.filter(x=>x.category===oldCat);
+    setChecklistItems(p=>p.map(x=>x.category===oldCat?{...x,category:newCat.trim()}:x));
+    try{
+      await Promise.all(affected.map(x=>fetch('/api/checklist',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({id:x.id,category:newCat.trim()})})));
+      if(clFilter===oldCat)setClFilter(newCat.trim());
+      if(clCategory===oldCat)setClCategory(newCat.trim());
+      toast(tx.clCatRenamed,'info');
+    }catch(e){setChecklistItems(p=>p.map(x=>x.category===newCat.trim()?{...x,category:oldCat}:x));showErr('clRenameCategory',e);}
+  };
+  const clDeleteCategory=async(cat)=>{
+    const affected=checklistItems.filter(x=>x.category===cat);
+    setChecklistItems(p=>p.map(x=>x.category===cat?{...x,category:''}:x));
+    try{
+      await Promise.all(affected.map(x=>fetch('/api/checklist',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({id:x.id,category:''})})));
+      if(clFilter===cat)setClFilter('all');
+      if(clCategory===cat)setClCategory('');
+      toast(tx.clCatDeleted,'info');
+    }catch(e){setChecklistItems(p=>p.map(x=>x.category===''&&affected.find(a=>a.id===x.id)?{...x,category:cat}:x));showErr('clDeleteCategory',e);}
+  };
 
   const renderChecklist=()=>{
     const categories=[...new Set(checklistItems.filter(x=>x.category).map(x=>x.category))].sort();
@@ -2672,28 +2759,58 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     const open=filtered.filter(x=>!x.done);
     const done=filtered.filter(x=>x.done);
     const doneCount=checklistItems.filter(x=>x.done).length;
+    const pillSt=(active)=>({padding:'4px 12px',borderRadius:20,fontSize:11,fontWeight:active?700:500,border:`1.5px solid ${active?t.accent:'transparent'}`,background:active?t.accentS:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:active?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit'});
 
     return <div style={{maxWidth:640,margin:'0 auto'}}>
-      {/* Add item */}
-      <div style={{display:'flex',gap:6,marginBottom:16}}>
+      {/* Add item row */}
+      <div style={{display:'flex',gap:6,marginBottom:clCategory==='__new__'?6:16}}>
         <input style={{...inp,flex:1}} value={clInput} onChange={e=>setClInput(e.target.value)} placeholder={tx.clAddItem}
-          onKeyDown={e=>{if(e.key==='Enter'&&clInput.trim()){clAdd(clInput,clCategory);setClInput('');}}} autoFocus/>
-        <select style={{...inp,width:120,flexShrink:0}} value={clCategory} onChange={e=>setClCategory(e.target.value)}>
+          onKeyDown={e=>{if(e.key==='Enter'&&clInput.trim()){clAdd(clInput,clCategory==='__new__'?'':clCategory);setClInput('');}}} autoFocus/>
+        <select style={{...inp,width:130,flexShrink:0}} value={clCategory} onChange={e=>setClCategory(e.target.value)}>
           <option value="">{tx.clCategory}...</option>
           {categories.map(c=><option key={c} value={c}>{c}</option>)}
+          <option value="__new__">+ {lang==='nl'?'Nieuwe categorie':'New category'}</option>
         </select>
-        <button onClick={()=>{if(clInput.trim()){clAdd(clInput,clCategory);setClInput('');}}} style={{...btnP,padding:'8px 16px',whiteSpace:'nowrap'}}>+</button>
+        <button onClick={()=>{if(clInput.trim()){clAdd(clInput,clCategory==='__new__'?'':clCategory);setClInput('');}}} style={{...btnP,padding:'8px 16px',whiteSpace:'nowrap'}}>+</button>
       </div>
 
-      {/* New category input (if typing a new one) */}
-      {clCategory===''&&<div style={{display:'flex',gap:6,marginBottom:12}}>
-        <input style={{...inp,flex:1,fontSize:11}} placeholder={lang==='nl'?'Of typ een nieuwe categorie...':'Or type a new category...'} onKeyDown={e=>{if(e.key==='Enter'&&e.target.value.trim()){setClCategory(e.target.value.trim());}}} onBlur={e=>{if(e.target.value.trim())setClCategory(e.target.value.trim());}}/>
+      {/* Inline new-category input */}
+      {clCategory==='__new__'&&<div style={{display:'flex',gap:6,marginBottom:16}}>
+        <input autoFocus style={{...inp,flex:1,fontSize:12}} placeholder={tx.clNewCat}
+          onKeyDown={e=>{if(e.key==='Enter'&&e.target.value.trim()){setClCategory(e.target.value.trim());e.target.value='';}if(e.key==='Escape')setClCategory('');}}
+          onBlur={e=>{if(e.target.value.trim())setClCategory(e.target.value.trim());else setClCategory('');}}/>
+        <button onClick={()=>setClCategory('')} style={{...btnG,padding:'8px 12px',fontSize:11}}>{tx.cancel}</button>
       </div>}
 
-      {/* Category filter pills */}
-      {categories.length>0&&<div style={{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap'}}>
-        <button onClick={()=>setClFilter('all')} style={{padding:'4px 12px',borderRadius:20,fontSize:11,fontWeight:clFilter==='all'?700:500,border:`1.5px solid ${clFilter==='all'?t.accent:'transparent'}`,background:clFilter==='all'?t.accentS:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:clFilter==='all'?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{tx.clAll} ({checklistItems.length})</button>
-        {categories.map(c=>{const cnt=checklistItems.filter(x=>x.category===c).length;return <button key={c} onClick={()=>setClFilter(clFilter===c?'all':c)} style={{padding:'4px 12px',borderRadius:20,fontSize:11,fontWeight:clFilter===c?700:500,border:`1.5px solid ${clFilter===c?t.accent:'transparent'}`,background:clFilter===c?t.accentS:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:clFilter===c?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{c} ({cnt})</button>;})}
+      {/* Category filter pills + manage toggle */}
+      <div style={{display:'flex',gap:4,marginBottom:clManageCats?8:14,flexWrap:'wrap',alignItems:'center'}}>
+        <button onClick={()=>setClFilter('all')} style={pillSt(clFilter==='all')}>{tx.clAll} ({checklistItems.length})</button>
+        {categories.map(c=>{const cnt=checklistItems.filter(x=>x.category===c).length;return <button key={c} onClick={()=>setClFilter(clFilter===c?'all':c)} style={pillSt(clFilter===c)}>{c} ({cnt})</button>;})}
+        <button onClick={()=>setClManageCats(v=>!v)} style={{...pillSt(clManageCats),marginLeft:'auto',fontSize:10,opacity:.7}}>{clManageCats?'✕ '+tx.cancel:'⚙ '+tx.clManageCats}</button>
+      </div>
+
+      {/* Category management panel */}
+      {clManageCats&&<div style={{marginBottom:14,padding:'12px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)',border:`0.5px solid ${t.border}`}}>
+        <div style={{fontSize:11,fontWeight:700,color:t.muted,marginBottom:10,textTransform:'uppercase',letterSpacing:.5}}>{tx.clManageCats}</div>
+        {categories.length===0&&<div style={{fontSize:12,color:t.muted,padding:'4px 0 8px'}}>{tx.clNoCats}</div>}
+        <div style={{display:'flex',flexDirection:'column',gap:5}}>
+          {categories.map(cat=><div key={cat} style={{display:'flex',alignItems:'center',gap:8}}>
+            {clRenamingCat===cat
+              ?<input autoFocus value={clRenameVal} onChange={e=>setClRenameVal(e.target.value)}
+                  onKeyDown={e=>{if(e.key==='Enter'){clRenameCategory(cat,clRenameVal);setClRenamingCat(null);}if(e.key==='Escape')setClRenamingCat(null);}}
+                  onBlur={()=>{clRenameCategory(cat,clRenameVal);setClRenamingCat(null);}}
+                  style={{...inp,flex:1,padding:'4px 8px',fontSize:12}}/>
+              :<span style={{flex:1,fontSize:13}}>{cat} <span style={{fontSize:10,color:t.muted}}>({checklistItems.filter(x=>x.category===cat).length})</span></span>}
+            <button onClick={()=>{setClRenamingCat(cat);setClRenameVal(cat);}} style={{...btnG,padding:'3px 9px',fontSize:11}} title={lang==='nl'?'Hernoemen':'Rename'}>✎</button>
+            <button onClick={()=>{if(confirm(lang==='nl'?`Categorie "${cat}" verwijderen?`:`Delete category "${cat}"?`))clDeleteCategory(cat);}} style={{...btnG,padding:'3px 9px',fontSize:11,color:t.red}} title={lang==='nl'?'Verwijderen':'Delete'}>✕</button>
+          </div>)}
+        </div>
+        <div style={{display:'flex',gap:6,marginTop:categories.length>0?12:0}}>
+          <input value={clNewCatInput} onChange={e=>setClNewCatInput(e.target.value)} placeholder={tx.clNewCat}
+            onKeyDown={e=>{if(e.key==='Enter'&&clNewCatInput.trim()){setClCategory(clNewCatInput.trim());setClNewCatInput('');setClManageCats(false);}}}
+            style={{...inp,flex:1,padding:'6px 10px',fontSize:12}}/>
+          <button onClick={()=>{if(clNewCatInput.trim()){setClCategory(clNewCatInput.trim());setClNewCatInput('');setClManageCats(false);}}} style={{...btnP,padding:'6px 12px',fontSize:11}}>{tx.clAddCat}</button>
+        </div>
       </div>}
 
       {/* Open items */}
@@ -3403,7 +3520,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             {view==='pipeline'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'kanban',l:tx.kanbanView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'},{id:'funnel',l:tx.funnelView,ic:'▽'}].map(v=><button key={v.id} onClick={()=>setPipeView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:pipeView===v.id?600:400,border:'none',background:pipeView===v.id?t.accent:'transparent',color:pipeView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<><button onClick={()=>setModal({type:'import'})} style={{...btnG,padding:'6px 10px',fontSize:11}}>📥</button><button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button></>}</>}
             {view==='contacts'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setContactsView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:contactsView===v.id?600:400,border:'none',background:contactsView===v.id?t.accent:'transparent',color:contactsView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'contact'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addContact2}</button>}</>}
             {view==='companies'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setCompaniesView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:companiesView===v.id?600:400,border:'none',background:companiesView===v.id?t.accent:'transparent',color:companiesView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'company'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addCompany}</button>}</>}
-            {view==='tasks'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'},{id:'kanban',l:lang==='nl'?'Bord':'Board',ic:'⬛'}].map(v=><button key={v.id} onClick={()=>setTasksView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:tasksView===v.id?600:400,border:'none',background:tasksView===v.id?t.accent:'transparent',color:tasksView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div><button onClick={()=>window.open('/tasks-popup','_blank','width=1400,height=900,resizable=yes')} style={{...btnG,padding:'6px 10px',fontSize:12,display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap'}} title={lang==='nl'?'Open in apart venster':'Open in separate window'}>⧉ {lang==='nl'?'Pop-out':' Pop-out'}</button>{!isMobile&&<button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addTask}</button>}</>}
+            {view==='tasks'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'},{id:'kanban',l:lang==='nl'?'Bord':'Board',ic:'⊞'}].map(v=><button key={v.id} onClick={()=>setTasksView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:tasksView===v.id?600:400,border:'none',background:tasksView===v.id?t.accent:'transparent',color:tasksView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div><button onClick={()=>window.open('/tasks-popup','_blank','width=1400,height=900,resizable=yes')} style={{...btnG,padding:'6px 10px',fontSize:12,display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap'}} title={lang==='nl'?'Open in apart venster':'Open in separate window'}>⧉ Pop-out</button>{!isMobile&&<button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addTask}</button>}</>
             {view==='dashboard'&&!isMobile&&<button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button>}
             {!isMobile&&<button onClick={runDailyScan} style={{height:32,padding:'0 10px',borderRadius:8,background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,fontFamily:'inherit',gap:3,minHeight:32,minWidth:32}} title={tx.dailyScan}>🔍</button>}
             {!isMobile&&<button onClick={()=>setAiOpen(!aiOpen)} style={{width:32,height:32,borderRadius:8,background:aiOpen?t.accentS:t.glass,backdropFilter:t.blur,border:`0.5px solid ${aiOpen?t.accent:t.border}`,color:aiOpen?t.accent:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,minHeight:32,minWidth:32}} title={tx.aiTitle}>✦</button>}
