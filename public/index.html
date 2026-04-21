@@ -887,6 +887,9 @@ const App = function(){
   const[filtCloseP,setFiltCloseP]=useState('');
   const[taskTab,setTaskTab]=useState('today');
   const[taskGroup,setTaskGroup]=useState('dueDate');
+  const[taskFiltPri,setTaskFiltPri]=useState('');
+  const[taskFiltStatus,setTaskFiltStatus]=useState('');
+  const[taskQuickAdd,setTaskQuickAdd]=useState('');
   const[contactsView,setContactsView]=useState('list');
   const[companiesView,setCompaniesView]=useState('list');
   const[tasksView,setTasksView]=useState('list');
@@ -1717,6 +1720,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     else if(taskTab==='upcoming')shown=upcoming;
     else if(taskTab==='all')shown=allOpen;
     else if(taskTab==='done')shown=done;
+    if(taskFiltPri)shown=shown.filter(tk=>(tk.priority||'medium')===taskFiltPri);
+    if(taskFiltStatus)shown=shown.filter(tk=>(tk.status||'todo')===taskFiltStatus);
 
     // ── Grouping helpers ─────────────────────────────────────────────────
     const tkGetCompany=(tk)=>{if(tk.contactId){const cn=cCompany(tk.contactId);if(cn)return cn;}if(tk.oppId){const opp=opps.find(o=>o.id===tk.oppId);if(opp?.companyId)return compName(opp.companyId);}return null;};
@@ -1911,12 +1916,24 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       <div style={{display:'flex',gap:4,marginBottom:16,background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:10,padding:3}}>
         {[{id:'today',l:`${tx.taskToday} (${overdue.length+today.length})`},{id:'upcoming',l:`${tx.taskUpcoming} (${upcoming.length})`},{id:'all',l:`${tx.all} (${allOpen.length})`},{id:'done',l:`${tx.taskDone} (${done.length})`}].map(tab=><button key={tab.id} onClick={()=>setTaskTab(tab.id)} style={{flex:1,padding:'7px 12px',borderRadius:8,fontSize:12,fontWeight:taskTab===tab.id?600:400,border:'none',background:taskTab===tab.id?t.accent:'transparent',color:taskTab===tab.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',transition:`all .15s ${sp}`}}>{tab.l}</button>)}
       </div>
-      {tasksView!=='kanban'&&<div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}}>
-        <span style={{fontSize:11,color:t.muted,fontWeight:600}}>{tx.groupBy}:</span>
-        {[{id:'dueDate',l:tx.groupDate},{id:'company',l:tx.groupCompany},{id:'opp',l:tx.groupDeal},{id:'contact',l:tx.groupContact}].map(g=><button key={g.id} onClick={()=>setTaskGroup(g.id)} style={{padding:'4px 10px',borderRadius:7,fontSize:11,fontWeight:taskGroup===g.id?700:400,border:`1px solid ${taskGroup===g.id?t.accent:'transparent'}`,background:taskGroup===g.id?t.accent+'18':'transparent',color:taskGroup===g.id?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit',transition:`all .15s ${sp}`}}>{g.l}</button>)}
+      {/* ── quick-add ── */}
+      {tasksView!=='kanban'&&taskTab!=='done'&&<form onSubmit={async e=>{e.preventDefault();const v=taskQuickAdd.trim();if(!v)return;await addTask_({title:v,dueDate:td(),priority:'medium',status:'todo',done:false,reminder:false});setTaskQuickAdd('');}} style={{marginBottom:10,display:'flex',gap:6,alignItems:'center'}}>
+        <div style={{flex:1,...inp,display:'flex',alignItems:'center',gap:8,padding:'7px 14px'}}>
+          <span style={{color:t.green,fontSize:16,fontWeight:700,lineHeight:1}}>+</span>
+          <input value={taskQuickAdd} onChange={e=>setTaskQuickAdd(e.target.value)} placeholder={lang==='nl'?'Snel taak toevoegen… (Enter om op te slaan)':'Quick add task… (Enter to save)'} style={{flex:1,background:'none',border:'none',color:t.text,fontFamily:'inherit',fontSize:13,outline:'none'}}/>
+          {taskQuickAdd.trim()&&<button type="submit" style={{padding:'2px 10px',borderRadius:7,border:'none',background:t.accent,color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit',minHeight:0,minWidth:0}}>{lang==='nl'?'Toevoegen':'Add'}</button>}
+        </div>
+      </form>}
+      {/* ── filter + group bar ── */}
+      {tasksView!=='kanban'&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10,flexWrap:'wrap'}}>
+        {PRIS.map(p=><button key={p.id} onClick={()=>setTaskFiltPri(taskFiltPri===p.id?'':p.id)} style={{padding:'3px 9px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${taskFiltPri===p.id?p.c:'transparent'}`,background:taskFiltPri===p.id?p.c+'22':'transparent',color:taskFiltPri===p.id?p.c:t.muted,cursor:'pointer',fontFamily:'inherit',transition:`all .1s ${sp}`,minHeight:0,minWidth:0}}>{p.l[lang]}</button>)}
+        <div style={{width:1,height:14,background:t.border,margin:'0 2px'}}/>
+        {TASK_STATUSES.filter(s=>s.k!=='done'&&s.k!=='cancelled').map(s=><button key={s.k} onClick={()=>setTaskFiltStatus(taskFiltStatus===s.k?'':s.k)} style={{padding:'3px 9px',borderRadius:20,fontSize:10,fontWeight:600,border:`1.5px solid ${taskFiltStatus===s.k?s.c:'transparent'}`,background:taskFiltStatus===s.k?s.c+'22':'transparent',color:taskFiltStatus===s.k?s.c:t.muted,cursor:'pointer',fontFamily:'inherit',transition:`all .1s ${sp}`,minHeight:0,minWidth:0}}>{s.ic} {s.l[lang]}</button>)}
+        {(taskFiltPri||taskFiltStatus)&&<button onClick={()=>{setTaskFiltPri('');setTaskFiltStatus('');}} style={{padding:'3px 9px',borderRadius:20,fontSize:10,border:`1px solid ${t.border}`,background:'transparent',color:t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:0,minWidth:0}}>✕ {lang==='nl'?'Wis filters':'Clear filters'}</button>}
         <div style={{flex:1}}/>
-        <span style={{fontSize:10,color:t.muted}}>{lang==='nl'?'Sleep taken naar Outlook':'Drag tasks to Outlook'} 📅</span>
-        <button onClick={()=>exportTasksIcal()} style={{...btnG,fontSize:12}}>📅 {tx.exportCalendar||'Export'}</button>
+        <span style={{fontSize:10,color:t.muted,fontWeight:600}}>{lang==='nl'?'Groepeer:':'Group:'}</span>
+        {[{id:'dueDate',l:tx.groupDate},{id:'company',l:tx.groupCompany},{id:'opp',l:tx.groupDeal},{id:'contact',l:tx.groupContact}].map(g=><button key={g.id} onClick={()=>setTaskGroup(g.id)} style={{padding:'3px 9px',borderRadius:7,fontSize:10,fontWeight:taskGroup===g.id?700:400,border:`1px solid ${taskGroup===g.id?t.accent:'transparent'}`,background:taskGroup===g.id?t.accent+'18':'transparent',color:taskGroup===g.id?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit',transition:`all .15s ${sp}`,minHeight:0,minWidth:0}}>{g.l}</button>)}
+        <button onClick={()=>exportTasksIcal()} style={{...btnG,padding:'3px 9px',fontSize:10,minHeight:0}}>📅</button>
       </div>}
       {tasksView==='kanban'?renderTasksKanban():tasksView==='table'?renderTasksTable():<>
       {taskTab!=='done'?<div style={{display:'flex',flexDirection:'column',gap:4}}>
