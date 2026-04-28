@@ -1024,7 +1024,7 @@ const App = function(){
     if(Array.isArray(body.tags))body.tags=JSON.stringify(body.tags);
     if(Array.isArray(body.atos_contact_ids))body.atos_contact_ids=JSON.stringify(body.atos_contact_ids);
     // Remove client-only / read-only fields that shouldn't be sent
-    delete body.created_at;delete body.updated_at;delete body.avatar;
+    delete body.created_at;delete body.updated_at;delete body.avatar;delete body.notes;delete body.user_id;
     const resp=await fetch('/api/'+endpoint,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(body)});
     if(!resp.ok){const e=await resp.json().catch(()=>({}));console.error('serverUpdate error',endpoint,resp.status,e);throw new Error(e.error||'Server error '+resp.status);}
     const j=await resp.json();const rec=j.company||j.contact||j.opportunity||j.task||j.member||j.interaction;
