@@ -298,6 +298,7 @@ const TX={
     ciStatus:'Acquisitie Status',ciLeadSource:'Lead Bron',ciSatisfaction:'Incumbent Tevredenheid',
     ciDecisionMaker:'Beslisser',ciChampion:'Champion / Sponsor',ciPainPoints:'Pijnpunten & Switch Redenen',
     ciContacts:'Contactpersonen',ciAddContact:'+ Contactpersoon',ciContactName:'Naam',ciContactRole:'Rol',ciContactEmail:'E-mail',ciContactPhone:'Telefoon',ciNoContacts:'Nog geen contactpersonen',ciContactNamePh:'Volledige naam',
+    ciCountries:'Landen',ciSelectCountry:'+ Land toevoegen...',
     ciCompetitors:'Concurrenten (indien bekend)',ciAddCompetitor:'+ Concurrent',ciNoCompetitors:'Geen bekende concurrenten',ciCompetitorNamePh:'bv. Datadog, New Relic, Splunk...',ciCompetitorStrengths:'Sterktes',ciCompetitorWeaknesses:'Zwaktes',ciCompetitorNotes:'Aanpak / notities',
     ciNoAccounts:'Geen accounts — voeg het eerste toe',ciAdded:'Account toegevoegd',ciUpdated:'Account bijgewerkt',
     ciDeleted:'Account verwijderd',ciFillName:'Vul een bedrijfsnaam in',ciDeleteConfirm:'Account verwijderen?',
@@ -473,6 +474,7 @@ const TX={
     ciStatus:'Acquisition Status',ciLeadSource:'Lead Source',ciSatisfaction:'Incumbent Satisfaction',
     ciDecisionMaker:'Decision Maker',ciChampion:'Champion / Sponsor',ciPainPoints:'Pain Points & Switch Drivers',
     ciContacts:'Contacts',ciAddContact:'+ Contact',ciContactName:'Name',ciContactRole:'Role',ciContactEmail:'Email',ciContactPhone:'Phone',ciNoContacts:'No contacts yet',ciContactNamePh:'Full name',
+    ciCountries:'Countries',ciSelectCountry:'+ Add country...',
     ciCompetitors:'Competitors (if known)',ciAddCompetitor:'+ Competitor',ciNoCompetitors:'No known competitors',ciCompetitorNamePh:'e.g. Datadog, New Relic, Splunk...',ciCompetitorStrengths:'Strengths',ciCompetitorWeaknesses:'Weaknesses',ciCompetitorNotes:'Approach / notes',
     ciNoAccounts:'No accounts yet — add the first one',ciAdded:'Account added',ciUpdated:'Account updated',
     ciDeleted:'Account deleted',ciFillName:'Enter a company name',ciDeleteConfirm:'Delete account?',
@@ -500,6 +502,15 @@ const COMP_DT_PRODUCTS=['APM & Distributed Tracing','Infrastructure Monitoring',
 const COMP_ES_PRODUCTS=['Observability (Logs/Metrics/Traces)','Security / SIEM','Enterprise Search','Vector Search / RAG','Elastic Cloud','Maps & Geo'];
 const COMP_LEAD_SOURCES_I18N={nl:['Partner referral','Event/Webinar','LinkedIn','Cold outreach','Bestaande klant','Aanbesteding','Analist (Gartner/Forrester)','Overig'],en:['Partner referral','Event/Webinar','LinkedIn','Cold outreach','Existing customer','Public tender','Analyst (Gartner/Forrester)','Other']};
 const COMP_CONTACT_ROLES_I18N={nl:['Beslisser','Champion / Sponsor','Technisch','Inkoop','Gebruiker','Management','Overig'],en:['Decision Maker','Champion / Sponsor','Technical','Procurement','User','Management','Other']};
+const COMP_COUNTRIES=[
+  {c:'🇳🇱',n:'Nederland'},{c:'🇧🇪',n:'België'},{c:'🇩🇪',n:'Duitsland'},{c:'🇫🇷',n:'Frankrijk'},
+  {c:'🇬🇧',n:'Verenigd Koninkrijk'},{c:'🇮🇪',n:'Ierland'},{c:'🇱🇺',n:'Luxemburg'},{c:'🇨🇭',n:'Zwitserland'},
+  {c:'🇦🇹',n:'Oostenrijk'},{c:'🇪🇸',n:'Spanje'},{c:'🇵🇹',n:'Portugal'},{c:'🇮🇹',n:'Italië'},
+  {c:'🇸🇪',n:'Zweden'},{c:'🇩🇰',n:'Denemarken'},{c:'🇳🇴',n:'Noorwegen'},{c:'🇫🇮',n:'Finland'},
+  {c:'🇵🇱',n:'Polen'},{c:'🇨🇿',n:'Tsjechië'},{c:'🇷🇴',n:'Roemenië'},{c:'🇭🇺',n:'Hongarije'},
+  {c:'🇸🇬',n:'Singapore'},{c:'🇦🇪',n:'VAE'},{c:'🇺🇸',n:'Verenigde Staten'},{c:'🇨🇦',n:'Canada'},
+  {c:'🇦🇺',n:'Australië'},{c:'🇯🇵',n:'Japan'},{c:'🇮🇳',n:'India'},{c:'🇿🇦',n:'Zuid-Afrika'},{c:'🇧🇷',n:'Brazilië'},
+];
 const fmtARR=(v)=>{if(!v)return'';const n=Number(v);if(n>=1000000)return'€'+(n/1000000).toFixed(1)+'M';if(n>=1000)return'€'+(n/1000).toFixed(0)+'K';return'€'+n;};
 const renewalDays=(d)=>{if(!d)return null;return Math.floor((new Date(d)-new Date())/(1000*60*60*24));};
 const renewalColor=(days,t)=>{if(days===null)return t.muted;if(days<0)return t.muted;if(days<=30)return t.red;if(days<=90)return t.orange;return t.green;};
@@ -815,7 +826,7 @@ const App = function(){
         const tk=camelArr(tks.tasks||tks.data||[]).map(t=>({...t,dueDate:t.dueDate?t.dueDate.slice(0,10):t.dueDate}));
         const at=camelArr(ats.team||ats.data||[]);
         const it=camelArr(ints.interactions||ints.data||[]).map(i=>({...i,at:i.at||i.createdAt}));
-        const ci=camelArr(ciRes.accounts||[]).map(a=>({...a,productsUsed:parseArr(a.productsUsed),contacts:parseArr(a.contacts),competitors:parseArr(a.competitors),renewalDate:a.renewalDate?String(a.renewalDate).slice(0,10):null}));
+        const ci=camelArr(ciRes.accounts||[]).map(a=>({...a,productsUsed:parseArr(a.productsUsed),contacts:parseArr(a.contacts),competitors:parseArr(a.competitors),countries:parseArr(a.countries),renewalDate:a.renewalDate?String(a.renewalDate).slice(0,10):null}));
         // Server is the single source of truth — always use server data
         setCompanies(cc); setContacts(ct); setOpps(op); setTasks(tk); setAtosTeam(at); setInteractions(it);
         setCompAccts(ci);
@@ -1083,16 +1094,16 @@ const App = function(){
   const deleteInteraction_=async(id)=>{const n=Number(id);try{await serverDelete('interactions',id);setInteractions(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteInteraction',e);return false;}};
   const addCompAcct_=async(a)=>{try{
     if(!authUser?.token)return null;
-    const body={company_name:a.companyName,website:a.website||'',size:a.size||'',industry_vertical:a.industryVertical||'',vendor:a.vendor||'dynatrace',products_used:JSON.stringify(a.productsUsed||[]),estimated_arr:a.estimatedArr||0,renewal_date:a.renewalDate||null,acquisition_status:a.acquisitionStatus||'prospect',lead_source:a.leadSource||'',incumbent_satisfaction:a.incumbentSatisfaction||'medium',decision_maker:a.decisionMaker||'',champion:a.champion||'',contacts:JSON.stringify(a.contacts||[]),competitors:JSON.stringify(a.competitors||[]),pain_points:a.painPoints||'',notes:a.notes||''};
+    const body={company_name:a.companyName,website:a.website||'',size:a.size||'',industry_vertical:a.industryVertical||'',vendor:a.vendor||'dynatrace',products_used:JSON.stringify(a.productsUsed||[]),estimated_arr:a.estimatedArr||0,renewal_date:a.renewalDate||null,acquisition_status:a.acquisitionStatus||'prospect',lead_source:a.leadSource||'',incumbent_satisfaction:a.incumbentSatisfaction||'medium',decision_maker:a.decisionMaker||'',champion:a.champion||'',contacts:JSON.stringify(a.contacts||[]),competitors:JSON.stringify(a.competitors||[]),countries:JSON.stringify(a.countries||[]),pain_points:a.painPoints||'',notes:a.notes||''};
     const resp=await fetch('/api/competitive',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(body)});
     if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'Server error '+resp.status);}
     const j=await resp.json();const s=j.account;if(!s)return null;
-    const saved={...camelObj(s),productsUsed:parseArr(s.products_used),contacts:parseArr(s.contacts),competitors:parseArr(s.competitors),renewalDate:s.renewal_date?String(s.renewal_date).slice(0,10):null};
+    const saved={...camelObj(s),productsUsed:parseArr(s.products_used),contacts:parseArr(s.contacts),competitors:parseArr(s.competitors),countries:parseArr(s.countries),renewalDate:s.renewal_date?String(s.renewal_date).slice(0,10):null};
     setCompAccts(p=>[...p,saved]);return saved;
   }catch(e){showErr('addCompAcct',e);return null;}};
   const updateCompAcct_=async(id,fields)=>{const prev=compAccts.find(x=>x.id===id);setCompAccts(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{
     if(!authUser?.token)return;
-    const body={id,company_name:fields.companyName,website:fields.website,size:fields.size,industry_vertical:fields.industryVertical,vendor:fields.vendor,products_used:JSON.stringify(fields.productsUsed||[]),estimated_arr:fields.estimatedArr||0,renewal_date:fields.renewalDate||null,acquisition_status:fields.acquisitionStatus,lead_source:fields.leadSource,incumbent_satisfaction:fields.incumbentSatisfaction,decision_maker:fields.decisionMaker,champion:fields.champion,contacts:JSON.stringify(fields.contacts||[]),competitors:JSON.stringify(fields.competitors||[]),pain_points:fields.painPoints,notes:fields.notes};
+    const body={id,company_name:fields.companyName,website:fields.website,size:fields.size,industry_vertical:fields.industryVertical,vendor:fields.vendor,products_used:JSON.stringify(fields.productsUsed||[]),estimated_arr:fields.estimatedArr||0,renewal_date:fields.renewalDate||null,acquisition_status:fields.acquisitionStatus,lead_source:fields.leadSource,incumbent_satisfaction:fields.incumbentSatisfaction,decision_maker:fields.decisionMaker,champion:fields.champion,contacts:JSON.stringify(fields.contacts||[]),competitors:JSON.stringify(fields.competitors||[]),countries:JSON.stringify(fields.countries||[]),pain_points:fields.painPoints,notes:fields.notes};
     const resp=await fetch('/api/competitive',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(body)});
     if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'Server error '+resp.status);}
   }catch(e){if(prev)setCompAccts(p=>p.map(x=>x.id===id?prev:x));showErr('updateCompAcct',e);}};
@@ -3110,6 +3121,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
               {a.renewalDate&&<span style={{fontSize:11,color:rc,fontWeight:days!==null&&days<=90?700:400}}>🔄 {fd(a.renewalDate)}{days!==null&&days>=0&&days<=90?` (${days}d)`:days<0?' (verlopen)':''}</span>}
               {(a.contacts||[]).length>0&&<span style={{fontSize:11,color:t.dim}}>👥 {a.contacts.length} {a.contacts.length===1?tx.contactPerson.toLowerCase():tx.contactsCount}</span>}
               {(a.competitors||[]).length>0&&<span style={{fontSize:11,color:t.dim}}>🏁 {a.competitors.length}</span>}
+              {(a.countries||[]).length>0&&<span style={{fontSize:13,letterSpacing:1}}>{(a.countries||[]).map(n=>{const co=COMP_COUNTRIES.find(x=>x.n===n);return co?co.c:n;}).join(' ')}</span>}
               {a.decisionMaker&&(a.contacts||[]).length===0&&<span style={{fontSize:11,color:t.dim}}>👤 {a.decisionMaker}</span>}
               <span title={a.incumbentSatisfaction} style={{width:8,height:8,borderRadius:'50%',background:satisfDot,display:'inline-block',flexShrink:0}}/>
             </div>
@@ -3217,6 +3229,17 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           </div>
           {/* Industry */}
           <div style={{marginBottom:12}}><label style={lbl}>{tx.ciIndustry}</label><select style={{...inp,cursor:'pointer'}} value={f.industryVertical||''} onChange={e=>sf({...f,industryVertical:e.target.value})}><option value="">— {lang==='nl'?'Selecteer branche':'Select industry'} —</option>{COMP_INDUSTRIES.map(ind=><option key={ind} value={ind}>{ind}</option>)}</select></div>
+          {/* Countries */}
+          <div style={{marginBottom:12}}>
+            <label style={lbl}>{tx.ciCountries}</label>
+            <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:6}}>
+              {(f.countries||[]).map(name=>{const co=COMP_COUNTRIES.find(x=>x.n===name);return <span key={name} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:20,background:dark?'rgba(118,118,128,0.15)':'rgba(118,118,128,0.1)',fontSize:12,fontWeight:500,color:t.text}}>{co?co.c:''} {name}<span onClick={()=>sf({...f,countries:(f.countries||[]).filter(x=>x!==name)})} style={{cursor:'pointer',color:t.muted,fontSize:11,marginLeft:2,opacity:.7}}>✕</span></span>;})}
+            </div>
+            <select style={{...inp,cursor:'pointer',fontSize:13}} value="" onChange={e=>{const v=e.target.value;if(v&&!(f.countries||[]).includes(v))sf({...f,countries:[...(f.countries||[]),v]});}}>
+              <option value="">{tx.ciSelectCountry}</option>
+              {COMP_COUNTRIES.filter(x=>!(f.countries||[]).includes(x.n)).map(x=><option key={x.n} value={x.n}>{x.c} {x.n}</option>)}
+            </select>
+          </div>
           {/* Vendor */}
           <div style={{marginBottom:12}}><label style={lbl}>{tx.ciVendor}</label><div style={{display:'flex',gap:6}}>{COMP_VENDORS.map(v=><button key={v.id} type="button" onClick={()=>sf({...f,vendor:v.id,productsUsed:[]})} style={{flex:1,padding:'8px 6px',borderRadius:10,fontSize:12,fontWeight:700,border:`2px solid ${f.vendor===v.id?v.c:'transparent'}`,background:f.vendor===v.id?v.c+'22':'transparent',color:f.vendor===v.id?v.c:t.dim,cursor:'pointer',fontFamily:'inherit',transition:'all .15s'}}>{v.ic} {v.l[lang]||v.l.nl}</button>)}</div></div>
           {/* Products */}
@@ -3275,7 +3298,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {d?.id&&<button onClick={async()=>{if(confirm(tx.ciDeleteConfirm+'\n'+d.companyName)){const ok=await deleteCompAcct_(d.id);if(ok){toast(tx.ciDeleted,'info');setModal(null);}}}} style={{...btnG,color:t.red,borderColor:t.red+'44'}}>{tx.delete}</button>}
           <button onClick={async()=>{
             if(!f.companyName?.trim()){toast(tx.ciFillName,'info');return;}
-            const data={companyName:f.companyName.trim(),website:f.website||'',size:f.size||'',industryVertical:f.industryVertical||'',vendor:f.vendor||'dynatrace',productsUsed:f.productsUsed||[],estimatedArr:f.estimatedArr||0,renewalDate:f.renewalDate||null,acquisitionStatus:f.acquisitionStatus||'prospect',leadSource:f.leadSource||'',incumbentSatisfaction:f.incumbentSatisfaction||'medium',decisionMaker:f.decisionMaker||'',champion:f.champion||'',contacts:(f.contacts||[]).filter(c=>c.name&&c.name.trim()),competitors:(f.competitors||[]).filter(c=>c.name&&c.name.trim()),painPoints:f.painPoints||'',notes:f.notes||''};
+            const data={companyName:f.companyName.trim(),website:f.website||'',size:f.size||'',industryVertical:f.industryVertical||'',vendor:f.vendor||'dynatrace',productsUsed:f.productsUsed||[],estimatedArr:f.estimatedArr||0,renewalDate:f.renewalDate||null,acquisitionStatus:f.acquisitionStatus||'prospect',leadSource:f.leadSource||'',incumbentSatisfaction:f.incumbentSatisfaction||'medium',decisionMaker:f.decisionMaker||'',champion:f.champion||'',contacts:(f.contacts||[]).filter(c=>c.name&&c.name.trim()),competitors:(f.competitors||[]).filter(c=>c.name&&c.name.trim()),countries:f.countries||[],painPoints:f.painPoints||'',notes:f.notes||''};
             if(d?.id){await updateCompAcct_(d.id,data);toast(tx.ciUpdated);setModal(null);}
             else{const saved=await addCompAcct_(data);if(saved){toast(tx.ciAdded);setModal(null);}}
           }} style={btnP}>{d?.id?tx.save:tx.add}</button>
