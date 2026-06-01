@@ -3105,95 +3105,84 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     const vendorC=(id)=>COMP_VENDORS.find(v=>v.id===id)||COMP_VENDORS[0];
     const statusC=(id)=>COMP_STATUSES.find(s=>s.id===id)||COMP_STATUSES[0];
     const satisfC=(s)=>s==='low'?t.red:s==='high'?t.green:t.orange;
-    const CompCard=({a})=>{
+    const CompRow=({a})=>{
       const vendor=vendorC(a.vendor);const status=statusC(a.acquisitionStatus);
       const days=renewalDays(a.renewalDate);const rc=renewalColor(days,t);
       const satisfDot=satisfC(a.incumbentSatisfaction);
-      return <div style={{...card,padding:'14px 16px',marginBottom:8,cursor:'pointer',transition:'box-shadow .15s'}} onClick={()=>setModal({type:'competitive',data:a})}>
-        <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4,flexWrap:'wrap'}}>
-              <span style={{fontSize:14,fontWeight:700,color:t.text}}>{a.companyName}</span>
-              <span style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:vendor.c+'22',color:vendor.c,fontWeight:700,border:`1px solid ${vendor.c}44`}}>{vendor.ic} {vendor.l[lang]||vendor.l.nl}</span>
-              <span style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:status.c+'22',color:status.c,fontWeight:600}}>{status.l[lang]||status.l.nl}</span>
-            </div>
-            <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
-              {a.industryVertical&&<span style={{fontSize:11,color:t.dim}}>🏭 {a.industryVertical}</span>}
-              {a.estimatedArr>0&&<span style={{fontSize:11,color:t.green,fontWeight:600}}>💰 {fmtARR(a.estimatedArr)}</span>}
-              {a.renewalDate&&<span style={{fontSize:11,color:rc,fontWeight:days!==null&&days<=90?700:400}}>🔄 {fd(a.renewalDate)}{days!==null&&days>=0&&days<=90?` (${days}d)`:days<0?' (verlopen)':''}</span>}
-              {(a.contacts||[]).length>0&&<span style={{fontSize:11,color:t.dim}}>👥 {a.contacts.length} {a.contacts.length===1?tx.contactPerson.toLowerCase():tx.contactsCount}</span>}
-              {(a.competitors||[]).length>0&&<span style={{fontSize:11,color:t.dim}}>🏁 {a.competitors.length}</span>}
-              {(a.countries||[]).length>0&&<span style={{fontSize:13,letterSpacing:1}}>{(a.countries||[]).map(n=>{const co=COMP_COUNTRIES.find(x=>x.n===n);return co?co.c:n;}).join(' ')}</span>}
-              {a.decisionMaker&&(a.contacts||[]).length===0&&<span style={{fontSize:11,color:t.dim}}>👤 {a.decisionMaker}</span>}
-              <span title={a.incumbentSatisfaction} style={{width:8,height:8,borderRadius:'50%',background:satisfDot,display:'inline-block',flexShrink:0}}/>
-            </div>
-            {a.painPoints&&<div style={{fontSize:11,color:t.dim,marginTop:5,lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{a.painPoints}</div>}
-          </div>
-          <div style={{display:'flex',gap:4,flexShrink:0}}>
-            <button onClick={e=>{e.stopPropagation();if(confirm(tx.ciDeleteConfirm+'\n'+a.companyName))deleteCompAcct_(a.id).then(ok=>{if(ok)toast(tx.ciDeleted,'info');});}} style={{width:28,height:28,borderRadius:6,border:'none',background:'transparent',color:t.muted,cursor:'pointer',fontSize:13,display:'flex',alignItems:'center',justifyContent:'center',minHeight:0,minWidth:0}}>✕</button>
-          </div>
-        </div>
+      const flags=(a.countries||[]).map(n=>{const co=COMP_COUNTRIES.find(x=>x.n===n);return co?co.c:n;}).join('');
+      return <div style={{display:'flex',alignItems:'center',gap:7,padding:'6px 10px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.02)',marginBottom:2,cursor:'pointer',border:`1px solid ${t.border}`,fontSize:12,minWidth:0}} onClick={()=>setModal({type:'competitive',data:a})}>
+        <span style={{fontSize:10,padding:'2px 5px',borderRadius:4,background:vendor.c+'22',color:vendor.c,fontWeight:800,flexShrink:0}}>{vendor.ic}</span>
+        <span style={{fontWeight:600,color:t.text,flex:'1 1 130px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0,maxWidth:200}}>{a.companyName}</span>
+        <span style={{fontSize:10,padding:'1px 6px',borderRadius:4,background:status.c+'22',color:status.c,fontWeight:600,flexShrink:0,whiteSpace:'nowrap'}}>{status.l[lang]||status.l.nl}</span>
+        <span style={{fontSize:11,color:t.dim,flex:'1 1 100px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0,maxWidth:160}}>{a.industryVertical||''}</span>
+        {a.estimatedArr>0&&<span style={{fontSize:11,color:t.green,fontWeight:700,flexShrink:0,whiteSpace:'nowrap'}}>{fmtARR(a.estimatedArr)}</span>}
+        {a.renewalDate&&<span style={{fontSize:10,color:rc,fontWeight:days!==null&&days<=90?700:400,flexShrink:0,whiteSpace:'nowrap'}}>🔄 {fd(a.renewalDate)}{days!==null&&days>=0&&days<=30?` (${days}d)`:''}</span>}
+        {flags&&<span style={{fontSize:11,letterSpacing:1,flexShrink:0}}>{flags}</span>}
+        {(a.contacts||[]).length>0&&<span style={{fontSize:10,color:t.dim,flexShrink:0}}>👥{a.contacts.length}</span>}
+        {(a.competitors||[]).length>0&&<span style={{fontSize:10,color:t.dim,flexShrink:0}}>🏁{a.competitors.length}</span>}
+        {(a.productsUsed||[]).length>0&&<span style={{fontSize:10,color:t.muted,flexShrink:0,whiteSpace:'nowrap',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis'}}>{(a.productsUsed||[]).join(', ')}</span>}
+        <span title={a.incumbentSatisfaction} style={{width:7,height:7,borderRadius:'50%',background:satisfDot,display:'inline-block',flexShrink:0,marginLeft:'auto'}}/>
+        <button onClick={e=>{e.stopPropagation();if(confirm(tx.ciDeleteConfirm+'\n'+a.companyName))deleteCompAcct_(a.id).then(ok=>{if(ok)toast(tx.ciDeleted,'info');});}} style={{width:20,height:20,borderRadius:4,border:'none',background:'transparent',color:t.muted,cursor:'pointer',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',minHeight:0,minWidth:0,flexShrink:0}}>✕</button>
       </div>;
     };
+    const emptyState=()=><div style={{textAlign:'center',padding:'60px 20px',color:t.dim}}><div style={{fontSize:40,marginBottom:12}}>🎯</div><div style={{fontSize:15,fontWeight:600,marginBottom:6}}>{compAccts.length===0?tx.ciNoAccounts:tx.ciNoResults}</div><button onClick={()=>setModal({type:'competitive'})} style={{...btnP,marginTop:12,padding:'8px 20px',fontSize:13}}>+ {tx.ciNew}</button></div>;
     const groupView=()=>{
       const byInd={};
       filtered.forEach(a=>{const k=a.industryVertical||(lang==='nl'?'Overig':'Other');if(!byInd[k])byInd[k]=[];byInd[k].push(a);});
       const sorted=Object.entries(byInd).sort((a,b)=>b[1].length-a[1].length);
-      if(sorted.length===0)return <div style={{textAlign:'center',padding:'60px 20px',color:t.dim}}><div style={{fontSize:40,marginBottom:12}}>🎯</div><div style={{fontSize:15,fontWeight:600,marginBottom:6}}>{compAccts.length===0?tx.ciNoAccounts:tx.ciNoResults}</div><button onClick={()=>setModal({type:'competitive'})} style={{...btnP,marginTop:12,padding:'8px 20px',fontSize:13}}>+ {tx.ciNew}</button></div>;
-      return sorted.map(([ind,accts])=><div key={ind} style={{marginBottom:16}}>
-        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-          <span style={{fontSize:13,fontWeight:700,color:t.text}}>{ind}</span>
-          <span style={{fontSize:10,padding:'1px 7px',borderRadius:10,background:t.accentS,color:t.accent,fontWeight:700}}>{accts.length}</span>
+      if(sorted.length===0)return emptyState();
+      return sorted.map(([ind,accts])=><div key={ind} style={{marginBottom:14}}>
+        <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:5,paddingBottom:4,borderBottom:`1px solid ${t.border}`}}>
+          <span style={{fontSize:12,fontWeight:700,color:t.text}}>{ind}</span>
+          <span style={{fontSize:10,padding:'1px 6px',borderRadius:8,background:t.accentS,color:t.accent,fontWeight:700}}>{accts.length}</span>
           <span style={{fontSize:10,color:t.muted}}>ARR: {fmtARR(accts.reduce((s,a)=>s+(a.estimatedArr||0),0))}</span>
         </div>
-        {accts.map(a=><CompCard key={a.id} a={a}/>)}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(min(100%,520px),1fr))',gap:2}}>
+          {accts.map(a=><CompRow key={a.id} a={a}/>)}
+        </div>
       </div>);
     };
     const listView=()=>{
-      if(filtered.length===0)return <div style={{textAlign:'center',padding:'60px 20px',color:t.dim}}><div style={{fontSize:40,marginBottom:12}}>🎯</div><div style={{fontSize:15,fontWeight:600,marginBottom:6}}>{compAccts.length===0?tx.ciNoAccounts:tx.ciNoResults}</div><button onClick={()=>setModal({type:'competitive'})} style={{...btnP,marginTop:12,padding:'8px 20px',fontSize:13}}>+ {tx.ciNew}</button></div>;
-      return filtered.map(a=><CompCard key={a.id} a={a}/>);
+      if(filtered.length===0)return emptyState();
+      return <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(min(100%,520px),1fr))',gap:2}}>
+        {filtered.map(a=><CompRow key={a.id} a={a}/>)}
+      </div>;
     };
     return <div>
-      {/* Summary stats */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:10,marginBottom:16}}>
+      {/* Compact stats row */}
+      <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12,alignItems:'center'}}>
         {[
           {l:tx.ciTotalAccounts,v:compAccts.length,ic:'🎯',c:t.accent},
           {l:'Dynatrace',v:dtCount,ic:'🔷',c:'#1a6dc9'},
           {l:'Elastic',v:esCount,ic:'🟡',c:'#e8a000'},
-          {l:lang==='nl'?'Beide':'Both',v:bothCount,ic:'💜',c:t.purple},
-          {l:tx.ciRenewingSoon,v:renewingSoon,ic:'⚡',c:renewingSoon>0?t.red:t.green},
-          {l:'Total Est. ARR',v:fmtARR(totalARR)||'—',ic:'💰',c:t.green},
-        ].map((s,i)=><div key={i} style={{...card,padding:'14px 16px',textAlign:'center'}}>
-          <div style={{fontSize:22,marginBottom:4}}>{s.ic}</div>
-          <div style={{fontSize:s.v&&String(s.v).length>4?18:22,fontWeight:800,color:s.c}}>{s.v}</div>
-          <div style={{fontSize:10,color:t.muted,marginTop:2,fontWeight:500}}>{s.l}</div>
+          {l:lang==='nl'?'Beide':'Both',v:bothCount,ic:'💜',c:'#BF5AF2'},
+          {l:tx.ciRenewingSoon,v:renewingSoon,ic:'⚡',c:renewingSoon>0?t.red:t.muted},
+          {l:'Est. ARR',v:fmtARR(totalARR)||'—',ic:'💰',c:t.green},
+        ].map((s,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:8,background:t.elev,border:`1px solid ${t.border}`}}>
+          <span style={{fontSize:13}}>{s.ic}</span>
+          <span style={{fontSize:13,fontWeight:800,color:s.c}}>{s.v}</span>
+          <span style={{fontSize:10,color:t.muted}}>{s.l}</span>
         </div>)}
+        {renewingSoon>0&&<div style={{display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:8,background:t.redS,border:`1px solid ${t.red}44`,fontSize:11,color:t.red,fontWeight:600}}>⚡ {renewingSoon} {lang==='nl'?'verlopen binnenkort':'renewing soon'}</div>}
       </div>
-      {/* Renewal urgency strip */}
-      {renewingSoon>0&&<div style={{padding:'10px 16px',borderRadius:12,background:t.redS,border:`1px solid ${t.red}44`,marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
-        <span style={{fontSize:18}}>⚡</span>
-        <div style={{flex:1}}>
-          <div style={{fontSize:13,fontWeight:700,color:t.red}}>{renewingSoon} {lang==='nl'?'account(s) verlengd binnen 90 dagen':'account(s) renewing within 90 days'}</div>
-          <div style={{fontSize:11,color:t.dim,marginTop:2}}>{lang==='nl'?'Dit zijn prime acquisition windows — neem nu actie.':'These are prime acquisition windows — act now.'}</div>
-        </div>
-      </div>}
       {/* Filter bar */}
-      <div style={{...card,padding:'12px 16px',marginBottom:16,display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-        <input value={compCiSearch} onChange={e=>setCompCiSearch(e.target.value)} placeholder={tx.search} style={{...inp,flex:'1 1 160px',padding:'7px 12px',fontSize:13}}/>
-        <select value={compCiVendor} onChange={e=>setCompCiVendor(e.target.value)} style={{...inp,flex:'1 1 120px',padding:'7px 10px',fontSize:12,cursor:'pointer'}}>
+      <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center',marginBottom:12}}>
+        <input value={compCiSearch} onChange={e=>setCompCiSearch(e.target.value)} placeholder={tx.search} style={{...inp,flex:'1 1 140px',padding:'6px 10px',fontSize:12}}/>
+        <select value={compCiVendor} onChange={e=>setCompCiVendor(e.target.value)} style={{...inp,flex:'0 0 auto',padding:'6px 8px',fontSize:12,cursor:'pointer'}}>
           <option value="">{tx.ciAllVendors}</option>
           {COMP_VENDORS.map(v=><option key={v.id} value={v.id}>{v.l[lang]||v.l.nl}</option>)}
         </select>
-        <select value={compCiIndustry} onChange={e=>setCompCiIndustry(e.target.value)} style={{...inp,flex:'1 1 140px',padding:'7px 10px',fontSize:12,cursor:'pointer'}}>
+        <select value={compCiIndustry} onChange={e=>setCompCiIndustry(e.target.value)} style={{...inp,flex:'1 1 120px',padding:'6px 8px',fontSize:12,cursor:'pointer'}}>
           <option value="">{tx.ciAllIndustries}</option>
           {COMP_INDUSTRIES.map(ind=><option key={ind} value={ind}>{ind}</option>)}
         </select>
-        <select value={compCiStatus} onChange={e=>setCompCiStatus(e.target.value)} style={{...inp,flex:'1 1 130px',padding:'7px 10px',fontSize:12,cursor:'pointer'}}>
+        <select value={compCiStatus} onChange={e=>setCompCiStatus(e.target.value)} style={{...inp,flex:'0 0 auto',padding:'6px 8px',fontSize:12,cursor:'pointer'}}>
           <option value="">{tx.ciAllStatuses}</option>
           {COMP_STATUSES.map(s=><option key={s.id} value={s.id}>{s.l[lang]||s.l.nl}</option>)}
         </select>
-        {(compCiSearch||compCiVendor||compCiIndustry||compCiStatus)&&<button onClick={()=>{setCompCiSearch('');setCompCiVendor('');setCompCiIndustry('');setCompCiStatus('');}} style={{...btnG,padding:'6px 10px',fontSize:11,whiteSpace:'nowrap'}}>{tx.clearFilters}</button>}
-        {!isMobile&&<button onClick={()=>setModal({type:'competitive'})} style={{...btnP,padding:'6px 14px',fontSize:12,whiteSpace:'nowrap'}}>+ {tx.ciNew}</button>}
+        {(compCiSearch||compCiVendor||compCiIndustry||compCiStatus)&&<button onClick={()=>{setCompCiSearch('');setCompCiVendor('');setCompCiIndustry('');setCompCiStatus('');}} style={{...btnG,padding:'5px 9px',fontSize:11,whiteSpace:'nowrap'}}>{tx.clearFilters}</button>}
+        {isMobile&&<button onClick={()=>setModal({type:'competitive'})} style={{...btnP,padding:'6px 12px',fontSize:12,whiteSpace:'nowrap'}}>+ {tx.ciNew}</button>}
+        {filtered.length>0&&<span style={{fontSize:11,color:t.muted,marginLeft:'auto'}}>{filtered.length} / {compAccts.length}</span>}
       </div>
       {/* Account list */}
       {compCiView==='group'?groupView():listView()}
