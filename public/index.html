@@ -298,6 +298,7 @@ const TX={
     ciVendor:'Vendor',ciProducts:'Producten / Modules',ciARR:'Geschat ARR (€/jaar)',ciRenewal:'Verlengingsdatum',
     ciStatus:'Acquisitie Status',ciLeadSource:'Lead Bron',ciSatisfaction:'Incumbent Tevredenheid',
     ciDecisionMaker:'Beslisser',ciChampion:'Champion / Sponsor',ciPainPoints:'Pijnpunten & Switch Redenen',
+    ciContacts:'Contactpersonen',ciAddContact:'+ Contactpersoon',ciContactName:'Naam',ciContactRole:'Rol',ciContactEmail:'E-mail',ciContactPhone:'Telefoon',ciNoContacts:'Nog geen contactpersonen',ciContactNamePh:'Volledige naam',
     ciNoAccounts:'Geen accounts — voeg het eerste toe',ciAdded:'Account toegevoegd',ciUpdated:'Account bijgewerkt',
     ciDeleted:'Account verwijderd',ciFillName:'Vul een bedrijfsnaam in',ciDeleteConfirm:'Account verwijderen?',
     ciRenewingSoon:'Verlenging < 90 dagen',ciTotalAccounts:'Totaal Accounts',ciGroupByIndustry:'Per Branche',
@@ -472,6 +473,7 @@ const TX={
     ciVendor:'Vendor',ciProducts:'Products / Modules',ciARR:'Estimated ARR (€/yr)',ciRenewal:'Renewal Date',
     ciStatus:'Acquisition Status',ciLeadSource:'Lead Source',ciSatisfaction:'Incumbent Satisfaction',
     ciDecisionMaker:'Decision Maker',ciChampion:'Champion / Sponsor',ciPainPoints:'Pain Points & Switch Drivers',
+    ciContacts:'Contacts',ciAddContact:'+ Contact',ciContactName:'Name',ciContactRole:'Role',ciContactEmail:'Email',ciContactPhone:'Phone',ciNoContacts:'No contacts yet',ciContactNamePh:'Full name',
     ciNoAccounts:'No accounts yet — add the first one',ciAdded:'Account added',ciUpdated:'Account updated',
     ciDeleted:'Account deleted',ciFillName:'Enter a company name',ciDeleteConfirm:'Delete account?',
     ciRenewingSoon:'Renewal < 90 days',ciTotalAccounts:'Total Accounts',ciGroupByIndustry:'By Industry',
@@ -497,6 +499,7 @@ const COMP_INDUSTRIES_I18N={nl:['Banking & Finance','Verzekeringen','Healthcare'
 const COMP_DT_PRODUCTS=['APM & Distributed Tracing','Infrastructure Monitoring','Digital Experience (RUM)','Application Security','Log Management & Analytics','Business Analytics','Cloud Automation','Database Observability'];
 const COMP_ES_PRODUCTS=['Observability (Logs/Metrics/Traces)','Security / SIEM','Enterprise Search','Vector Search / RAG','Elastic Cloud','Maps & Geo'];
 const COMP_LEAD_SOURCES_I18N={nl:['Partner referral','Event/Webinar','LinkedIn','Cold outreach','Bestaande klant','Aanbesteding','Analist (Gartner/Forrester)','Overig'],en:['Partner referral','Event/Webinar','LinkedIn','Cold outreach','Existing customer','Public tender','Analyst (Gartner/Forrester)','Other']};
+const COMP_CONTACT_ROLES_I18N={nl:['Beslisser','Champion / Sponsor','Technisch','Inkoop','Gebruiker','Management','Overig'],en:['Decision Maker','Champion / Sponsor','Technical','Procurement','User','Management','Other']};
 const fmtARR=(v)=>{if(!v)return'';const n=Number(v);if(n>=1000000)return'€'+(n/1000000).toFixed(1)+'M';if(n>=1000)return'€'+(n/1000).toFixed(0)+'K';return'€'+n;};
 const renewalDays=(d)=>{if(!d)return null;return Math.floor((new Date(d)-new Date())/(1000*60*60*24));};
 const renewalColor=(days,t)=>{if(days===null)return t.muted;if(days<0)return t.muted;if(days<=30)return t.red;if(days<=90)return t.orange;return t.green;};
@@ -840,7 +843,7 @@ const App = function(){
         const at=camelArr(ats.team||ats.data||[]);
         const it=camelArr(ints.interactions||ints.data||[]).map(i=>({...i,at:i.at||i.createdAt}));
         const cl=camelArr(clRes.items||[]);
-        const ci=camelArr(ciRes.accounts||[]).map(a=>({...a,productsUsed:parseArr(a.productsUsed),renewalDate:a.renewalDate?String(a.renewalDate).slice(0,10):null}));
+        const ci=camelArr(ciRes.accounts||[]).map(a=>({...a,productsUsed:parseArr(a.productsUsed),contacts:parseArr(a.contacts),renewalDate:a.renewalDate?String(a.renewalDate).slice(0,10):null}));
         // Server is the single source of truth — always use server data
         setCompanies(cc); setContacts(ct); setOpps(op); setTasks(tk); setAtosTeam(at); setInteractions(it);
         setChecklistItems(cl); setCompAccts(ci);
@@ -1008,7 +1011,7 @@ const App = function(){
       }else if(mt==='company'){
         setMf(md?.id?{...md}:{name:'',website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],...(md||{})});
       }else if(mt==='competitive'){
-        setMf(md?.id?{...md}:{companyName:'',website:'',size:'',industryVertical:'',vendor:'dynatrace',productsUsed:[],estimatedArr:0,renewalDate:'',acquisitionStatus:'prospect',leadSource:'',incumbentSatisfaction:'medium',decisionMaker:'',champion:'',painPoints:'',notes:'',...(md||{})});
+        setMf(md?.id?{contacts:[],...md}:{companyName:'',website:'',size:'',industryVertical:'',vendor:'dynatrace',productsUsed:[],estimatedArr:0,renewalDate:'',acquisitionStatus:'prospect',leadSource:'',incumbentSatisfaction:'medium',decisionMaker:'',champion:'',contacts:[],painPoints:'',notes:'',...(md||{})});
       }
     }
     if(!mt)prevModalRef.current={type:null,id:null};
@@ -1110,16 +1113,16 @@ const App = function(){
   const deleteInteraction_=async(id)=>{const n=Number(id);try{await serverDelete('interactions',id);setInteractions(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteInteraction',e);return false;}};
   const addCompAcct_=async(a)=>{try{
     if(!authUser?.token)return null;
-    const body={company_name:a.companyName,website:a.website||'',size:a.size||'',industry_vertical:a.industryVertical||'',vendor:a.vendor||'dynatrace',products_used:JSON.stringify(a.productsUsed||[]),estimated_arr:a.estimatedArr||0,renewal_date:a.renewalDate||null,acquisition_status:a.acquisitionStatus||'prospect',lead_source:a.leadSource||'',incumbent_satisfaction:a.incumbentSatisfaction||'medium',decision_maker:a.decisionMaker||'',champion:a.champion||'',pain_points:a.painPoints||'',notes:a.notes||''};
+    const body={company_name:a.companyName,website:a.website||'',size:a.size||'',industry_vertical:a.industryVertical||'',vendor:a.vendor||'dynatrace',products_used:JSON.stringify(a.productsUsed||[]),estimated_arr:a.estimatedArr||0,renewal_date:a.renewalDate||null,acquisition_status:a.acquisitionStatus||'prospect',lead_source:a.leadSource||'',incumbent_satisfaction:a.incumbentSatisfaction||'medium',decision_maker:a.decisionMaker||'',champion:a.champion||'',contacts:JSON.stringify(a.contacts||[]),pain_points:a.painPoints||'',notes:a.notes||''};
     const resp=await fetch('/api/competitive',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(body)});
     if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'Server error '+resp.status);}
     const j=await resp.json();const s=j.account;if(!s)return null;
-    const saved={...camelObj(s),productsUsed:parseArr(s.products_used),renewalDate:s.renewal_date?String(s.renewal_date).slice(0,10):null};
+    const saved={...camelObj(s),productsUsed:parseArr(s.products_used),contacts:parseArr(s.contacts),renewalDate:s.renewal_date?String(s.renewal_date).slice(0,10):null};
     setCompAccts(p=>[...p,saved]);return saved;
   }catch(e){showErr('addCompAcct',e);return null;}};
   const updateCompAcct_=async(id,fields)=>{const prev=compAccts.find(x=>x.id===id);setCompAccts(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{
     if(!authUser?.token)return;
-    const body={id,company_name:fields.companyName,website:fields.website,size:fields.size,industry_vertical:fields.industryVertical,vendor:fields.vendor,products_used:JSON.stringify(fields.productsUsed||[]),estimated_arr:fields.estimatedArr||0,renewal_date:fields.renewalDate||null,acquisition_status:fields.acquisitionStatus,lead_source:fields.leadSource,incumbent_satisfaction:fields.incumbentSatisfaction,decision_maker:fields.decisionMaker,champion:fields.champion,pain_points:fields.painPoints,notes:fields.notes};
+    const body={id,company_name:fields.companyName,website:fields.website,size:fields.size,industry_vertical:fields.industryVertical,vendor:fields.vendor,products_used:JSON.stringify(fields.productsUsed||[]),estimated_arr:fields.estimatedArr||0,renewal_date:fields.renewalDate||null,acquisition_status:fields.acquisitionStatus,lead_source:fields.leadSource,incumbent_satisfaction:fields.incumbentSatisfaction,decision_maker:fields.decisionMaker,champion:fields.champion,contacts:JSON.stringify(fields.contacts||[]),pain_points:fields.painPoints,notes:fields.notes};
     const resp=await fetch('/api/competitive',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(body)});
     if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'Server error '+resp.status);}
   }catch(e){if(prev)setCompAccts(p=>p.map(x=>x.id===id?prev:x));showErr('updateCompAcct',e);}};
@@ -3255,7 +3258,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
 
   const renderCompetitive=()=>{
     const filtered=compAccts.filter(a=>{
-      if(compCiSearch&&!a.companyName.toLowerCase().includes(compCiSearch.toLowerCase())&&!(a.decisionMaker||'').toLowerCase().includes(compCiSearch.toLowerCase()))return false;
+      if(compCiSearch){const q=compCiSearch.toLowerCase();const inContacts=(a.contacts||[]).some(c=>(c.name||'').toLowerCase().includes(q));if(!a.companyName.toLowerCase().includes(q)&&!(a.decisionMaker||'').toLowerCase().includes(q)&&!inContacts)return false;}
       if(compCiVendor&&a.vendor!==compCiVendor)return false;
       if(compCiIndustry&&a.industryVertical!==compCiIndustry)return false;
       if(compCiStatus&&a.acquisitionStatus!==compCiStatus)return false;
@@ -3285,7 +3288,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
               {a.industryVertical&&<span style={{fontSize:11,color:t.dim}}>🏭 {a.industryVertical}</span>}
               {a.estimatedArr>0&&<span style={{fontSize:11,color:t.green,fontWeight:600}}>💰 {fmtARR(a.estimatedArr)}</span>}
               {a.renewalDate&&<span style={{fontSize:11,color:rc,fontWeight:days!==null&&days<=90?700:400}}>🔄 {fd(a.renewalDate)}{days!==null&&days>=0&&days<=90?` (${days}d)`:days<0?' (verlopen)':''}</span>}
-              {a.decisionMaker&&<span style={{fontSize:11,color:t.dim}}>👤 {a.decisionMaker}</span>}
+              {(a.contacts||[]).length>0&&<span style={{fontSize:11,color:t.dim}}>👥 {a.contacts.length} {a.contacts.length===1?tx.contactPerson.toLowerCase():tx.contactsCount}</span>}
+              {a.decisionMaker&&(a.contacts||[]).length===0&&<span style={{fontSize:11,color:t.dim}}>👤 {a.decisionMaker}</span>}
               <span title={a.incumbentSatisfaction} style={{width:8,height:8,borderRadius:'50%',background:satisfDot,display:'inline-block',flexShrink:0}}/>
             </div>
             {a.painPoints&&<div style={{fontSize:11,color:t.dim,marginTop:5,lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{a.painPoints}</div>}
@@ -3368,6 +3372,11 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     const vendorC=(id)=>COMP_VENDORS.find(v=>v.id===id)||COMP_VENDORS[0];
     const selV=vendorC(f.vendor||'dynatrace');
     const satisfItems=[{id:'low',l:tx.ciSatisfLow,c:t.red,ic:'😟'},{id:'medium',l:tx.ciSatisfMedium,c:t.orange,ic:'😐'},{id:'high',l:tx.ciSatisfHigh,c:t.green,ic:'😊'}];
+    const COMP_CONTACT_ROLES=COMP_CONTACT_ROLES_I18N[lang]||COMP_CONTACT_ROLES_I18N.nl;
+    const ciContacts=f.contacts||[];
+    const addCiContact=()=>sf({...f,contacts:[...ciContacts,{name:'',role:COMP_CONTACT_ROLES[0],email:'',phone:''}]});
+    const updCiContact=(i,k,v)=>sf({...f,contacts:ciContacts.map((c,j)=>j===i?{...c,[k]:v}:c)});
+    const delCiContact=(i)=>sf({...f,contacts:ciContacts.filter((_,j)=>j!==i)});
     return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
       <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:560,maxHeight:'92vh',overflowY:'auto'}}>
         <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -3399,10 +3408,21 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             <div><label style={lbl}>{tx.ciLeadSource}</label><select style={{...inp,cursor:'pointer'}} value={f.leadSource||''} onChange={e=>sf({...f,leadSource:e.target.value})}><option value="">—</option>{COMP_LEAD_SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
             <div><label style={lbl}>{tx.ciSatisfaction}</label><div style={{display:'flex',gap:4}}>{satisfItems.map(s=><button key={s.id} type="button" onClick={()=>sf({...f,incumbentSatisfaction:s.id})} title={s.l} style={{flex:1,padding:'7px 4px',borderRadius:8,fontSize:15,border:`1.5px solid ${f.incumbentSatisfaction===s.id?s.c:'transparent'}`,background:f.incumbentSatisfaction===s.id?s.c+'22':'transparent',cursor:'pointer',textAlign:'center',minHeight:0}}>{s.ic}</button>)}</div><div style={{fontSize:10,color:t.muted,marginTop:3,textAlign:'center'}}>{satisfItems.find(s=>s.id===f.incumbentSatisfaction)?.l||''}</div></div>
           </div>
-          {/* Decision maker + Champion */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
-            <div><label style={lbl}>{tx.ciDecisionMaker}</label><input style={inp} value={f.decisionMaker||''} onChange={e=>sf({...f,decisionMaker:e.target.value})} placeholder={lang==='nl'?'Naam, functie':'Name, role'}/></div>
-            <div><label style={lbl}>{tx.ciChampion}</label><input style={inp} value={f.champion||''} onChange={e=>sf({...f,champion:e.target.value})} placeholder={lang==='nl'?'Interne ambassadeur':'Internal advocate'}/></div>
+          {/* Contacts list */}
+          <div style={{marginBottom:12}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><label style={{...lbl,marginBottom:0}}>{tx.ciContacts}</label><button type="button" onClick={addCiContact} style={{...btnG,padding:'4px 10px',fontSize:11,minHeight:0}}>{tx.ciAddContact}</button></div>
+            {ciContacts.length===0&&<div style={{fontSize:12,color:t.muted,padding:'8px 0'}}>{tx.ciNoContacts}</div>}
+            {ciContacts.map((c,i)=><div key={i} style={{padding:'10px',borderRadius:10,background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)',marginBottom:6}}>
+              <div style={{display:'flex',gap:6,marginBottom:6}}>
+                <input style={{...inp,flex:2,padding:'7px 10px',fontSize:13}} value={c.name||''} onChange={e=>updCiContact(i,'name',e.target.value)} placeholder={tx.ciContactNamePh}/>
+                <select style={{...inp,flex:1,padding:'7px 8px',fontSize:12,cursor:'pointer'}} value={c.role||''} onChange={e=>updCiContact(i,'role',e.target.value)}>{COMP_CONTACT_ROLES.map(r=><option key={r} value={r}>{r}</option>)}</select>
+                <button type="button" onClick={()=>delCiContact(i)} style={{width:32,borderRadius:8,border:'none',background:'transparent',color:t.red,cursor:'pointer',fontSize:14,flexShrink:0,minHeight:0,minWidth:0}}>✕</button>
+              </div>
+              <div style={{display:'flex',gap:6}}>
+                <input style={{...inp,flex:1,padding:'7px 10px',fontSize:13}} value={c.email||''} onChange={e=>updCiContact(i,'email',e.target.value)} placeholder={tx.ciContactEmail} type="email"/>
+                <input style={{...inp,flex:1,padding:'7px 10px',fontSize:13}} value={c.phone||''} onChange={e=>updCiContact(i,'phone',e.target.value)} placeholder={tx.ciContactPhone}/>
+              </div>
+            </div>)}
           </div>
           {/* Pain points */}
           <div style={{marginBottom:12}}><label style={lbl}>{tx.ciPainPoints}</label><textarea style={{...inp,minHeight:70,resize:'vertical',lineHeight:1.5}} value={f.painPoints||''} onChange={e=>sf({...f,painPoints:e.target.value})} placeholder={lang==='nl'?'Wat zijn de klachten over de huidige vendor? Contractproblemen, pricing, support, functionaliteit...':'What are the complaints about the current vendor? Contract issues, pricing, support, functionality...'}/></div>
@@ -3414,7 +3434,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {d?.id&&<button onClick={async()=>{if(confirm(tx.ciDeleteConfirm+'\n'+d.companyName)){const ok=await deleteCompAcct_(d.id);if(ok){toast(tx.ciDeleted,'info');setModal(null);}}}} style={{...btnG,color:t.red,borderColor:t.red+'44'}}>{tx.delete}</button>}
           <button onClick={async()=>{
             if(!f.companyName?.trim()){toast(tx.ciFillName,'info');return;}
-            const data={companyName:f.companyName.trim(),website:f.website||'',size:f.size||'',industryVertical:f.industryVertical||'',vendor:f.vendor||'dynatrace',productsUsed:f.productsUsed||[],estimatedArr:f.estimatedArr||0,renewalDate:f.renewalDate||null,acquisitionStatus:f.acquisitionStatus||'prospect',leadSource:f.leadSource||'',incumbentSatisfaction:f.incumbentSatisfaction||'medium',decisionMaker:f.decisionMaker||'',champion:f.champion||'',painPoints:f.painPoints||'',notes:f.notes||''};
+            const data={companyName:f.companyName.trim(),website:f.website||'',size:f.size||'',industryVertical:f.industryVertical||'',vendor:f.vendor||'dynatrace',productsUsed:f.productsUsed||[],estimatedArr:f.estimatedArr||0,renewalDate:f.renewalDate||null,acquisitionStatus:f.acquisitionStatus||'prospect',leadSource:f.leadSource||'',incumbentSatisfaction:f.incumbentSatisfaction||'medium',decisionMaker:f.decisionMaker||'',champion:f.champion||'',contacts:(f.contacts||[]).filter(c=>c.name&&c.name.trim()),painPoints:f.painPoints||'',notes:f.notes||''};
             if(d?.id){await updateCompAcct_(d.id,data);toast(tx.ciUpdated);setModal(null);}
             else{const saved=await addCompAcct_(data);if(saved){toast(tx.ciAdded);setModal(null);}}
           }} style={btnP}>{d?.id?tx.save:tx.add}</button>

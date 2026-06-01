@@ -152,6 +152,7 @@ async function setup() {
     { sql: "CREATE INDEX IF NOT EXISTS idx_compacct_user ON competitive_accounts(user_id)", v: '38' },
     { sql: "CREATE INDEX IF NOT EXISTS idx_compacct_vendor ON competitive_accounts(vendor)", v: '38' },
     { sql: "CREATE INDEX IF NOT EXISTS idx_compacct_renewal ON competitive_accounts(renewal_date)", v: '38' },
+    { sql: "ALTER TABLE competitive_accounts ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'", v: '39' },
   ];
 
   let migrated = 0;

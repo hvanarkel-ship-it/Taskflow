@@ -30,7 +30,7 @@ exports.handler = async (event) => {
       const [acct] = await sql`INSERT INTO competitive_accounts (
         company_name, website, size, industry_vertical, vendor, products_used,
         estimated_arr, renewal_date, acquisition_status, lead_source,
-        incumbent_satisfaction, decision_maker, champion, pain_points, notes, user_id
+        incumbent_satisfaction, decision_maker, champion, contacts, pain_points, notes, user_id
       ) VALUES (
         ${b.company_name},
         ${toNull(b.website) || ''},
@@ -45,6 +45,7 @@ exports.handler = async (event) => {
         ${toNull(b.incumbent_satisfaction) || 'medium'},
         ${toNull(b.decision_maker) || ''},
         ${toNull(b.champion) || ''},
+        ${toJsonb(b.contacts)}::jsonb,
         ${toNull(b.pain_points) || ''},
         ${toNull(b.notes) || ''},
         ${user.id}
@@ -69,6 +70,7 @@ exports.handler = async (event) => {
         incumbent_satisfaction=COALESCE(${b.incumbent_satisfaction !== undefined ? (toNull(b.incumbent_satisfaction) || 'medium') : null},incumbent_satisfaction),
         decision_maker=COALESCE(${b.decision_maker !== undefined ? (toNull(b.decision_maker) || '') : null},decision_maker),
         champion=COALESCE(${b.champion !== undefined ? (toNull(b.champion) || '') : null},champion),
+        contacts=COALESCE(${b.contacts !== undefined ? toJsonb(b.contacts) : null}::jsonb,contacts),
         pain_points=COALESCE(${b.pain_points !== undefined ? (toNull(b.pain_points) || '') : null},pain_points),
         notes=COALESCE(${b.notes !== undefined ? (toNull(b.notes) || '') : null},notes),
         updated_at=NOW()
