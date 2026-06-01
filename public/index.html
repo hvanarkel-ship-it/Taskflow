@@ -132,8 +132,7 @@ const PRIS=[{id:'urgent',l:{nl:'Urgent',en:'Urgent'},c:'#FF2D55'},{id:'high',l:{
 
 const TX={
   nl:{
-    pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacten',companies:'Bedrijven',atos:'Atos Team',tasks:'Taken',reports:'Rapporten',checklist:'Checklist',
-    clAddItem:'Item toevoegen...',clClearDone:'Opgeruimd verwijderen',clCleared:'Afgeronde items verwijderd',clEmpty:'Geen items — voeg er een toe!',clCategory:'Categorie',clAll:'Alles',clDone:'afgerond',clItemAdded:'Item toegevoegd',clItemDeleted:'Item verwijderd',clManageCats:'Categorieën',clNewCat:'Nieuwe categorie...',clAddCat:'Toevoegen',clNoCats:'Geen categorieën',clCatDeleted:'Categorie verwijderd',clCatRenamed:'Categorie hernoemd',clShowDone:'Afgerond tonen',clHideDone:'Afgerond verbergen',
+    pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacten',companies:'Bedrijven',atos:'Atos Team',tasks:'Taken',reports:'Rapporten',
     save:'Opslaan',add:'Toevoegen',cancel:'Annuleren',delete:'Verwijderen',edit:'Bewerken',back:'← Terug',search:'Zoeken...',
     newDeal:'Nieuwe Deal',editDeal:'Deal Bewerken',newContact:'Nieuw Contact',editContact:'Contact Bewerken',newTask:'Nieuwe Taak',editTask:'Taak Bewerken',newCompany:'Nieuw Bedrijf',editCompany:'Bedrijf Bewerken',newTeam:'Nieuw Teamlid',
     title:'Titel',company:'Bedrijf',contactPersons:'Contactpersonen',value:'Waarde',chance:'Kans',phase:'Fase',priority:'Prioriteit',technology:'Technologie',nextAction:'Volgende Actie',actionDate:'Actie Datum',closeDate:'Verwachte Sluiting',
@@ -309,8 +308,7 @@ const TX={
     ciSize:'Bedrijfsgrootte',ciWebsite:'Website',ciIntelNotes:'Intel notities',
   },
   en:{
-    pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',atos:'Atos Team',tasks:'Tasks',reports:'Reports',checklist:'Checklist',
-    clAddItem:'Add item...',clClearDone:'Clear completed',clCleared:'Completed items cleared',clEmpty:'No items — add one!',clCategory:'Category',clAll:'All',clDone:'done',clItemAdded:'Item added',clItemDeleted:'Item deleted',clManageCats:'Categories',clNewCat:'New category...',clAddCat:'Add',clNoCats:'No categories',clCatDeleted:'Category deleted',clCatRenamed:'Category renamed',clShowDone:'Show completed',clHideDone:'Hide completed',
+    pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',atos:'Atos Team',tasks:'Tasks',reports:'Reports',
     save:'Save',add:'Add',cancel:'Cancel',delete:'Delete',edit:'Edit',back:'← Back',search:'Search...',
     newDeal:'New Deal',editDeal:'Edit Deal',newContact:'New Contact',editContact:'Edit Contact',newTask:'New Task',editTask:'Edit Task',newCompany:'New Company',editCompany:'Edit Company',newTeam:'New Team Member',
     title:'Title',company:'Company',contactPersons:'Contacts',value:'Value',chance:'Probability',phase:'Phase',priority:'Priority',technology:'Technology',nextAction:'Next Action',actionDate:'Action Date',closeDate:'Expected Close',
@@ -486,7 +484,7 @@ const TX={
   }
 };
 
-const TECH_TAGS=['Elastic','Dynatrace','Splunk','ServiceNow','AWS','Azure','GCP','Kubernetes','Terraform','Datadog','Grafana','Confluent','MongoDB','PostgreSQL','Snowflake'];
+const TECH_TAGS=['Elastic','Dynatrace','Splunk','AppDynamics','Datadog','Grafana','New Relic','Prometheus','OpenTelemetry','ServiceNow','AWS','Azure','GCP','Kubernetes','Terraform','Confluent','MongoDB','PostgreSQL','Snowflake'];
 const TASK_STATUSES=[
   {k:'todo',l:{nl:'Te doen',en:'To Do'},c:'#6B7280',ic:'○'},
   {k:'in_progress',l:{nl:'Bezig',en:'In Progress'},c:'#3B82F6',ic:'◔'},
@@ -536,24 +534,6 @@ const RichNote=({value,onChange,placeholder,t:theme,style:sx})=>{
 };
 
 // ═══ CHECKLIST ITEM (inline editable) ═══
-const ChecklistItem=({item,t,dark,onToggle,onDelete,onEdit,onCategory,categories})=>{
-  const[editing,setEditing]=useState(false);
-  const[editText,setEditText]=useState(item.text);
-  const[showCat,setShowCat]=useState(false);
-  return <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.05)':'rgba(118,118,128,0.03)',transition:'background .1s'}}>
-    <div onClick={onToggle} style={{width:18,height:18,borderRadius:5,border:`2px solid ${t.accent}`,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}/>
-    {editing?<input autoFocus value={editText} onChange={e=>setEditText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){onEdit(editText);setEditing(false);}if(e.key==='Escape')setEditing(false);}} onBlur={()=>{onEdit(editText);setEditing(false);}} style={{flex:1,fontSize:13,padding:'2px 6px',border:`1px solid ${t.accent}`,borderRadius:6,background:t.solid,color:t.text,outline:'none',fontFamily:'inherit'}}/>
-    :<span onClick={()=>{setEditText(item.text);setEditing(true);}} style={{flex:1,fontSize:13,cursor:'text',minWidth:0,wordBreak:'break-word'}}>{item.text}</span>}
-    {item.category&&!showCat&&<span onClick={()=>setShowCat(true)} style={{fontSize:9,padding:'1px 6px',borderRadius:4,background:t.accentS,color:t.accent,cursor:'pointer',flexShrink:0}}>{item.category}</span>}
-    {showCat&&<select autoFocus value={item.category||''} onChange={e=>{onCategory(e.target.value);setShowCat(false);}} onBlur={()=>setShowCat(false)} style={{fontSize:10,padding:'1px 4px',borderRadius:4,border:`1px solid ${t.border}`,background:t.solid,color:t.text,fontFamily:'inherit'}}>
-      <option value="">—</option>
-      {categories.map(c=><option key={c} value={c}>{c}</option>)}
-    </select>}
-    {!item.category&&<span onClick={()=>setShowCat(true)} style={{fontSize:10,color:t.muted,cursor:'pointer',opacity:.4,flexShrink:0}}>+tag</span>}
-    <span onClick={onDelete} style={{cursor:'pointer',color:t.muted,fontSize:11,opacity:.4,flexShrink:0}}>✕</span>
-  </div>;
-};
-
 // ═══ LOGO AVATAR — company logo via Clearbit with initial fallback ═══
 const LOGO_COLORS=['#007AFF','#5856D6','#BF5AF2','#FF2D55','#FF9F0A','#30D158','#5AC8FA','#FF6B35','#34C759'];
 const LogoAvatar=({company,size=36,border='#fff'})=>{
@@ -716,20 +696,12 @@ const App = function(){
   const[tasks,setTasks]=useState(()=>safeArr('tasks'));
   const[atosTeam,setAtosTeam]=useState(()=>safeArr('atos'));
   const[interactions,setInteractions]=useState(()=>safeArr('interactions'));
-  const[checklistItems,setChecklistItems]=useState([]);
   const[compAccts,setCompAccts]=useState([]);
   const[compCiSearch,setCompCiSearch]=useState('');
   const[compCiVendor,setCompCiVendor]=useState('');
   const[compCiIndustry,setCompCiIndustry]=useState('');
   const[compCiStatus,setCompCiStatus]=useState('');
   const[compCiView,setCompCiView]=useState('group');
-  const[clInput,setClInput]=useState('');
-  const[clCategory,setClCategory]=useState('');
-  const[clFilter,setClFilter]=useState('all');
-  const[clManageCats,setClManageCats]=useState(false);
-  const[clNewCatInput,setClNewCatInput]=useState('');
-  const[clRenamingCat,setClRenamingCat]=useState(null);
-  const[clRenameVal,setClRenameVal]=useState('');
   const[tkShowCompleted,setTkShowCompleted]=useState(false);
 
   // Auto-restore: if all data is empty and NOT logged in, offer backup restore
@@ -828,7 +800,6 @@ const App = function(){
           fetch('/api/tasks',{headers,signal:AbortSignal.timeout(10000)}),
           fetch('/api/atos',{headers,signal:AbortSignal.timeout(10000)}),
           fetch('/api/interactions',{headers,signal:AbortSignal.timeout(10000)}),
-          fetch('/api/checklist',{headers,signal:AbortSignal.timeout(10000)}).catch(()=>({ok:false})),
           fetch('/api/competitive',{headers,signal:AbortSignal.timeout(10000)}).catch(()=>({ok:false})),
         ]);
         // If any API returned 401/403, the user is no longer authorized — auto-logout
@@ -837,18 +808,17 @@ const App = function(){
         const failedCount=resps.slice(0,6).filter(r=>!r.ok).length;
         if(failedCount===6){console.warn('Server: all APIs failed');setDataSource('offline');dbReady.current=true;return;}
         if(failedCount>0)console.warn(`Server: ${failedCount} API(s) failed, loading available data`);
-        const[cos,cts,ops,tks,ats,ints,clRes,ciRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
+        const[cos,cts,ops,tks,ats,ints,ciRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
         const cc=camelArr(cos.companies||cos.data||[]).map(c=>({...c,tags:parseArr(c.tags)}));
         const ct=camelArr(cts.contacts||cts.data||[]).map(c=>({...c,tags:parseArr(c.tags)}));
         const op=camelArr(ops.opportunities||ops.data||[]).map(o=>({...o,techTags:parseArr(o.techTags),contactIds:parseArr(o.contactIds),atosContactIds:parseArr(o.atosContactIds),notes:parseArr(o.notes),expectedCloseDate:o.expectedCloseDate?o.expectedCloseDate.slice(0,10):o.expectedCloseDate}));
         const tk=camelArr(tks.tasks||tks.data||[]).map(t=>({...t,dueDate:t.dueDate?t.dueDate.slice(0,10):t.dueDate}));
         const at=camelArr(ats.team||ats.data||[]);
         const it=camelArr(ints.interactions||ints.data||[]).map(i=>({...i,at:i.at||i.createdAt}));
-        const cl=camelArr(clRes.items||[]);
         const ci=camelArr(ciRes.accounts||[]).map(a=>({...a,productsUsed:parseArr(a.productsUsed),contacts:parseArr(a.contacts),competitors:parseArr(a.competitors),renewalDate:a.renewalDate?String(a.renewalDate).slice(0,10):null}));
         // Server is the single source of truth — always use server data
         setCompanies(cc); setContacts(ct); setOpps(op); setTasks(tk); setAtosTeam(at); setInteractions(it);
-        setChecklistItems(cl); setCompAccts(ci);
+        setCompAccts(ci);
         setDataSource('server');
         // Only mark as loaded AFTER successful data fetch
         dataLoaded.current=true;
@@ -876,16 +846,14 @@ const App = function(){
         fetch('/api/tasks',{headers,signal:AbortSignal.timeout(15000)}),
         fetch('/api/atos',{headers,signal:AbortSignal.timeout(15000)}),
         fetch('/api/interactions',{headers,signal:AbortSignal.timeout(15000)}),
-        fetch('/api/checklist',{headers,signal:AbortSignal.timeout(15000)}).catch(()=>({ok:false})),
       ]);
       if(resps.slice(0,6).some(r=>r.status===401||r.status===403)){toast(lang==='nl'?'Sessie verlopen':'Session expired','info');return;}
-      const[cos,cts,ops,tks,ats,ints,clRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
+      const[cos,cts,ops,tks,ats,ints]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
       const cc=camelArr(cos.companies||[]).map(c=>({...c,tags:parseArr(c.tags)}));const ct=camelArr(cts.contacts||[]).map(c=>({...c,tags:parseArr(c.tags)}));
       const op=camelArr(ops.opportunities||[]).map(o=>({...o,techTags:parseArr(o.techTags),contactIds:parseArr(o.contactIds),atosContactIds:parseArr(o.atosContactIds),notes:parseArr(o.notes),expectedCloseDate:o.expectedCloseDate?o.expectedCloseDate.slice(0,10):o.expectedCloseDate}));
       const tk=camelArr(tks.tasks||[]).map(t=>({...t,dueDate:t.dueDate?t.dueDate.slice(0,10):t.dueDate}));
       const at=camelArr(ats.team||[]);const it=camelArr(ints.interactions||[]).map(i=>({...i,at:i.at||i.createdAt}));
-      const cl=camelArr(clRes.items||[]);
-      setCompanies(cc);setContacts(ct);setOpps(op);setTasks(tk);setAtosTeam(at);setInteractions(it);setChecklistItems(cl);
+      setCompanies(cc);setContacts(ct);setOpps(op);setTasks(tk);setAtosTeam(at);setInteractions(it);
       dataLoaded.current=true;setDataSource('server');
       toast(lang==='nl'?`Geladen: ${cc.length} bedrijven, ${ct.length} contacten, ${op.length} deals, ${tk.length} taken`:`Loaded: ${cc.length} companies, ${ct.length} contacts, ${op.length} deals, ${tk.length} tasks`);
     }catch(e){console.error('Force reload error:',e);toast(lang==='nl'?'Herladen mislukt':'Reload failed','info');}
@@ -2751,156 +2719,6 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     toast(tx.reportGenerated);
   };
 
-  // ── Checklist CRUD ──
-  const clAdd=async(text,category)=>{
-    if(!text?.trim()||!authUser?.token)return;
-    try{
-      const resp=await fetch('/api/checklist',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({text:text.trim(),category:category||''})});
-      if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'Error');}
-      const j=await resp.json();if(j.item)setChecklistItems(p=>[camelObj(j.item),...p]);
-      toast(tx.clItemAdded);
-    }catch(e){showErr('clAdd',e);}
-  };
-  const clToggle=async(id,done)=>{
-    setChecklistItems(p=>p.map(x=>x.id===id?{...x,done}:x));
-    try{
-      const resp=await fetch('/api/checklist',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({id,done})});
-      if(!resp.ok)throw new Error('Toggle failed');
-    }catch(e){setChecklistItems(p=>p.map(x=>x.id===id?{...x,done:!done}:x));showErr('clToggle',e);}
-  };
-  const clEdit=async(id,text)=>{
-    if(!text?.trim())return;
-    setChecklistItems(p=>p.map(x=>x.id===id?{...x,text}:x));
-    try{
-      const resp=await fetch('/api/checklist',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({id,text})});
-      if(!resp.ok)throw new Error('Edit failed');
-    }catch(e){showErr('clEdit',e);}
-  };
-  const clDelete=async(id)=>{
-    const prev=checklistItems.find(x=>x.id===id);
-    setChecklistItems(p=>p.filter(x=>x.id!==id));
-    try{
-      const resp=await fetch('/api/checklist?id='+id,{method:'DELETE',headers:{'Authorization':'Bearer '+authUser.token}});
-      if(!resp.ok)throw new Error('Delete failed');
-      toast(tx.clItemDeleted,'info');
-    }catch(e){if(prev)setChecklistItems(p=>[...p,prev]);showErr('clDelete',e);}
-  };
-  const clClearDone=async()=>{
-    const doneItems=checklistItems.filter(x=>x.done);
-    if(doneItems.length===0)return;
-    setChecklistItems(p=>p.filter(x=>!x.done));
-    try{
-      const resp=await fetch('/api/checklist?clear_done=true',{method:'DELETE',headers:{'Authorization':'Bearer '+authUser.token}});
-      if(!resp.ok)throw new Error('Clear failed');
-      toast(tx.clCleared,'info');
-    }catch(e){setChecklistItems(p=>[...p,...doneItems]);showErr('clClear',e);}
-  };
-  const clRenameCategory=async(oldCat,newCat)=>{
-    if(!newCat?.trim()||newCat.trim()===oldCat)return;
-    const affected=checklistItems.filter(x=>x.category===oldCat);
-    setChecklistItems(p=>p.map(x=>x.category===oldCat?{...x,category:newCat.trim()}:x));
-    try{
-      await Promise.all(affected.map(x=>fetch('/api/checklist',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({id:x.id,category:newCat.trim()})})));
-      if(clFilter===oldCat)setClFilter(newCat.trim());
-      if(clCategory===oldCat)setClCategory(newCat.trim());
-      toast(tx.clCatRenamed,'info');
-    }catch(e){setChecklistItems(p=>p.map(x=>x.category===newCat.trim()?{...x,category:oldCat}:x));showErr('clRenameCategory',e);}
-  };
-  const clDeleteCategory=async(cat)=>{
-    const affected=checklistItems.filter(x=>x.category===cat);
-    setChecklistItems(p=>p.map(x=>x.category===cat?{...x,category:''}:x));
-    try{
-      await Promise.all(affected.map(x=>fetch('/api/checklist',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({id:x.id,category:''})})));
-      if(clFilter===cat)setClFilter('all');
-      if(clCategory===cat)setClCategory('');
-      toast(tx.clCatDeleted,'info');
-    }catch(e){setChecklistItems(p=>p.map(x=>x.category===''&&affected.find(a=>a.id===x.id)?{...x,category:cat}:x));showErr('clDeleteCategory',e);}
-  };
-
-  const renderChecklist=()=>{
-    const categories=[...new Set(checklistItems.filter(x=>x.category).map(x=>x.category))].sort();
-    const filtered=clFilter==='all'?checklistItems:checklistItems.filter(x=>x.category===clFilter);
-    const open=filtered.filter(x=>!x.done);
-    const done=filtered.filter(x=>x.done);
-    const doneCount=checklistItems.filter(x=>x.done).length;
-    const pillSt=(active)=>({padding:'4px 12px',borderRadius:20,fontSize:11,fontWeight:active?700:500,border:`1.5px solid ${active?t.accent:'transparent'}`,background:active?t.accentS:(dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)'),color:active?t.accent:t.dim,cursor:'pointer',fontFamily:'inherit'});
-
-    return <div style={{maxWidth:640,margin:'0 auto'}}>
-      {/* Add item row */}
-      <div style={{display:'flex',gap:6,marginBottom:clCategory==='__new__'?6:16}}>
-        <input style={{...inp,flex:1}} value={clInput} onChange={e=>setClInput(e.target.value)} placeholder={tx.clAddItem}
-          onKeyDown={e=>{if(e.key==='Enter'&&clInput.trim()){clAdd(clInput,clCategory==='__new__'?'':clCategory);setClInput('');}}} autoFocus/>
-        <select style={{...inp,width:130,flexShrink:0}} value={clCategory} onChange={e=>setClCategory(e.target.value)}>
-          <option value="">{tx.clCategory}...</option>
-          {categories.map(c=><option key={c} value={c}>{c}</option>)}
-          <option value="__new__">+ {lang==='nl'?'Nieuwe categorie':'New category'}</option>
-        </select>
-        <button onClick={()=>{if(clInput.trim()){clAdd(clInput,clCategory==='__new__'?'':clCategory);setClInput('');}}} style={{...btnP,padding:'8px 16px',whiteSpace:'nowrap'}}>+</button>
-      </div>
-
-      {/* Inline new-category input */}
-      {clCategory==='__new__'&&<div style={{display:'flex',gap:6,marginBottom:16}}>
-        <input autoFocus style={{...inp,flex:1,fontSize:12}} placeholder={tx.clNewCat}
-          onKeyDown={e=>{if(e.key==='Enter'&&e.target.value.trim()){setClCategory(e.target.value.trim());e.target.value='';}if(e.key==='Escape')setClCategory('');}}
-          onBlur={e=>{if(e.target.value.trim())setClCategory(e.target.value.trim());else setClCategory('');}}/>
-        <button onClick={()=>setClCategory('')} style={{...btnG,padding:'8px 12px',fontSize:11}}>{tx.cancel}</button>
-      </div>}
-
-      {/* Category filter pills + manage toggle */}
-      <div style={{display:'flex',gap:4,marginBottom:clManageCats?8:14,flexWrap:'wrap',alignItems:'center'}}>
-        <button onClick={()=>setClFilter('all')} style={pillSt(clFilter==='all')}>{tx.clAll} ({checklistItems.length})</button>
-        {categories.map(c=>{const cnt=checklistItems.filter(x=>x.category===c).length;return <button key={c} onClick={()=>setClFilter(clFilter===c?'all':c)} style={pillSt(clFilter===c)}>{c} ({cnt})</button>;})}
-        <button onClick={()=>setClManageCats(v=>!v)} style={{...pillSt(clManageCats),marginLeft:'auto',fontSize:10,opacity:.7}}>{clManageCats?'✕ '+tx.cancel:'⚙ '+tx.clManageCats}</button>
-      </div>
-
-      {/* Category management panel */}
-      {clManageCats&&<div style={{marginBottom:14,padding:'12px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.08)':'rgba(118,118,128,0.04)',border:`0.5px solid ${t.border}`}}>
-        <div style={{fontSize:11,fontWeight:700,color:t.muted,marginBottom:10,textTransform:'uppercase',letterSpacing:.5}}>{tx.clManageCats}</div>
-        {categories.length===0&&<div style={{fontSize:12,color:t.muted,padding:'4px 0 8px'}}>{tx.clNoCats}</div>}
-        <div style={{display:'flex',flexDirection:'column',gap:5}}>
-          {categories.map(cat=><div key={cat} style={{display:'flex',alignItems:'center',gap:8}}>
-            {clRenamingCat===cat
-              ?<input autoFocus value={clRenameVal} onChange={e=>setClRenameVal(e.target.value)}
-                  onKeyDown={e=>{if(e.key==='Enter'){clRenameCategory(cat,clRenameVal);setClRenamingCat(null);}if(e.key==='Escape')setClRenamingCat(null);}}
-                  onBlur={()=>{clRenameCategory(cat,clRenameVal);setClRenamingCat(null);}}
-                  style={{...inp,flex:1,padding:'4px 8px',fontSize:12}}/>
-              :<span style={{flex:1,fontSize:13}}>{cat} <span style={{fontSize:10,color:t.muted}}>({checklistItems.filter(x=>x.category===cat).length})</span></span>}
-            <button onClick={()=>{setClRenamingCat(cat);setClRenameVal(cat);}} style={{...btnG,padding:'3px 9px',fontSize:11}} title={lang==='nl'?'Hernoemen':'Rename'}>✎</button>
-            <button onClick={()=>{if(confirm(lang==='nl'?`Categorie "${cat}" verwijderen?`:`Delete category "${cat}"?`))clDeleteCategory(cat);}} style={{...btnG,padding:'3px 9px',fontSize:11,color:t.red}} title={lang==='nl'?'Verwijderen':'Delete'}>✕</button>
-          </div>)}
-        </div>
-        <div style={{display:'flex',gap:6,marginTop:categories.length>0?12:0}}>
-          <input value={clNewCatInput} onChange={e=>setClNewCatInput(e.target.value)} placeholder={tx.clNewCat}
-            onKeyDown={e=>{if(e.key==='Enter'&&clNewCatInput.trim()){setClCategory(clNewCatInput.trim());setClNewCatInput('');setClManageCats(false);}}}
-            style={{...inp,flex:1,padding:'6px 10px',fontSize:12}}/>
-          <button onClick={()=>{if(clNewCatInput.trim()){setClCategory(clNewCatInput.trim());setClNewCatInput('');setClManageCats(false);}}} style={{...btnP,padding:'6px 12px',fontSize:11}}>{tx.clAddCat}</button>
-        </div>
-      </div>}
-
-      {/* Open items */}
-      <div style={{display:'flex',flexDirection:'column',gap:3}}>
-        {open.map(item=><ChecklistItem key={item.id} item={item} t={t} dark={dark} onToggle={()=>clToggle(item.id,true)} onDelete={()=>clDelete(item.id)} onEdit={(txt)=>clEdit(item.id,txt)} categories={categories} onCategory={(cat)=>{setChecklistItems(p=>p.map(x=>x.id===item.id?{...x,category:cat}:x));fetch('/api/checklist',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({id:item.id,category:cat})}).catch(()=>{});}}/>)}
-        {open.length===0&&done.length===0&&<div style={{padding:24,textAlign:'center',color:t.muted,fontSize:13}}>{tx.clEmpty}</div>}
-      </div>
-
-      {/* Done items */}
-      {done.length>0&&<div style={{marginTop:16}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-          <span style={{fontSize:12,color:t.muted,fontWeight:600}}>{doneCount} {tx.clDone}</span>
-          <button onClick={clClearDone} style={{fontSize:11,color:t.red,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:'2px 8px',opacity:.7}}>{tx.clClearDone}</button>
-        </div>
-        <div style={{display:'flex',flexDirection:'column',gap:2,opacity:.5}}>
-          {done.map(item=><div key={item.id} style={{display:'flex',alignItems:'center',gap:10,padding:'6px 12px',borderRadius:8,background:dark?'rgba(118,118,128,0.03)':'rgba(118,118,128,0.02)'}}>
-            <div onClick={()=>clToggle(item.id,false)} style={{width:18,height:18,borderRadius:5,background:t.green,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#fff',fontWeight:700}}>✓</div>
-            <span style={{flex:1,textDecoration:'line-through',fontSize:13,color:t.dim}}>{item.text}</span>
-            {item.category&&<span style={{fontSize:9,padding:'1px 6px',borderRadius:4,background:t.accentS,color:t.accent}}>{item.category}</span>}
-            <span onClick={()=>clDelete(item.id)} style={{cursor:'pointer',color:t.muted,fontSize:11}}>✕</span>
-          </div>)}
-        </div>
-      </div>}
-    </div>;
-  };
-
   const renderReports=()=>{
     const now=new Date();const cutoff=reportPeriod==='30'?new Date(now-30*864e5):reportPeriod==='90'?new Date(now-90*864e5):reportPeriod==='year'?new Date(now.getFullYear(),0,1):null;
     const rOpps=cutoff?opps.filter(o=>new Date(o.createdAt||o.updatedAt)>=cutoff):opps;
@@ -3221,8 +3039,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   };
 
   const isAdmin=authUser?.email==='hvanarkel@gmail.com';
-  const titles={pipeline:tx.pipeline,contacts:tx.contacts,companies:tx.companies,atos:tx.atos,tasks:tx.tasks,dashboard:tx.dashboard,reports:tx.reports,admin:tx.adminPanel,checklist:tx.checklist,competitive:tx.ciModule};
-  const nav=[{id:'dashboard',ic:'◆',l:tx.dashboard},{id:'pipeline',ic:'📊',l:tx.pipeline},{id:'companies',ic:'🏢',l:tx.companies},{id:'contacts',ic:'👤',l:tx.contacts},{id:'atos',ic:'🔵',l:tx.atos},{id:'tasks',ic:'☑',l:tx.tasks},{id:'checklist',ic:'✅',l:tx.checklist},{id:'reports',ic:'📈',l:tx.reports},{id:'competitive',ic:'🎯',l:tx.ciModule},...(isAdmin?[{id:'admin',ic:'🛡',l:tx.adminPanel}]:[])];
+  const titles={pipeline:tx.pipeline,contacts:tx.contacts,companies:tx.companies,atos:tx.atos,tasks:tx.tasks,dashboard:tx.dashboard,reports:tx.reports,admin:tx.adminPanel,competitive:tx.ciModule};
+  const nav=[{id:'dashboard',ic:'◆',l:tx.dashboard},{id:'pipeline',ic:'📊',l:tx.pipeline},{id:'companies',ic:'🏢',l:tx.companies},{id:'contacts',ic:'👤',l:tx.contacts},{id:'atos',ic:'🔵',l:tx.atos},{id:'tasks',ic:'☑',l:tx.tasks},{id:'reports',ic:'📈',l:tx.reports},{id:'competitive',ic:'🎯',l:tx.ciModule},...(isAdmin?[{id:'admin',ic:'🛡',l:tx.adminPanel}]:[])];
 
   // Mobile detection
   const[isMobile,setIsMobile]=useState(()=>window.innerWidth<=768);
@@ -3765,7 +3583,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:36,height:36,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,color:'#fff',animation:'glow 3s ease infinite'}}>SP</div><div><div style={{fontSize:15,fontWeight:800,letterSpacing:-.3}}>My Personal Sales Plan</div><div style={{fontSize:9,color:t.muted,letterSpacing:2,textTransform:'uppercase',fontWeight:600}}>Sales Pipeline</div></div></div>
         </div>
         <nav style={{flex:1,padding:'12px 10px'}}>
-          {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSb(false);if(n.id==='admin')loadPendingUsers();}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:view===n.id?t.accent:t.dim,background:view===n.id?t.accentS:'transparent',fontSize:14,fontWeight:view===n.id?600:400,marginBottom:2,transition:`all .15s ${sp}`}}><span style={{fontSize:15}}>{n.ic}</span>{n.l}{n.id==='checklist'&&checklistItems.filter(x=>!x.done).length>0&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:t.accent,color:'#fff',fontWeight:700,marginLeft:'auto'}}>{checklistItems.filter(x=>!x.done).length}</span>}{n.id==='admin'&&pendingUsers.length>0&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:t.red,color:'#fff',fontWeight:700,marginLeft:'auto'}}>{pendingUsers.length}</span>}</div>)}
+          {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSb(false);if(n.id==='admin')loadPendingUsers();}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:view===n.id?t.accent:t.dim,background:view===n.id?t.accentS:'transparent',fontSize:14,fontWeight:view===n.id?600:400,marginBottom:2,transition:`all .15s ${sp}`}}><span style={{fontSize:15}}>{n.ic}</span>{n.l}{n.id==='admin'&&pendingUsers.length>0&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:t.red,color:'#fff',fontWeight:700,marginLeft:'auto'}}>{pendingUsers.length}</span>}</div>)}
           <div style={{borderTop:`0.5px solid ${t.border}`,marginTop:16,paddingTop:12}}>
             <div onClick={()=>setDark(!dark)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>{dark?'🌙':'☀️'} {tx.dark}/{tx.light}</div>
             <div onClick={()=>{const nl=lang==='nl'?'en':'nl';setLang(nl);LS.set('lang',nl);}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🌐 {lang==='nl'?'English':'Nederlands'}</div>
@@ -3818,7 +3636,6 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {view==='contacts'&&renderContacts()}
           {view==='atos'&&renderAtosView()}
           {view==='tasks'&&renderTasks()}
-          {view==='checklist'&&renderChecklist()}
           {view==='reports'&&renderReports()}
           {view==='competitive'&&renderCompetitive()}
           {view==='admin'&&isAdmin&&renderAdmin()}
@@ -3846,7 +3663,6 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {id:'companies',ic:'🏢',l:tx.companies},
           {id:'atos',ic:'🔵',l:tx.atos},
           {id:'reports',ic:'📈',l:tx.reports},
-          {id:'checklist',ic:'✅',l:tx.checklist},
           {id:'competitive',ic:'🎯',l:tx.ciModule},
           ...(isAdmin?[{id:'admin',ic:'🛡',l:tx.adminPanel}]:[]),
         ];
@@ -3856,7 +3672,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {/* Bottom tab bar */}
           <nav className="mob-tab-bar">
             {mobTabs.map(tab=>{
-              const isActive=tab.id==='_more'?(mobileMoreOpen||['companies','atos','reports','checklist','competitive','admin'].includes(view)):view===tab.id&&!mobileMoreOpen;
+              const isActive=tab.id==='_more'?(mobileMoreOpen||['companies','atos','reports','competitive','admin'].includes(view)):view===tab.id&&!mobileMoreOpen;
               return <button key={tab.id} className="mob-tab-btn" onClick={()=>{if(tab.id==='_more'){setMobileMoreOpen(v=>!v);}else{setView(tab.id);setMobileMoreOpen(false);}}} style={{color:isActive?t.accent:t.muted}}>
                 <span className="mob-tab-icon" style={{fontSize:tab.id==='_more'?14:20,letterSpacing:tab.id==='_more'?2:0}}>{tab.ic}</span>
                 <span className="mob-tab-label">{tab.l}</span>
@@ -3874,7 +3690,6 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
               {moreItems.map(item=><div key={item.id} className="mob-more-item" style={{color:view===item.id?t.accent:t.text,background:view===item.id?t.accentS:'transparent',fontWeight:view===item.id?600:400}} onClick={()=>{setView(item.id);setMobileMoreOpen(false);if(item.id==='admin')loadPendingUsers();}}>
                 <span style={{fontSize:22}}>{item.ic}</span><span style={{fontSize:16}}>{item.l}</span>
                 {item.id==='admin'&&pendingUsers.length>0&&<span style={{marginLeft:'auto',fontSize:11,padding:'2px 8px',borderRadius:10,background:t.red,color:'#fff',fontWeight:700}}>{pendingUsers.length}</span>}
-                {item.id==='checklist'&&checklistItems.filter(x=>!x.done).length>0&&<span style={{marginLeft:'auto',fontSize:11,padding:'2px 8px',borderRadius:10,background:t.accent,color:'#fff',fontWeight:700}}>{checklistItems.filter(x=>!x.done).length}</span>}
               </div>)}
               <div style={{borderTop:`0.5px solid ${t.border}`,padding:'8px 0'}}>
                 <div className="mob-more-item" style={{color:t.dim,fontSize:14}} onClick={()=>{setDark(!dark);}}>{dark?'☀️':'🌙'} {dark?tx.light:tx.dark}</div>

@@ -15,7 +15,6 @@ const fns = {
   tasks:         require('./api/tasks'),
   atos:          require('./api/atos'),
   interactions:  require('./api/interactions'),
-  checklist:     require('./api/checklist'),
   health:        require('./api/health'),
   backup:        require('./api/backup'),
   ai:            require('./api/ai'),
