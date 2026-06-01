@@ -1108,8 +1108,21 @@ const App = function(){
   const deleteTask_=async(id)=>{const n=Number(id);try{await serverDelete('tasks',id);setTasks(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteTask',e);return false;}};
   const deleteAtos_=async(id)=>{const n=Number(id);try{await serverDelete('atos',id);setAtosTeam(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteAtos',e);return false;}};
   const deleteInteraction_=async(id)=>{const n=Number(id);try{await serverDelete('interactions',id);setInteractions(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteInteraction',e);return false;}};
-  const addCompAcct_=async(a)=>{try{const body=snakeObj(a);body.products_used=JSON.stringify(a.productsUsed||[]);const s=await serverCreate('competitive',body);if(!s)return null;const saved={...camelObj(s),productsUsed:parseArr(s.products_used),renewalDate:s.renewal_date?String(s.renewal_date).slice(0,10):null};setCompAccts(p=>[...p,saved]);return saved;}catch(e){showErr('addCompAcct',e);return null;}};
-  const updateCompAcct_=async(id,fields)=>{const prev=compAccts.find(x=>x.id===id);setCompAccts(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{const body=snakeObj(fields);body.id=id;if(fields.productsUsed!==undefined)body.products_used=JSON.stringify(fields.productsUsed);await serverUpdate('competitive',body);}catch(e){if(prev)setCompAccts(p=>p.map(x=>x.id===id?prev:x));showErr('updateCompAcct',e);}};
+  const addCompAcct_=async(a)=>{try{
+    if(!authUser?.token)return null;
+    const body={company_name:a.companyName,website:a.website||'',size:a.size||'',industry_vertical:a.industryVertical||'',vendor:a.vendor||'dynatrace',products_used:JSON.stringify(a.productsUsed||[]),estimated_arr:a.estimatedArr||0,renewal_date:a.renewalDate||null,acquisition_status:a.acquisitionStatus||'prospect',lead_source:a.leadSource||'',incumbent_satisfaction:a.incumbentSatisfaction||'medium',decision_maker:a.decisionMaker||'',champion:a.champion||'',pain_points:a.painPoints||'',notes:a.notes||''};
+    const resp=await fetch('/api/competitive',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(body)});
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'Server error '+resp.status);}
+    const j=await resp.json();const s=j.account;if(!s)return null;
+    const saved={...camelObj(s),productsUsed:parseArr(s.products_used),renewalDate:s.renewal_date?String(s.renewal_date).slice(0,10):null};
+    setCompAccts(p=>[...p,saved]);return saved;
+  }catch(e){showErr('addCompAcct',e);return null;}};
+  const updateCompAcct_=async(id,fields)=>{const prev=compAccts.find(x=>x.id===id);setCompAccts(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{
+    if(!authUser?.token)return;
+    const body={id,company_name:fields.companyName,website:fields.website,size:fields.size,industry_vertical:fields.industryVertical,vendor:fields.vendor,products_used:JSON.stringify(fields.productsUsed||[]),estimated_arr:fields.estimatedArr||0,renewal_date:fields.renewalDate||null,acquisition_status:fields.acquisitionStatus,lead_source:fields.leadSource,incumbent_satisfaction:fields.incumbentSatisfaction,decision_maker:fields.decisionMaker,champion:fields.champion,pain_points:fields.painPoints,notes:fields.notes};
+    const resp=await fetch('/api/competitive',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(body)});
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'Server error '+resp.status);}
+  }catch(e){if(prev)setCompAccts(p=>p.map(x=>x.id===id?prev:x));showErr('updateCompAcct',e);}};
   const deleteCompAcct_=async(id)=>{const n=Number(id);try{await serverDelete('competitive',id);setCompAccts(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteCompAcct',e);return false;}};
 
   // ── iCal export for tasks (Outlook/Google Calendar/Apple Calendar) ──
