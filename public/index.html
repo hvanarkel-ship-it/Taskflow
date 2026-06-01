@@ -293,6 +293,18 @@ const TX={
     assignedTo:'Toegewezen aan',atosContact:'Atos contact',companyContact:'Bedrijfscontact',
     waitingOn:'Wachtend op',
     colleague:'Collega',addColleague:'+ Collega toevoegen',contactPerson:'Contactpersoon',
+    // Competitive Intelligence
+    ciModule:'Competitive Intel',ciTitle:'Competitive Intelligence',ciNew:'Account toevoegen',ciEdit:'Account bewerken',
+    ciVendor:'Vendor',ciProducts:'Producten / Modules',ciARR:'Geschat ARR (€/jaar)',ciRenewal:'Verlengingsdatum',
+    ciStatus:'Acquisitie Status',ciLeadSource:'Lead Bron',ciSatisfaction:'Incumbent Tevredenheid',
+    ciDecisionMaker:'Beslisser',ciChampion:'Champion / Sponsor',ciPainPoints:'Pijnpunten & Switch Redenen',
+    ciNoAccounts:'Geen accounts — voeg het eerste toe',ciAdded:'Account toegevoegd',ciUpdated:'Account bijgewerkt',
+    ciDeleted:'Account verwijderd',ciFillName:'Vul een bedrijfsnaam in',ciDeleteConfirm:'Account verwijderen?',
+    ciRenewingSoon:'Verlenging < 90 dagen',ciTotalAccounts:'Totaal Accounts',ciGroupByIndustry:'Per Branche',
+    ciAllVendors:'Alle vendors',ciAllIndustries:'Alle branches',ciAllStatuses:'Alle statussen',
+    ciSatisfLow:'Ontevreden',ciSatisfMedium:'Neutraal',ciSatisfHigh:'Tevreden',
+    ciFilterTitle:'Filters',ciNoResults:'Geen resultaten',ciEstARR:'Geschat ARR',ciRenewalDate:'Verlenging',
+    ciSize:'Bedrijfsgrootte',ciWebsite:'Website',ciIntelNotes:'Intel notities',
   },
   en:{
     pipeline:'Pipeline',dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',atos:'Atos Team',tasks:'Tasks',reports:'Reports',checklist:'Checklist',
@@ -455,6 +467,18 @@ const TX={
     assignedTo:'Assigned to',atosContact:'Atos contact',companyContact:'Company contact',
     waitingOn:'Waiting on',
     colleague:'Colleague',addColleague:'+ Add colleague',contactPerson:'Contact person',
+    // Competitive Intelligence
+    ciModule:'Competitive Intel',ciTitle:'Competitive Intelligence',ciNew:'Add Account',ciEdit:'Edit Account',
+    ciVendor:'Vendor',ciProducts:'Products / Modules',ciARR:'Estimated ARR (€/yr)',ciRenewal:'Renewal Date',
+    ciStatus:'Acquisition Status',ciLeadSource:'Lead Source',ciSatisfaction:'Incumbent Satisfaction',
+    ciDecisionMaker:'Decision Maker',ciChampion:'Champion / Sponsor',ciPainPoints:'Pain Points & Switch Drivers',
+    ciNoAccounts:'No accounts yet — add the first one',ciAdded:'Account added',ciUpdated:'Account updated',
+    ciDeleted:'Account deleted',ciFillName:'Enter a company name',ciDeleteConfirm:'Delete account?',
+    ciRenewingSoon:'Renewal < 90 days',ciTotalAccounts:'Total Accounts',ciGroupByIndustry:'By Industry',
+    ciAllVendors:'All vendors',ciAllIndustries:'All industries',ciAllStatuses:'All statuses',
+    ciSatisfLow:'Dissatisfied',ciSatisfMedium:'Neutral',ciSatisfHigh:'Satisfied',
+    ciFilterTitle:'Filters',ciNoResults:'No results',ciEstARR:'Est. ARR',ciRenewalDate:'Renewal',
+    ciSize:'Company size',ciWebsite:'Website',ciIntelNotes:'Intel notes',
   }
 };
 
@@ -467,6 +491,15 @@ const TASK_STATUSES=[
   {k:'cancelled',l:{nl:'Geannuleerd',en:'Cancelled'},c:'#EF4444',ic:'✕'},
 ];
 const CONTACT_CATS_I18N={nl:['Beslisser','Technisch','Inkoop','Gebruiker','Partner','Consultant','Management','Sponsor'],en:['Decision Maker','Technical','Procurement','User','Partner','Consultant','Management','Sponsor']};
+const COMP_VENDORS=[{id:'dynatrace',l:{nl:'Dynatrace',en:'Dynatrace'},c:'#1a6dc9',ic:'🔷'},{id:'elastic',l:{nl:'Elastic',en:'Elastic'},c:'#e8a000',tc:'#1c1c1e',ic:'🟡'},{id:'both',l:{nl:'Beide',en:'Both'},c:'#BF5AF2',ic:'💜'}];
+const COMP_STATUSES=[{id:'prospect',l:{nl:'Prospect',en:'Prospect'},c:'#8E8E93'},{id:'engaged',l:{nl:'Engaged',en:'Engaged'},c:'#5AC8FA'},{id:'qualified',l:{nl:'Gekwalificeerd',en:'Qualified'},c:'#007AFF'},{id:'proposal',l:{nl:'Voorstel',en:'Proposal'},c:'#BF5AF2'},{id:'negotiation',l:{nl:'Onderhandeling',en:'Negotiation'},c:'#FF9F0A'},{id:'migrated',l:{nl:'Gemigreerd ✓',en:'Migrated ✓'},c:'#30D158'},{id:'lost',l:{nl:'Verloren',en:'Lost'},c:'#FF453A'}];
+const COMP_INDUSTRIES_I18N={nl:['Banking & Finance','Verzekeringen','Healthcare','Pharma & Life Sciences','Retail & E-commerce','Manufacturing','Telecom & Media','Overheid','Energie & Utilities','Technologie','Logistiek','Onderwijs','Overig'],en:['Banking & Finance','Insurance','Healthcare','Pharma & Life Sciences','Retail & E-commerce','Manufacturing','Telecom & Media','Government','Energy & Utilities','Technology','Logistics','Education','Other']};
+const COMP_DT_PRODUCTS=['APM & Distributed Tracing','Infrastructure Monitoring','Digital Experience (RUM)','Application Security','Log Management & Analytics','Business Analytics','Cloud Automation','Database Observability'];
+const COMP_ES_PRODUCTS=['Observability (Logs/Metrics/Traces)','Security / SIEM','Enterprise Search','Vector Search / RAG','Elastic Cloud','Maps & Geo'];
+const COMP_LEAD_SOURCES_I18N={nl:['Partner referral','Event/Webinar','LinkedIn','Cold outreach','Bestaande klant','Aanbesteding','Analist (Gartner/Forrester)','Overig'],en:['Partner referral','Event/Webinar','LinkedIn','Cold outreach','Existing customer','Public tender','Analyst (Gartner/Forrester)','Other']};
+const fmtARR=(v)=>{if(!v)return'';const n=Number(v);if(n>=1000000)return'€'+(n/1000000).toFixed(1)+'M';if(n>=1000)return'€'+(n/1000).toFixed(0)+'K';return'€'+n;};
+const renewalDays=(d)=>{if(!d)return null;return Math.floor((new Date(d)-new Date())/(1000*60*60*24));};
+const renewalColor=(days,t)=>{if(days===null)return t.muted;if(days<0)return t.muted;if(days<=30)return t.red;if(days<=90)return t.orange;return t.green;};
 const INT_TYPES_I18N=[{id:'call',l:{nl:'Gesprek',en:'Call'},ic:'📞'},{id:'email',l:{nl:'E-mail',en:'Email'},ic:'📧'},{id:'meeting',l:{nl:'Meeting',en:'Meeting'},ic:'📅'},{id:'note',l:{nl:'Notitie',en:'Note'},ic:'📝'}];
 
 // ═══ RICH TEXT EDITOR (simple contentEditable with toolbar) ═══
@@ -679,6 +712,12 @@ const App = function(){
   const[atosTeam,setAtosTeam]=useState(()=>safeArr('atos'));
   const[interactions,setInteractions]=useState(()=>safeArr('interactions'));
   const[checklistItems,setChecklistItems]=useState([]);
+  const[compAccts,setCompAccts]=useState([]);
+  const[compCiSearch,setCompCiSearch]=useState('');
+  const[compCiVendor,setCompCiVendor]=useState('');
+  const[compCiIndustry,setCompCiIndustry]=useState('');
+  const[compCiStatus,setCompCiStatus]=useState('');
+  const[compCiView,setCompCiView]=useState('group');
   const[clInput,setClInput]=useState('');
   const[clCategory,setClCategory]=useState('');
   const[clFilter,setClFilter]=useState('all');
@@ -785,6 +824,7 @@ const App = function(){
           fetch('/api/atos',{headers,signal:AbortSignal.timeout(10000)}),
           fetch('/api/interactions',{headers,signal:AbortSignal.timeout(10000)}),
           fetch('/api/checklist',{headers,signal:AbortSignal.timeout(10000)}).catch(()=>({ok:false})),
+          fetch('/api/competitive',{headers,signal:AbortSignal.timeout(10000)}).catch(()=>({ok:false})),
         ]);
         // If any API returned 401/403, the user is no longer authorized — auto-logout
         if(resps.slice(0,6).some(r=>r.status===401||r.status===403)){LS.set('auth_session',null);setAuthUser(null);return;}
@@ -792,7 +832,7 @@ const App = function(){
         const failedCount=resps.slice(0,6).filter(r=>!r.ok).length;
         if(failedCount===6){console.warn('Server: all APIs failed');setDataSource('offline');dbReady.current=true;return;}
         if(failedCount>0)console.warn(`Server: ${failedCount} API(s) failed, loading available data`);
-        const[cos,cts,ops,tks,ats,ints,clRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
+        const[cos,cts,ops,tks,ats,ints,clRes,ciRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
         const cc=camelArr(cos.companies||cos.data||[]).map(c=>({...c,tags:parseArr(c.tags)}));
         const ct=camelArr(cts.contacts||cts.data||[]).map(c=>({...c,tags:parseArr(c.tags)}));
         const op=camelArr(ops.opportunities||ops.data||[]).map(o=>({...o,techTags:parseArr(o.techTags),contactIds:parseArr(o.contactIds),atosContactIds:parseArr(o.atosContactIds),notes:parseArr(o.notes),expectedCloseDate:o.expectedCloseDate?o.expectedCloseDate.slice(0,10):o.expectedCloseDate}));
@@ -800,9 +840,10 @@ const App = function(){
         const at=camelArr(ats.team||ats.data||[]);
         const it=camelArr(ints.interactions||ints.data||[]).map(i=>({...i,at:i.at||i.createdAt}));
         const cl=camelArr(clRes.items||[]);
+        const ci=camelArr(ciRes.accounts||[]).map(a=>({...a,productsUsed:parseArr(a.productsUsed),renewalDate:a.renewalDate?String(a.renewalDate).slice(0,10):null}));
         // Server is the single source of truth — always use server data
         setCompanies(cc); setContacts(ct); setOpps(op); setTasks(tk); setAtosTeam(at); setInteractions(it);
-        setChecklistItems(cl);
+        setChecklistItems(cl); setCompAccts(ci);
         setDataSource('server');
         // Only mark as loaded AFTER successful data fetch
         dataLoaded.current=true;
@@ -966,6 +1007,8 @@ const App = function(){
         setMf(md?.id?{...md}:{title:'',contactId:md?.contactId||'',oppId:md?.oppId||'',dueDate:td(),dueTime:'',done:false,priority:'medium',reminder:true,reminderMin:15,status:'todo',notes:'',atosId:'',companyContactId:'',...(md||{})});
       }else if(mt==='company'){
         setMf(md?.id?{...md}:{name:'',website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],...(md||{})});
+      }else if(mt==='competitive'){
+        setMf(md?.id?{...md}:{companyName:'',website:'',size:'',industryVertical:'',vendor:'dynatrace',productsUsed:[],estimatedArr:0,renewalDate:'',acquisitionStatus:'prospect',leadSource:'',incumbentSatisfaction:'medium',decisionMaker:'',champion:'',painPoints:'',notes:'',...(md||{})});
       }
     }
     if(!mt)prevModalRef.current={type:null,id:null};
@@ -1065,6 +1108,9 @@ const App = function(){
   const deleteTask_=async(id)=>{const n=Number(id);try{await serverDelete('tasks',id);setTasks(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteTask',e);return false;}};
   const deleteAtos_=async(id)=>{const n=Number(id);try{await serverDelete('atos',id);setAtosTeam(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteAtos',e);return false;}};
   const deleteInteraction_=async(id)=>{const n=Number(id);try{await serverDelete('interactions',id);setInteractions(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteInteraction',e);return false;}};
+  const addCompAcct_=async(a)=>{try{const body=snakeObj(a);body.products_used=JSON.stringify(a.productsUsed||[]);const s=await serverCreate('competitive',body);if(!s)return null;const saved={...camelObj(s),productsUsed:parseArr(s.products_used),renewalDate:s.renewal_date?String(s.renewal_date).slice(0,10):null};setCompAccts(p=>[...p,saved]);return saved;}catch(e){showErr('addCompAcct',e);return null;}};
+  const updateCompAcct_=async(id,fields)=>{const prev=compAccts.find(x=>x.id===id);setCompAccts(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{const body=snakeObj(fields);body.id=id;if(fields.productsUsed!==undefined)body.products_used=JSON.stringify(fields.productsUsed);await serverUpdate('competitive',body);}catch(e){if(prev)setCompAccts(p=>p.map(x=>x.id===id?prev:x));showErr('updateCompAcct',e);}};
+  const deleteCompAcct_=async(id)=>{const n=Number(id);try{await serverDelete('competitive',id);setCompAccts(p=>p.filter(x=>Number(x.id)!==n));return true;}catch(e){showErr('deleteCompAcct',e);return false;}};
 
   // ── iCal export for tasks (Outlook/Google Calendar/Apple Calendar) ──
   const exportTasksIcal=(taskList)=>{
@@ -3157,8 +3203,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   };
 
   const isAdmin=authUser?.email==='hvanarkel@gmail.com';
-  const titles={pipeline:tx.pipeline,contacts:tx.contacts,companies:tx.companies,atos:tx.atos,tasks:tx.tasks,dashboard:tx.dashboard,reports:tx.reports,admin:tx.adminPanel,checklist:tx.checklist};
-  const nav=[{id:'dashboard',ic:'◆',l:tx.dashboard},{id:'pipeline',ic:'📊',l:tx.pipeline},{id:'companies',ic:'🏢',l:tx.companies},{id:'contacts',ic:'👤',l:tx.contacts},{id:'atos',ic:'🔵',l:tx.atos},{id:'tasks',ic:'☑',l:tx.tasks},{id:'checklist',ic:'✅',l:tx.checklist},{id:'reports',ic:'📈',l:tx.reports},...(isAdmin?[{id:'admin',ic:'🛡',l:tx.adminPanel}]:[])];
+  const titles={pipeline:tx.pipeline,contacts:tx.contacts,companies:tx.companies,atos:tx.atos,tasks:tx.tasks,dashboard:tx.dashboard,reports:tx.reports,admin:tx.adminPanel,checklist:tx.checklist,competitive:tx.ciModule};
+  const nav=[{id:'dashboard',ic:'◆',l:tx.dashboard},{id:'pipeline',ic:'📊',l:tx.pipeline},{id:'companies',ic:'🏢',l:tx.companies},{id:'contacts',ic:'👤',l:tx.contacts},{id:'atos',ic:'🔵',l:tx.atos},{id:'tasks',ic:'☑',l:tx.tasks},{id:'checklist',ic:'✅',l:tx.checklist},{id:'reports',ic:'📈',l:tx.reports},{id:'competitive',ic:'🎯',l:tx.ciModule},...(isAdmin?[{id:'admin',ic:'🛡',l:tx.adminPanel}]:[])];
 
   // Mobile detection
   const[isMobile,setIsMobile]=useState(()=>window.innerWidth<=768);
@@ -3190,6 +3236,179 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   useEffect(()=>{if(isAdmin){loadPendingUsers();loadAllUsers();loadAdminStats();}},[isAdmin]);
 
   const fmtDate=(d)=>d?new Date(d).toLocaleDateString(lang==='nl'?'nl-NL':'en-US',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):tx.never;
+
+  const COMP_INDUSTRIES=COMP_INDUSTRIES_I18N[lang]||COMP_INDUSTRIES_I18N.nl;
+  const COMP_LEAD_SOURCES=COMP_LEAD_SOURCES_I18N[lang]||COMP_LEAD_SOURCES_I18N.nl;
+
+  const renderCompetitive=()=>{
+    const filtered=compAccts.filter(a=>{
+      if(compCiSearch&&!a.companyName.toLowerCase().includes(compCiSearch.toLowerCase())&&!(a.decisionMaker||'').toLowerCase().includes(compCiSearch.toLowerCase()))return false;
+      if(compCiVendor&&a.vendor!==compCiVendor)return false;
+      if(compCiIndustry&&a.industryVertical!==compCiIndustry)return false;
+      if(compCiStatus&&a.acquisitionStatus!==compCiStatus)return false;
+      return true;
+    });
+    const dtCount=compAccts.filter(a=>a.vendor==='dynatrace').length;
+    const esCount=compAccts.filter(a=>a.vendor==='elastic').length;
+    const bothCount=compAccts.filter(a=>a.vendor==='both').length;
+    const renewingSoon=compAccts.filter(a=>{const d=renewalDays(a.renewalDate);return d!==null&&d>=0&&d<=90;}).length;
+    const totalARR=compAccts.reduce((s,a)=>s+(a.estimatedArr||0),0);
+    const vendorC=(id)=>COMP_VENDORS.find(v=>v.id===id)||COMP_VENDORS[0];
+    const statusC=(id)=>COMP_STATUSES.find(s=>s.id===id)||COMP_STATUSES[0];
+    const satisfC=(s)=>s==='low'?t.red:s==='high'?t.green:t.orange;
+    const CompCard=({a})=>{
+      const vendor=vendorC(a.vendor);const status=statusC(a.acquisitionStatus);
+      const days=renewalDays(a.renewalDate);const rc=renewalColor(days,t);
+      const satisfDot=satisfC(a.incumbentSatisfaction);
+      return <div style={{...card,padding:'14px 16px',marginBottom:8,cursor:'pointer',transition:'box-shadow .15s'}} onClick={()=>setModal({type:'competitive',data:a})}>
+        <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4,flexWrap:'wrap'}}>
+              <span style={{fontSize:14,fontWeight:700,color:t.text}}>{a.companyName}</span>
+              <span style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:vendor.c+'22',color:vendor.c,fontWeight:700,border:`1px solid ${vendor.c}44`}}>{vendor.ic} {vendor.l[lang]||vendor.l.nl}</span>
+              <span style={{fontSize:10,padding:'2px 8px',borderRadius:6,background:status.c+'22',color:status.c,fontWeight:600}}>{status.l[lang]||status.l.nl}</span>
+            </div>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+              {a.industryVertical&&<span style={{fontSize:11,color:t.dim}}>🏭 {a.industryVertical}</span>}
+              {a.estimatedArr>0&&<span style={{fontSize:11,color:t.green,fontWeight:600}}>💰 {fmtARR(a.estimatedArr)}</span>}
+              {a.renewalDate&&<span style={{fontSize:11,color:rc,fontWeight:days!==null&&days<=90?700:400}}>🔄 {fd(a.renewalDate)}{days!==null&&days>=0&&days<=90?` (${days}d)`:days<0?' (verlopen)':''}</span>}
+              {a.decisionMaker&&<span style={{fontSize:11,color:t.dim}}>👤 {a.decisionMaker}</span>}
+              <span title={a.incumbentSatisfaction} style={{width:8,height:8,borderRadius:'50%',background:satisfDot,display:'inline-block',flexShrink:0}}/>
+            </div>
+            {a.painPoints&&<div style={{fontSize:11,color:t.dim,marginTop:5,lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{a.painPoints}</div>}
+          </div>
+          <div style={{display:'flex',gap:4,flexShrink:0}}>
+            <button onClick={e=>{e.stopPropagation();if(confirm(tx.ciDeleteConfirm+'\n'+a.companyName))deleteCompAcct_(a.id).then(ok=>{if(ok)toast(tx.ciDeleted,'info');});}} style={{width:28,height:28,borderRadius:6,border:'none',background:'transparent',color:t.muted,cursor:'pointer',fontSize:13,display:'flex',alignItems:'center',justifyContent:'center',minHeight:0,minWidth:0}}>✕</button>
+          </div>
+        </div>
+      </div>;
+    };
+    const groupView=()=>{
+      const byInd={};
+      filtered.forEach(a=>{const k=a.industryVertical||(lang==='nl'?'Overig':'Other');if(!byInd[k])byInd[k]=[];byInd[k].push(a);});
+      const sorted=Object.entries(byInd).sort((a,b)=>b[1].length-a[1].length);
+      if(sorted.length===0)return <div style={{textAlign:'center',padding:'60px 20px',color:t.dim}}><div style={{fontSize:40,marginBottom:12}}>🎯</div><div style={{fontSize:15,fontWeight:600,marginBottom:6}}>{compAccts.length===0?tx.ciNoAccounts:tx.ciNoResults}</div><button onClick={()=>setModal({type:'competitive'})} style={{...btnP,marginTop:12,padding:'8px 20px',fontSize:13}}>+ {tx.ciNew}</button></div>;
+      return sorted.map(([ind,accts])=><div key={ind} style={{marginBottom:16}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+          <span style={{fontSize:13,fontWeight:700,color:t.text}}>{ind}</span>
+          <span style={{fontSize:10,padding:'1px 7px',borderRadius:10,background:t.accentS,color:t.accent,fontWeight:700}}>{accts.length}</span>
+          <span style={{fontSize:10,color:t.muted}}>ARR: {fmtARR(accts.reduce((s,a)=>s+(a.estimatedArr||0),0))}</span>
+        </div>
+        {accts.map(a=><CompCard key={a.id} a={a}/>)}
+      </div>);
+    };
+    const listView=()=>{
+      if(filtered.length===0)return <div style={{textAlign:'center',padding:'60px 20px',color:t.dim}}><div style={{fontSize:40,marginBottom:12}}>🎯</div><div style={{fontSize:15,fontWeight:600,marginBottom:6}}>{compAccts.length===0?tx.ciNoAccounts:tx.ciNoResults}</div><button onClick={()=>setModal({type:'competitive'})} style={{...btnP,marginTop:12,padding:'8px 20px',fontSize:13}}>+ {tx.ciNew}</button></div>;
+      return filtered.map(a=><CompCard key={a.id} a={a}/>);
+    };
+    return <div>
+      {/* Summary stats */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:10,marginBottom:16}}>
+        {[
+          {l:tx.ciTotalAccounts,v:compAccts.length,ic:'🎯',c:t.accent},
+          {l:'Dynatrace',v:dtCount,ic:'🔷',c:'#1a6dc9'},
+          {l:'Elastic',v:esCount,ic:'🟡',c:'#e8a000'},
+          {l:lang==='nl'?'Beide':'Both',v:bothCount,ic:'💜',c:t.purple},
+          {l:tx.ciRenewingSoon,v:renewingSoon,ic:'⚡',c:renewingSoon>0?t.red:t.green},
+          {l:'Total Est. ARR',v:fmtARR(totalARR)||'—',ic:'💰',c:t.green},
+        ].map((s,i)=><div key={i} style={{...card,padding:'14px 16px',textAlign:'center'}}>
+          <div style={{fontSize:22,marginBottom:4}}>{s.ic}</div>
+          <div style={{fontSize:s.v&&String(s.v).length>4?18:22,fontWeight:800,color:s.c}}>{s.v}</div>
+          <div style={{fontSize:10,color:t.muted,marginTop:2,fontWeight:500}}>{s.l}</div>
+        </div>)}
+      </div>
+      {/* Renewal urgency strip */}
+      {renewingSoon>0&&<div style={{padding:'10px 16px',borderRadius:12,background:t.redS,border:`1px solid ${t.red}44`,marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
+        <span style={{fontSize:18}}>⚡</span>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:700,color:t.red}}>{renewingSoon} {lang==='nl'?'account(s) verlengd binnen 90 dagen':'account(s) renewing within 90 days'}</div>
+          <div style={{fontSize:11,color:t.dim,marginTop:2}}>{lang==='nl'?'Dit zijn prime acquisition windows — neem nu actie.':'These are prime acquisition windows — act now.'}</div>
+        </div>
+      </div>}
+      {/* Filter bar */}
+      <div style={{...card,padding:'12px 16px',marginBottom:16,display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+        <input value={compCiSearch} onChange={e=>setCompCiSearch(e.target.value)} placeholder={tx.search} style={{...inp,flex:'1 1 160px',padding:'7px 12px',fontSize:13}}/>
+        <select value={compCiVendor} onChange={e=>setCompCiVendor(e.target.value)} style={{...inp,flex:'1 1 120px',padding:'7px 10px',fontSize:12,cursor:'pointer'}}>
+          <option value="">{tx.ciAllVendors}</option>
+          {COMP_VENDORS.map(v=><option key={v.id} value={v.id}>{v.l[lang]||v.l.nl}</option>)}
+        </select>
+        <select value={compCiIndustry} onChange={e=>setCompCiIndustry(e.target.value)} style={{...inp,flex:'1 1 140px',padding:'7px 10px',fontSize:12,cursor:'pointer'}}>
+          <option value="">{tx.ciAllIndustries}</option>
+          {COMP_INDUSTRIES.map(ind=><option key={ind} value={ind}>{ind}</option>)}
+        </select>
+        <select value={compCiStatus} onChange={e=>setCompCiStatus(e.target.value)} style={{...inp,flex:'1 1 130px',padding:'7px 10px',fontSize:12,cursor:'pointer'}}>
+          <option value="">{tx.ciAllStatuses}</option>
+          {COMP_STATUSES.map(s=><option key={s.id} value={s.id}>{s.l[lang]||s.l.nl}</option>)}
+        </select>
+        {(compCiSearch||compCiVendor||compCiIndustry||compCiStatus)&&<button onClick={()=>{setCompCiSearch('');setCompCiVendor('');setCompCiIndustry('');setCompCiStatus('');}} style={{...btnG,padding:'6px 10px',fontSize:11,whiteSpace:'nowrap'}}>{tx.clearFilters}</button>}
+        {!isMobile&&<button onClick={()=>setModal({type:'competitive'})} style={{...btnP,padding:'6px 14px',fontSize:12,whiteSpace:'nowrap'}}>+ {tx.ciNew}</button>}
+      </div>
+      {/* Account list */}
+      {compCiView==='group'?groupView():listView()}
+    </div>;
+  };
+
+  const renderCompetitiveModal=()=>{
+    const d=modal?.data;const f=mf;const sf=setMf;
+    const curProducts=(f.vendor==='elastic'?COMP_ES_PRODUCTS:f.vendor==='both'?[...COMP_DT_PRODUCTS,...COMP_ES_PRODUCTS]:COMP_DT_PRODUCTS);
+    const toggleProduct=(p)=>{const cur=f.productsUsed||[];sf({...f,productsUsed:cur.includes(p)?cur.filter(x=>x!==p):[...cur,p]});};
+    const vendorC=(id)=>COMP_VENDORS.find(v=>v.id===id)||COMP_VENDORS[0];
+    const selV=vendorC(f.vendor||'dynatrace');
+    const satisfItems=[{id:'low',l:tx.ciSatisfLow,c:t.red,ic:'😟'},{id:'medium',l:tx.ciSatisfMedium,c:t.orange,ic:'😐'},{id:'high',l:tx.ciSatisfHigh,c:t.green,ic:'😊'}];
+    return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:560,maxHeight:'92vh',overflowY:'auto'}}>
+        <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:20,padding:'6px',borderRadius:8,background:selV.c+'20',color:selV.c}}>{selV.ic}</span><span style={{fontSize:18,fontWeight:700}}>{d?.id?tx.ciEdit:tx.ciNew}</span></div>
+          <button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+        </div>
+        <div style={{padding:'16px 24px'}}>
+          {/* Company + basic */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+            <div style={{gridColumn:'1/-1'}}><label style={lbl}>{tx.companyName} *</label><input style={inp} value={f.companyName||''} onChange={e=>sf({...f,companyName:e.target.value})} placeholder={lang==='nl'?'ING Bank, Philips...':'ING Bank, Philips...'}/></div>
+            <div><label style={lbl}>{tx.ciWebsite}</label><input style={inp} value={f.website||''} onChange={e=>sf({...f,website:e.target.value})} placeholder="www.example.com"/></div>
+            <div><label style={lbl}>{tx.ciSize}</label><select style={{...inp,cursor:'pointer'}} value={f.size||''} onChange={e=>sf({...f,size:e.target.value})}><option value="">{tx.selectSize}</option>{['1-50','50-200','200-1000','1000-5000','5000+'].map(s=><option key={s} value={s}>{s} {tx.employees}</option>)}</select></div>
+          </div>
+          {/* Industry */}
+          <div style={{marginBottom:12}}><label style={lbl}>{tx.ciIndustry}</label><select style={{...inp,cursor:'pointer'}} value={f.industryVertical||''} onChange={e=>sf({...f,industryVertical:e.target.value})}><option value="">— {lang==='nl'?'Selecteer branche':'Select industry'} —</option>{COMP_INDUSTRIES.map(ind=><option key={ind} value={ind}>{ind}</option>)}</select></div>
+          {/* Vendor */}
+          <div style={{marginBottom:12}}><label style={lbl}>{tx.ciVendor}</label><div style={{display:'flex',gap:6}}>{COMP_VENDORS.map(v=><button key={v.id} type="button" onClick={()=>sf({...f,vendor:v.id,productsUsed:[]})} style={{flex:1,padding:'8px 6px',borderRadius:10,fontSize:12,fontWeight:700,border:`2px solid ${f.vendor===v.id?v.c:'transparent'}`,background:f.vendor===v.id?v.c+'22':'transparent',color:f.vendor===v.id?v.c:t.dim,cursor:'pointer',fontFamily:'inherit',transition:'all .15s'}}>{v.ic} {v.l[lang]||v.l.nl}</button>)}</div></div>
+          {/* Products */}
+          <div style={{marginBottom:12}}><label style={lbl}>{tx.ciProducts}</label><div style={{display:'flex',flexWrap:'wrap',gap:5}}>{curProducts.map(p=><button key={p} type="button" onClick={()=>toggleProduct(p)} style={{padding:'4px 10px',borderRadius:8,fontSize:11,border:`1.5px solid ${(f.productsUsed||[]).includes(p)?selV.c:'transparent'}`,background:(f.productsUsed||[]).includes(p)?selV.c+'22':'transparent',color:(f.productsUsed||[]).includes(p)?selV.c:t.dim,cursor:'pointer',fontFamily:'inherit',fontWeight:(f.productsUsed||[]).includes(p)?700:400}}>{p}</button>)}</div></div>
+          {/* ARR + Renewal */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+            <div><label style={lbl}>{tx.ciARR}</label><input type="number" style={inp} value={f.estimatedArr||''} onChange={e=>sf({...f,estimatedArr:parseInt(e.target.value)||0})} placeholder="500000"/></div>
+            <div><label style={lbl}>{tx.ciRenewal}</label><input type="date" style={inp} value={f.renewalDate||''} onChange={e=>sf({...f,renewalDate:e.target.value})}/></div>
+          </div>
+          {/* Acquisition status */}
+          <div style={{marginBottom:12}}><label style={lbl}>{tx.ciStatus}</label><div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{COMP_STATUSES.map(s=><button key={s.id} type="button" onClick={()=>sf({...f,acquisitionStatus:s.id})} style={{padding:'5px 10px',borderRadius:8,fontSize:11,fontWeight:f.acquisitionStatus===s.id?700:400,border:`1.5px solid ${f.acquisitionStatus===s.id?s.c:'transparent'}`,background:f.acquisitionStatus===s.id?s.c+'22':'transparent',color:f.acquisitionStatus===s.id?s.c:t.dim,cursor:'pointer',fontFamily:'inherit'}}>{s.l[lang]||s.l.nl}</button>)}</div></div>
+          {/* Lead source + Satisfaction */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+            <div><label style={lbl}>{tx.ciLeadSource}</label><select style={{...inp,cursor:'pointer'}} value={f.leadSource||''} onChange={e=>sf({...f,leadSource:e.target.value})}><option value="">—</option>{COMP_LEAD_SOURCES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+            <div><label style={lbl}>{tx.ciSatisfaction}</label><div style={{display:'flex',gap:4}}>{satisfItems.map(s=><button key={s.id} type="button" onClick={()=>sf({...f,incumbentSatisfaction:s.id})} title={s.l} style={{flex:1,padding:'7px 4px',borderRadius:8,fontSize:15,border:`1.5px solid ${f.incumbentSatisfaction===s.id?s.c:'transparent'}`,background:f.incumbentSatisfaction===s.id?s.c+'22':'transparent',cursor:'pointer',textAlign:'center',minHeight:0}}>{s.ic}</button>)}</div><div style={{fontSize:10,color:t.muted,marginTop:3,textAlign:'center'}}>{satisfItems.find(s=>s.id===f.incumbentSatisfaction)?.l||''}</div></div>
+          </div>
+          {/* Decision maker + Champion */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+            <div><label style={lbl}>{tx.ciDecisionMaker}</label><input style={inp} value={f.decisionMaker||''} onChange={e=>sf({...f,decisionMaker:e.target.value})} placeholder={lang==='nl'?'Naam, functie':'Name, role'}/></div>
+            <div><label style={lbl}>{tx.ciChampion}</label><input style={inp} value={f.champion||''} onChange={e=>sf({...f,champion:e.target.value})} placeholder={lang==='nl'?'Interne ambassadeur':'Internal advocate'}/></div>
+          </div>
+          {/* Pain points */}
+          <div style={{marginBottom:12}}><label style={lbl}>{tx.ciPainPoints}</label><textarea style={{...inp,minHeight:70,resize:'vertical',lineHeight:1.5}} value={f.painPoints||''} onChange={e=>sf({...f,painPoints:e.target.value})} placeholder={lang==='nl'?'Wat zijn de klachten over de huidige vendor? Contractproblemen, pricing, support, functionaliteit...':'What are the complaints about the current vendor? Contract issues, pricing, support, functionality...'}/></div>
+          {/* Notes */}
+          <div style={{marginBottom:4}}><label style={lbl}>{tx.ciIntelNotes}</label><textarea style={{...inp,minHeight:60,resize:'vertical',lineHeight:1.5}} value={f.notes||''} onChange={e=>sf({...f,notes:e.target.value})} placeholder={lang==='nl'?'Interne notities, contactgeschiedenis, strategie...':'Internal notes, contact history, strategy...'}/></div>
+        </div>
+        <div style={{padding:'0 24px 20px',display:'flex',gap:8,justifyContent:'flex-end'}}>
+          <button onClick={()=>setModal(null)} style={btnG}>{tx.cancel}</button>
+          {d?.id&&<button onClick={async()=>{if(confirm(tx.ciDeleteConfirm+'\n'+d.companyName)){const ok=await deleteCompAcct_(d.id);if(ok){toast(tx.ciDeleted,'info');setModal(null);}}}} style={{...btnG,color:t.red,borderColor:t.red+'44'}}>{tx.delete}</button>}
+          <button onClick={async()=>{
+            if(!f.companyName?.trim()){toast(tx.ciFillName,'info');return;}
+            const data={companyName:f.companyName.trim(),website:f.website||'',size:f.size||'',industryVertical:f.industryVertical||'',vendor:f.vendor||'dynatrace',productsUsed:f.productsUsed||[],estimatedArr:f.estimatedArr||0,renewalDate:f.renewalDate||null,acquisitionStatus:f.acquisitionStatus||'prospect',leadSource:f.leadSource||'',incumbentSatisfaction:f.incumbentSatisfaction||'medium',decisionMaker:f.decisionMaker||'',champion:f.champion||'',painPoints:f.painPoints||'',notes:f.notes||''};
+            if(d?.id){await updateCompAcct_(d.id,data);toast(tx.ciUpdated);setModal(null);}
+            else{const saved=await addCompAcct_(data);if(saved){toast(tx.ciAdded);setModal(null);}}
+          }} style={btnP}>{d?.id?tx.save:tx.add}</button>
+        </div>
+      </div>
+    </div>;
+  };
 
   const renderAdmin=()=>{
     const lbl={display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:.8,marginBottom:5,fontWeight:600};
@@ -3522,6 +3741,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             {view==='companies'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setCompaniesView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:companiesView===v.id?600:400,border:'none',background:companiesView===v.id?t.accent:'transparent',color:companiesView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'company'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addCompany}</button>}</>}
             {view==='tasks'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'},{id:'kanban',l:lang==='nl'?'Bord':'Board',ic:'⊞'}].map(v=><button key={v.id} onClick={()=>setTasksView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:tasksView===v.id?600:400,border:'none',background:tasksView===v.id?t.accent:'transparent',color:tasksView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div><button onClick={()=>window.open('/tasks-popup','_blank','width=1400,height=900,resizable=yes')} style={{...btnG,padding:'6px 10px',fontSize:12,display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap'}} title={lang==='nl'?'Open in apart venster':'Open in separate window'}>⧉ Pop-out</button>{!isMobile&&<button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addTask}</button>}</>}
             {view==='dashboard'&&!isMobile&&<button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button>}
+            {view==='competitive'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'group',l:tx.ciGroupByIndustry,ic:'⊞'},{id:'list',l:tx.listView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setCompCiView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:compCiView===v.id?600:400,border:'none',background:compCiView===v.id?t.accent:'transparent',color:compCiView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'competitive'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>+ {tx.ciNew}</button>}</>
             {!isMobile&&<button onClick={runDailyScan} style={{height:32,padding:'0 10px',borderRadius:8,background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,fontFamily:'inherit',gap:3,minHeight:32,minWidth:32}} title={tx.dailyScan}>🔍</button>}
             {!isMobile&&<button onClick={()=>setAiOpen(!aiOpen)} style={{width:32,height:32,borderRadius:8,background:aiOpen?t.accentS:t.glass,backdropFilter:t.blur,border:`0.5px solid ${aiOpen?t.accent:t.border}`,color:aiOpen?t.accent:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,minHeight:32,minWidth:32}} title={tx.aiTitle}>✦</button>}
           </div>
@@ -3544,6 +3764,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {view==='tasks'&&renderTasks()}
           {view==='checklist'&&renderChecklist()}
           {view==='reports'&&renderReports()}
+          {view==='competitive'&&renderCompetitive()}
           {view==='admin'&&isAdmin&&renderAdmin()}
         </div>
       </main>
@@ -3559,6 +3780,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         ];
         const mobFabAction={
           pipeline:()=>setModal({type:'opp'}),
+          competitive:()=>setModal({type:'competitive'}),
           contacts:()=>setModal({type:'contact'}),
           companies:()=>setModal({type:'company'}),
           tasks:()=>setModal({type:'task'}),
@@ -3569,6 +3791,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {id:'atos',ic:'🔵',l:tx.atos},
           {id:'reports',ic:'📈',l:tx.reports},
           {id:'checklist',ic:'✅',l:tx.checklist},
+          {id:'competitive',ic:'🎯',l:tx.ciModule},
           ...(isAdmin?[{id:'admin',ic:'🛡',l:tx.adminPanel}]:[]),
         ];
         return <>
@@ -3577,7 +3800,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           {/* Bottom tab bar */}
           <nav className="mob-tab-bar">
             {mobTabs.map(tab=>{
-              const isActive=tab.id==='_more'?(mobileMoreOpen||['companies','atos','reports','checklist','admin'].includes(view)):view===tab.id&&!mobileMoreOpen;
+              const isActive=tab.id==='_more'?(mobileMoreOpen||['companies','atos','reports','checklist','competitive','admin'].includes(view)):view===tab.id&&!mobileMoreOpen;
               return <button key={tab.id} className="mob-tab-btn" onClick={()=>{if(tab.id==='_more'){setMobileMoreOpen(v=>!v);}else{setView(tab.id);setMobileMoreOpen(false);}}} style={{color:isActive?t.accent:t.muted}}>
                 <span className="mob-tab-icon" style={{fontSize:tab.id==='_more'?14:20,letterSpacing:tab.id==='_more'?2:0}}>{tab.ic}</span>
                 <span className="mob-tab-label">{tab.l}</span>
@@ -3664,6 +3887,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       {modal?.type==='task'&&renderTaskModal()}
       {modal?.type==='company'&&renderCompanyModal()}
       {modal?.type==='import'&&renderImportModal()}
+      {modal?.type==='competitive'&&renderCompetitiveModal()}
       {atModal&&<div onClick={()=>setAtModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
         <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:400}}>
           <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{atModal.id?tx.editLabel:tx.newTeam}</span><button onClick={()=>setAtModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>

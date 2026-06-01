@@ -148,6 +148,10 @@ async function setup() {
     { sql: "CREATE INDEX IF NOT EXISTS idx_checklist_user ON checklist_items(user_id)", v: '35' },
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS deal_registration_url TEXT DEFAULT ''", v: '36' },
     { sql: "ALTER TABLE contacts ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''", v: '37' },
+    { sql: "CREATE TABLE IF NOT EXISTS competitive_accounts (id SERIAL PRIMARY KEY, company_name VARCHAR(500) NOT NULL, website VARCHAR(500) DEFAULT '', size VARCHAR(50) DEFAULT '', industry_vertical VARCHAR(100) DEFAULT '', vendor VARCHAR(50) DEFAULT 'dynatrace', products_used JSONB DEFAULT '[]', estimated_arr INTEGER DEFAULT 0, renewal_date DATE, acquisition_status VARCHAR(50) DEFAULT 'prospect', lead_source VARCHAR(100) DEFAULT '', incumbent_satisfaction VARCHAR(20) DEFAULT 'medium', decision_maker VARCHAR(500) DEFAULT '', champion VARCHAR(500) DEFAULT '', pain_points TEXT DEFAULT '', notes TEXT DEFAULT '', user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())", v: '38' },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_compacct_user ON competitive_accounts(user_id)", v: '38' },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_compacct_vendor ON competitive_accounts(vendor)", v: '38' },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_compacct_renewal ON competitive_accounts(renewal_date)", v: '38' },
   ];
 
   let migrated = 0;

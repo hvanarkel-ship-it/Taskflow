@@ -20,6 +20,7 @@ const fns = {
   backup:        require('./api/backup'),
   ai:            require('./api/ai'),
   sync:          require('./api/sync'),
+  competitive:   require('./api/competitive'),
 };
 
 // Adapter: converts Express req/res to handler event format
