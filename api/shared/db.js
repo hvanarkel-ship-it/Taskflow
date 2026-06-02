@@ -77,7 +77,8 @@ const safeErr = (e) => {
   if (e.status) return err(e.status, e.message);
   const msg = e.message || '';
   console.error('Internal error:', msg);
-  if (msg.includes('column') && msg.includes('does not exist')) return err(500, 'Database schema out of date — run db:setup');
+  if (msg.includes('relation') && msg.includes('does not exist')) return err(500, 'Database tabel ontbreekt — voer npm run db:setup uit');
+  if (msg.includes('column') && msg.includes('does not exist')) return err(500, 'Database schema verouderd — voer npm run db:setup uit');
   if (msg.includes('violates foreign key')) return err(400, 'Ongeldige referentie (FK fout)');
   if (msg.includes('invalid input syntax')) return err(400, 'Ongeldig veld formaat');
   if (msg.includes('duplicate key')) return err(409, 'Record bestaat al');
