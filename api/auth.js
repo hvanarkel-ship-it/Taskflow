@@ -262,7 +262,7 @@ exports.handler = async (event) => {
           (SELECT COUNT(*)::int FROM contacts) as total_contacts,
           (SELECT COUNT(*)::int FROM opportunities) as total_deals,
           (SELECT COUNT(*)::int FROM opportunities WHERE stage NOT IN ('won','lost','dropped')) as active_deals,
-          (SELECT COALESCE(SUM(value),0)::numeric FROM opportunities WHERE stage NOT IN ('lost','dropped')) as pipeline_value,
+          (SELECT COALESCE(SUM(value),0)::numeric FROM opportunities WHERE stage NOT IN ('won','lost','dropped')) as pipeline_value,
           (SELECT COUNT(*)::int FROM tasks WHERE done = false) as open_tasks,
           (SELECT COUNT(*)::int FROM interactions) as total_interactions`;
         return ok({ stats: stats[0] });

@@ -124,6 +124,11 @@ const STAGES=[
   {id:'dropped',l:{nl:'Afgevallen',en:'Dropped'},ic:'⏸',c:'#8E8E93',prob:0},
 ];
 const STAGE_PROB=Object.fromEntries(STAGES.map(s=>[s.id,s.prob]));
+// Single source of truth for which stages are "closed" vs "active".
+// A deal is active (in the live pipeline) unless it is won, lost or dropped.
+const CLOSED_STAGES=['won','lost','dropped'];
+const isActiveStage=id=>!CLOSED_STAGES.includes(id);
+const isActiveOpp=o=>!!o&&isActiveStage(o.stage);
 const WIN_REASONS=['reasonQuality','reasonRelation','reasonBestPrice','reasonOther'];
 const LOSS_REASONS=['reasonCompetitor','reasonPrice','reasonTiming','reasonFit','reasonNoResponse','reasonOther'];
 const dealAge=(opp)=>{const d=opp.stageChangedAt||opp.updatedAt||opp.createdAt;if(!d)return 0;return Math.floor((Date.now()-new Date(d).getTime())/(1000*60*60*24));};
@@ -1324,7 +1329,7 @@ const App = function(){
 
   const buildCRMContext=()=>{
     const ac=activeOpps.length,wv=Math.round(weightedPipeline),wr=wonRevenue;
-    const byStage=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost'&&s.id!=='dropped').map(s=>({stage:s.l[lang]||s.l.nl,count:opps.filter(o=>o.stage===s.id).length,value:opps.filter(o=>o.stage===s.id).reduce((sum,o)=>sum+(o.value||0),0)}));
+    const byStage=STAGES.filter(s=>isActiveStage(s.id)).map(s=>({stage:s.l[lang]||s.l.nl,count:opps.filter(o=>o.stage===s.id).length,value:opps.filter(o=>o.stage===s.id).reduce((sum,o)=>sum+(o.value||0),0)}));
     const overdue=overdueTasks.map(tk=>({task:tk.title,contact:cName(tk.contactId),days:Math.round((new Date()-new Date(tk.dueDate))/(86400000))}));
     const staleDeals=activeOpps.filter(o=>{const d=new Date(o.updatedAt);return(new Date()-d)>7*86400000;}).map(o=>({deal:o.title,company:compName(o.companyId)||oppWho(o),stage:stageC(o.stage,lang).l,daysSinceUpdate:Math.round((new Date()-new Date(o.updatedAt))/86400000),value:o.value}));
     // Detailed deal info for methodology-based coaching
@@ -1454,7 +1459,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     return()=>clearInterval(iv);
   },[tasks]);
 
-  const activeOpps=opps.filter(o=>o.stage!=='won'&&o.stage!=='lost'&&o.stage!=='dropped');
+  const activeOpps=opps.filter(isActiveOpp);
   const wonOpps=opps.filter(o=>o.stage==='won');
   const totalPipeline=activeOpps.reduce((s,o)=>s+(o.value||0),0);
   const weightedPipeline=activeOpps.reduce((s,o)=>s+((o.value||0)*(o.probability||0)/100),0);
@@ -1492,7 +1497,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   </div>;
 
   const renderPipeline=()=>{
-    const activeStages=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost'&&s.id!=='dropped');
+    const activeStages=STAGES.filter(s=>isActiveStage(s.id));
     const now=new Date();const weekEnd=new Date(now);weekEnd.setDate(weekEnd.getDate()+7);const monthEnd=new Date(now.getFullYear(),now.getMonth()+1,0);const qMonth=Math.floor(now.getMonth()/3)*3+3;const qEnd=new Date(now.getFullYear(),qMonth,0);
     const matchCloseP=(o)=>{if(!filtCloseP)return true;const d=o.expectedCloseDate;if(!d)return filtCloseP==='none';if(filtCloseP==='overdue')return d<td();if(filtCloseP==='thisWeek')return d>=td()&&d<=weekEnd.toISOString().slice(0,10);if(filtCloseP==='thisMonth')return d>=td()&&d<=monthEnd.toISOString().slice(0,10);if(filtCloseP==='thisQuarter')return d>=td()&&d<=qEnd.toISOString().slice(0,10);return true;};
     const filteredOpps=opps.filter(o=>{if(filtCompany&&o.companyId!==filtCompany)return false;if(filtContact&&o.contactId!==filtContact&&!(o.contactIds||[]).includes(filtContact))return false;if(filtTech&&!(o.techTags||[]).includes(filtTech))return false;if(filtPhase&&o.stage!==filtPhase)return false;if(!matchCloseP(o))return false;if(!periodFilter(o))return false;return true;});
@@ -1723,7 +1728,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   const renderContacts=()=>{
     const filtered=contacts.filter(c=>{if(!search)return true;const q=search.toLowerCase();return c.name.toLowerCase().includes(q)||compName(c.companyId).toLowerCase().includes(q)||c.email.toLowerCase().includes(q)||(c.tags||[]).some(t=>t.includes(q));});
     const renderContactsList=()=><div style={{display:'flex',flexDirection:'column',gap:6}}>
-      {filtered.map(c=>{const cOpps=opps.filter(o=>o.contactId===c.id&&o.stage!=='lost');const cVal=cOpps.reduce((s,o)=>s+(o.value||0),0);return <div key={c.id} onClick={()=>setDetail({type:'contact',id:c.id})} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer'}}>
+      {filtered.map(c=>{const cOpps=opps.filter(o=>o.contactId===c.id&&isActiveOpp(o));const cVal=cOpps.reduce((s,o)=>s+(o.value||0),0);return <div key={c.id} onClick={()=>setDetail({type:'contact',id:c.id})} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer'}}>
         <div style={{width:42,height:42,borderRadius:'50%',background:`linear-gradient(135deg,${t.accent},${t.purple})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:'#fff',flexShrink:0}}>{c.avatar||c.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:14,fontWeight:600}}>{c.name}</div>
@@ -2206,7 +2211,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         </select>
         <select value={tkFilterOppId} onChange={e=>setTkFilterOppId(e.target.value)} style={{...inp,padding:'5px 8px',fontSize:12,flex:'1 1 130px',minWidth:120}}>
           <option value="">{tx.allDeals}</option>
-          {[...opps].filter(o=>o.stage!=='won'&&o.stage!=='lost'&&o.stage!=='dropped').sort((a,b)=>(a.title||'').localeCompare(b.title||'')).map(o=><option key={o.id} value={o.id}>{o.title}</option>)}
+          {[...opps].filter(isActiveOpp).sort((a,b)=>(a.title||'').localeCompare(b.title||'')).map(o=><option key={o.id} value={o.id}>{o.title}</option>)}
         </select>
         <div style={{display:'flex',alignItems:'center',gap:4,flex:'1 1 200px'}}>
           <span style={{fontSize:11,color:t.muted,whiteSpace:'nowrap'}}>{tx.dateFrom||'Van'}</span>
@@ -2239,13 +2244,13 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
 
   const renderDash=()=>{
     const pOpps=opps.filter(o=>periodFilter(o));
-    const pActive=pOpps.filter(o=>o.stage!=='won'&&o.stage!=='lost'&&o.stage!=='dropped');
+    const pActive=pOpps.filter(isActiveOpp);
     const pWon=pOpps.filter(o=>o.stage==='won');
     const pPipeline=pActive.reduce((s,o)=>s+(o.value||0),0);
     const pWeighted=pActive.reduce((s,o)=>s+((o.value||0)*(o.probability||0)/100),0);
     const pWonRev=pWon.reduce((s,o)=>s+(o.value||0),0);
     const convRate=pOpps.length?(Math.round(pWon.length/pOpps.length*100)):0;
-    const stageData=STAGES.filter(s=>s.id!=='won'&&s.id!=='lost'&&s.id!=='dropped').map(s=>({...s,count:pOpps.filter(o=>o.stage===s.id).length,val:pOpps.filter(o=>o.stage===s.id).reduce((sum,o)=>sum+(o.value||0),0)}));
+    const stageData=STAGES.filter(s=>isActiveStage(s.id)).map(s=>({...s,count:pOpps.filter(o=>o.stage===s.id).length,val:pOpps.filter(o=>o.stage===s.id).reduce((sum,o)=>sum+(o.value||0),0)}));
     const maxVal=Math.max(...stageData.map(s=>s.val),1);
     // Velocity: avg cycle time for won deals
     const wonCycles=pWon.map(o=>{const c=new Date(o.closedAt||o.updatedAt),s=new Date(o.createdAt);return Math.max(1,Math.round((c-s)/(1000*60*60*24)));}).filter(Boolean);
@@ -2517,7 +2522,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       const coContacts=contacts.filter(c=>c.companyId===co.id);
       const coOpps=opps.filter(o=>o.companyId===co.id);
       const coTasks=tasks.filter(tk=>coContacts.some(c=>c.id===tk.contactId)||coOpps.some(o=>o.id===tk.oppId));
-      const coVal=coOpps.filter(o=>o.stage!=='lost').reduce((s,o)=>s+(o.value||0),0);
+      const coVal=coOpps.filter(o=>isActiveOpp(o)).reduce((s,o)=>s+(o.value||0),0);
       return <div onClick={()=>setDetail(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',justifyContent:'flex-end'}}><div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,background:t.solid,height:'100%',overflowY:'auto',boxShadow:'-10px 0 40px rgba(0,0,0,.2)'}}>
         <div style={{padding:24,borderBottom:`0.5px solid ${t.border}`}}>
           <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}><button onClick={()=>setDetail(null)} style={{...btnG,padding:'4px 12px'}}>{tx.back}</button><div style={{display:'flex',gap:6}}><button onClick={()=>setModal({type:'company',data:co})} style={{...btnG,padding:'4px 12px'}}>✎</button><button onClick={async()=>{if(confirm(lang==='nl'?`"${co.name}" verwijderen?`:`Delete "${co.name}"?`))if(await deleteCompany_(co.id)){setDetail(null);toast(tx.companyDeleted,'info');}}} style={btnD}>🗑</button></div></div>
@@ -2711,7 +2716,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         <button onClick={()=>setMfCrmOpen(o=>!o)} style={{display:'flex',alignItems:'center',gap:6,width:'100%',background:'none',border:'none',borderTop:`1px solid ${t.border}`,padding:'12px 0 8px',marginBottom:6,cursor:'pointer',fontFamily:'inherit',color:t.dim,fontSize:12,fontWeight:600,textAlign:'left'}}><span style={{display:'inline-block',transition:'transform .15s',transform:mfCrmOpen?'rotate(90deg)':'none',fontSize:10}}>▸</span>{tx.gtCrmLinks}{(f.contactId||f.oppId||f.atosId||f.companyContactId)&&<span style={{marginLeft:6,width:6,height:6,borderRadius:'50%',background:t.accent,display:'inline-block'}}/>}</button>
         {mfCrmOpen&&<div>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.contact}</label><SearchSelect t={t} lang={lang} value={f.contactId||''} onChange={v=>sf({...f,contactId:v})} placeholder={tx.optional} options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)||(c.role||'')}))}/></div>
-        <div style={{marginBottom:12}}><label style={lbl}>Deal / Opportunity</label><SearchSelect t={t} lang={lang} value={f.oppId||''} onChange={v=>{const opp=opps.find(o=>o.id===v);sf({...f,oppId:v,contactId:opp?.contactId||f.contactId});}} placeholder={tx.optional} options={[...opps.filter(o=>o.stage!=='won'&&o.stage!=='lost').map(o=>({value:o.id,label:o.title,sub:`${eur(o.value)} · ${stageC(o.stage,lang).l}`}))]}/></div>
+        <div style={{marginBottom:12}}><label style={lbl}>Deal / Opportunity</label><SearchSelect t={t} lang={lang} value={f.oppId||''} onChange={v=>{const opp=opps.find(o=>o.id===v);sf({...f,oppId:v,contactId:opp?.contactId||f.contactId});}} placeholder={tx.optional} options={[...opps.filter(isActiveOpp).map(o=>({value:o.id,label:o.title,sub:`${eur(o.value)} · ${stageC(o.stage,lang).l}`}))]}/></div>
         {/* Collega + optionele contactpersoon */}
         <div style={{marginBottom:8}}><label style={lbl}>{tx.colleague}</label>
           <SearchSelect t={t} lang={lang} value={f.atosId||''} onChange={v=>sf({...f,atosId:v})} placeholder={tx.optional} options={atosTeam.map(a=>({value:a.id,label:a.name,sub:a.role==='sales'?'🔵 Sales':'🟢 Delivery'}))}/>
@@ -2888,7 +2893,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   const renderReports=()=>{
     const now=new Date();const cutoff=reportPeriod==='30'?new Date(now-30*864e5):reportPeriod==='90'?new Date(now-90*864e5):reportPeriod==='year'?new Date(now.getFullYear(),0,1):null;
     const rOpps=cutoff?opps.filter(o=>new Date(o.createdAt||o.updatedAt)>=cutoff):opps;
-    const rActive=rOpps.filter(o=>o.stage!=='won'&&o.stage!=='lost'&&o.stage!=='dropped');
+    const rActive=rOpps.filter(isActiveOpp);
     const rWon=rOpps.filter(o=>o.stage==='won');const rLost=rOpps.filter(o=>o.stage==='lost');
     const rPipeline=rActive.reduce((s,o)=>s+(o.value||0),0);
     const rWonVal=rWon.reduce((s,o)=>s+(o.value||0),0);
@@ -2898,12 +2903,12 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     const avgWon=rWon.length?Math.round(rWonVal/rWon.length):0;
     const avgCycle=rWon.length?Math.round(rWon.reduce((s,o)=>{const c=new Date(o.closedAt||o.updatedAt)-new Date(o.createdAt||o.updatedAt);return s+c/(864e5);},0)/rWon.length):0;
     const stageData=STAGES.map(s=>{const st=rOpps.filter(o=>o.stage===s.id);return{...s,count:st.length,val:st.reduce((sum,o)=>sum+(o.value||0),0),weighted:st.reduce((sum,o)=>sum+((o.value||0)*(o.probability||0)/100),0)};});
-    const activeStageData=stageData.filter(s=>s.id!=='won'&&s.id!=='lost'&&s.id!=='dropped');
+    const activeStageData=stageData.filter(s=>isActiveStage(s.id));
     const maxVal=Math.max(...activeStageData.map(d=>d.val),1);
     const filtDeals=reportStageFilter?rOpps.filter(o=>o.stage===reportStageFilter):rOpps;
 
     // Company analysis
-    const companyMap={};rOpps.forEach(o=>{const cid=o.companyId;if(!cid)return;if(!companyMap[cid])companyMap[cid]={id:cid,name:compName(cid)||'—',deals:0,won:0,lost:0,wonVal:0,lostVal:0,activeVal:0};companyMap[cid].deals++;if(o.stage==='won'){companyMap[cid].won++;companyMap[cid].wonVal+=(o.value||0);}else if(o.stage==='lost'){companyMap[cid].lost++;companyMap[cid].lostVal+=(o.value||0);}else if(o.stage!=='dropped'){companyMap[cid].activeVal+=(o.value||0);}});
+    const companyMap={};rOpps.forEach(o=>{const cid=o.companyId;if(!cid)return;if(!companyMap[cid])companyMap[cid]={id:cid,name:compName(cid)||'—',deals:0,won:0,lost:0,wonVal:0,lostVal:0,activeVal:0};companyMap[cid].deals++;if(o.stage==='won'){companyMap[cid].won++;companyMap[cid].wonVal+=(o.value||0);}else if(o.stage==='lost'){companyMap[cid].lost++;companyMap[cid].lostVal+=(o.value||0);}else if(isActiveOpp(o)){companyMap[cid].activeVal+=(o.value||0);}});
     const topCompanies=Object.values(companyMap).sort((a,b)=>(b.wonVal+b.activeVal)-(a.wonVal+a.activeVal)).slice(0,10);
 
     // Export: comprehensive deal status report CSV
@@ -3102,7 +3107,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         {[{l:tx.sales,v:sales.length,c:t.accent},{l:tx.delivery,v:delivery.length,c:t.green},{l:tx.total,v:atosTeam.length,c:t.text}].map((s,i)=><div key={i} style={{...card,padding:'8px 14px',flex:1}}><div style={{fontSize:10,color:t.muted,textTransform:'uppercase',fontWeight:600}}>{s.l}</div><div style={{fontSize:20,fontWeight:700,color:s.c}}>{s.v}</div></div>)}
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:6}}>
-        {filtered.map(a=>{const deals=atosDeals(a.id);const dealVal=deals.filter(o=>o.stage!=='lost').reduce((s,o)=>s+(o.value||0),0);return <div key={a.id} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14}}>
+        {filtered.map(a=>{const deals=atosDeals(a.id);const dealVal=deals.filter(o=>isActiveOpp(o)).reduce((s,o)=>s+(o.value||0),0);return <div key={a.id} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14}}>
           <div style={{width:42,height:42,borderRadius:10,background:a.role==='sales'?`linear-gradient(135deg,${t.accent},${t.purple})`:`linear-gradient(135deg,${t.green},${t.teal})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:'#fff',flexShrink:0}}>{a.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:14,fontWeight:600}}>{a.name}</div>
@@ -3121,7 +3126,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   const renderCompanies=()=>{
     const filtered=companies.filter(c=>{if(!search)return true;const q=search.toLowerCase();return c.name.toLowerCase().includes(q)||(c.industry||'').toLowerCase().includes(q)||(c.address||'').toLowerCase().includes(q)||(c.tags||[]).some(tg=>tg.includes(q));});
     const renderCompaniesList=()=><div style={{display:'flex',flexDirection:'column',gap:6}}>
-      {filtered.map(co=>{const coContacts=contacts.filter(c=>c.companyId===co.id);const coOpps=opps.filter(o=>o.companyId===co.id&&o.stage!=='lost');const coVal=coOpps.reduce((s,o)=>s+(o.value||0),0);return <div key={co.id} onClick={()=>setDetail({type:'company',id:co.id})} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer'}}>
+      {filtered.map(co=>{const coContacts=contacts.filter(c=>c.companyId===co.id);const coOpps=opps.filter(o=>o.companyId===co.id&&isActiveOpp(o));const coVal=coOpps.reduce((s,o)=>s+(o.value||0),0);return <div key={co.id} onClick={()=>setDetail({type:'company',id:co.id})} style={{...card,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer'}}>
         <div style={{width:42,height:42,borderRadius:10,background:`linear-gradient(135deg,${t.teal},${t.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,color:'#fff',flexShrink:0}}>{co.name.charAt(0)}</div>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:14,fontWeight:600}}>{co.name}</div>
@@ -3144,7 +3149,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         {key:'address',l:tx.address,sort:(a,b)=>(a.address||'').localeCompare(b.address||'')},
         {key:'website',l:tx.website,sort:(a,b)=>(a.website||'').localeCompare(b.website||'')},
         {key:'contacts',l:tx.contactCount,sort:(a,b)=>contacts.filter(c=>c.companyId===a.id).length-contacts.filter(c=>c.companyId===b.id).length},
-        {key:'deals',l:tx.dealValue,sort:(a,b)=>{const av=opps.filter(o=>o.companyId===a.id&&o.stage!=='lost').reduce((s,o)=>s+(o.value||0),0);const bv=opps.filter(o=>o.companyId===b.id&&o.stage!=='lost').reduce((s,o)=>s+(o.value||0),0);return av-bv;}},
+        {key:'deals',l:tx.dealValue,sort:(a,b)=>{const av=opps.filter(o=>o.companyId===a.id&&isActiveOpp(o)).reduce((s,o)=>s+(o.value||0),0);const bv=opps.filter(o=>o.companyId===b.id&&isActiveOpp(o)).reduce((s,o)=>s+(o.value||0),0);return av-bv;}},
         {key:'tags',l:tx.tags,sort:(a,b)=>((a.tags||[]).join(',')).localeCompare((b.tags||[]).join(','))},
       ];
       const sortFn=coCols.find(c=>c.key===coTblSort.col)?.sort||(()=>0);
@@ -3174,7 +3179,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             const cellS={padding:'6px 10px',borderBottom:`0.5px solid ${t.border}`,cursor:'pointer',transition:'background .1s'};
             const isSel=coTblSel.includes(co.id);
             const coCtCount=contacts.filter(c=>c.companyId===co.id).length;
-            const coOpps=opps.filter(o=>o.companyId===co.id&&o.stage!=='lost');const coVal=coOpps.reduce((s,o)=>s+(o.value||0),0);
+            const coOpps=opps.filter(o=>o.companyId===co.id&&isActiveOpp(o));const coVal=coOpps.reduce((s,o)=>s+(o.value||0),0);
             return <tr key={co.id} style={{background:isSel?t.accentS:'transparent'}}>
               <td style={{...cellS,padding:'6px 6px'}}><div onClick={()=>toggleSel(co.id)} style={{width:18,height:18,borderRadius:4,border:`2px solid ${isSel?t.accent:t.muted}`,background:isSel?t.accent:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:10,color:'#fff',fontWeight:700}}>{isSel&&'✓'}</div></td>
               <td style={cellS} onClick={()=>!isE('name')&&setEditCellCo({id:co.id,f:'name'})}>{isE('name')?<input autoFocus style={{...inp,padding:'4px 8px',fontSize:13}} defaultValue={co.name} onBlur={e=>saveCell('name',e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveCell('name',e.target.value);if(e.key==='Escape')setEditCellCo(null);}}/>:<span style={{fontWeight:600}}>{co.name}</span>}</td>
