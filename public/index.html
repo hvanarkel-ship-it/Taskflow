@@ -23,8 +23,8 @@ if(!location.hostname.includes('claudeusercontent')){
   const m=document.createElement('link');m.rel='manifest';m.href='/manifest.json';document.head.appendChild(m);
 }
 </script>
-<style>body{margin:0;font-family:Outfit,system-ui,-apple-system,sans-serif;}
-body.dark-mode select,body.dark-mode select option{background-color:#2c2c2e;color:#f5f5f7;}</style>
+<style>body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;}
+body.dark-mode select,body.dark-mode select option{background-color:#18181b;color:#fafafa;}</style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -42,8 +42,9 @@ const {useState, useEffect, useRef, useMemo, useCallback} = React;
 // DPM CRM · Apple Design
 // ═══════════════════════════════════════════════════════
 
-const DARK={bg:'#000',bg2:'#1c1c1e',card:'rgba(44,44,46,0.82)',solid:'#2c2c2e',elev:'#3a3a3c',border:'rgba(84,84,88,0.35)',text:'#f5f5f7',dim:'#98989f',muted:'#636366',accent:'#0A84FF',accentS:'rgba(10,132,255,0.14)',green:'#30D158',greenS:'rgba(48,209,88,0.14)',orange:'#FF9F0A',orangeS:'rgba(255,159,10,0.14)',red:'#FF453A',redS:'rgba(255,69,58,0.14)',purple:'#BF5AF2',purpleS:'rgba(191,90,242,0.14)',teal:'#64D2FF',glass:'rgba(44,44,46,0.7)',blur:'blur(20px)',shadow:'0 2px 10px rgba(0,0,0,0.3)'};
-const LIGHT={bg:'#f2f2f7',bg2:'#fff',card:'rgba(255,255,255,0.82)',solid:'#fff',elev:'#e5e5ea',border:'rgba(60,60,67,0.12)',text:'#1c1c1e',dim:'#8e8e93',muted:'#aeaeb2',accent:'#007AFF',accentS:'rgba(0,122,255,0.1)',green:'#34C759',greenS:'rgba(52,199,89,0.1)',orange:'#FF9500',orangeS:'rgba(255,149,0,0.1)',red:'#FF3B30',redS:'rgba(255,59,48,0.1)',purple:'#AF52DE',purpleS:'rgba(175,82,222,0.1)',teal:'#5AC8FA',glass:'rgba(255,255,255,0.7)',blur:'blur(20px)',shadow:'0 1px 4px rgba(0,0,0,0.04),0 4px 20px rgba(0,0,0,0.08)'};
+// ── Shadcn / Tailwind-inspired neutral palette ──
+const DARK={bg:'#09090b',bg2:'#18181b',card:'#18181b',solid:'#18181b',elev:'#27272a',border:'#27272a',text:'#fafafa',dim:'#a1a1aa',muted:'#71717a',accent:'#3b82f6',accentS:'rgba(59,130,246,0.15)',green:'#22c55e',greenS:'rgba(34,197,94,0.15)',orange:'#f59e0b',orangeS:'rgba(245,158,11,0.15)',red:'#ef4444',redS:'rgba(239,68,68,0.15)',purple:'#a855f7',purpleS:'rgba(168,85,247,0.15)',teal:'#06b6d4',glass:'#18181b',blur:'none',shadow:'0 1px 3px rgba(0,0,0,0.5),0 1px 2px rgba(0,0,0,0.4)',sbBg:'#0c0c0f',sbBg2:'#18181b',sbText:'#fafafa',sbDim:'#a1a1aa',sbActive:'#ffffff',sbActiveBg:'rgba(255,255,255,0.08)',sbBorder:'rgba(255,255,255,0.07)'};
+const LIGHT={bg:'#f8fafc',bg2:'#ffffff',card:'#ffffff',solid:'#ffffff',elev:'#f1f5f9',border:'#e2e8f0',text:'#0f172a',dim:'#64748b',muted:'#94a3b8',accent:'#2563eb',accentS:'rgba(37,99,235,0.10)',green:'#16a34a',greenS:'rgba(22,163,74,0.10)',orange:'#d97706',orangeS:'rgba(217,119,6,0.10)',red:'#dc2626',redS:'rgba(220,38,38,0.10)',purple:'#7c3aed',purpleS:'rgba(124,58,237,0.10)',teal:'#0891b2',glass:'#ffffff',blur:'none',shadow:'0 1px 3px rgba(15,23,42,0.08),0 1px 2px rgba(15,23,42,0.04)',sbBg:'#0f172a',sbBg2:'#1e293b',sbText:'#f1f5f9',sbDim:'#94a3b8',sbActive:'#ffffff',sbActiveBg:'rgba(255,255,255,0.10)',sbBorder:'rgba(255,255,255,0.08)'};
 
 const uid=()=>Math.random().toString(36).substr(2,9);
 const fd=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'short',year:'numeric'}):'';
@@ -568,11 +569,11 @@ const SearchSelect=({value,onChange,options,placeholder,style:sx,t:theme,lang:_l
   const filtered=options.filter(o=>o.label.toLowerCase().includes(q.toLowerCase()));
   const selected=options.find(o=>o.value===value);
   const dark=theme.bg==='#000';
-  const inpS={width:'100%',padding:'10px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:theme.text,fontFamily:'inherit',fontSize:14,outline:'none'};
+  const inpS={width:'100%',padding:'9px 12px',background:theme.bg2,border:`1px solid ${theme.border}`,borderRadius:6,color:theme.text,fontFamily:'inherit',fontSize:14,outline:'none'};
   useEffect(()=>{if(!open)return;const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[open]);
   return <div ref={ref} style={{position:'relative',...(sx||{})}}>
     <div onClick={()=>{setOpen(!open);setQ('');}} style={{...inpS,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',fontSize:13}}><span style={{color:selected?theme.text:theme.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{selected?selected.label:placeholder||'Selecteer...'}</span><span style={{color:theme.muted,fontSize:10}}>▼</span></div>
-    {open&&<div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:9999,background:theme.solid,border:`0.5px solid ${theme.border}`,borderRadius:10,marginTop:4,boxShadow:theme.shadow,maxHeight:220,overflowY:'auto'}}>
+    {open&&<div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:9999,background:theme.solid,border:`1px solid ${theme.border}`,borderRadius:6,marginTop:4,boxShadow:theme.shadow,maxHeight:220,overflowY:'auto'}}>
       <div style={{padding:'6px 8px',borderBottom:`0.5px solid ${theme.border}`}}><input value={q} onChange={e=>setQ(e.target.value)} placeholder={_tx.searchDots} style={{...inpS,padding:'6px 10px',fontSize:12}} onClick={e=>e.stopPropagation()}/></div>
       <div onClick={()=>{onChange('');setOpen(false);}} style={{padding:'8px 12px',fontSize:12,cursor:'pointer',color:theme.muted,borderBottom:`0.5px solid ${theme.border}`}}>{_tx.noSelection}</div>
       {filtered.map(o=><div key={o.value} onClick={()=>{onChange(o.value);setOpen(false);}} style={{padding:'8px 12px',fontSize:12,cursor:'pointer',color:value===o.value?theme.accent:theme.text,background:value===o.value?theme.accentS:'transparent',display:'flex',justifyContent:'space-between',alignItems:'center'}}><span>{o.label}</span>{o.sub&&<span style={{fontSize:10,color:theme.muted}}>{o.sub}</span>}</div>)}
@@ -1423,12 +1424,12 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   const todayTasks=tasks.filter(t=>t.dueDate===td()&&!t.done);
   const overdueTasks=tasks.filter(t=>t.dueDate&&t.dueDate<td()&&!t.done);
 
-  const card={background:t.card,backdropFilter:t.blur,WebkitBackdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:14,padding:16,boxShadow:t.shadow};
-  const btn={display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:10,fontFamily:'inherit',fontSize:13,fontWeight:500,cursor:'pointer',border:'none',transition:`all 0.2s ${sp}`};
-  const btnP={...btn,background:t.accent,color:'#fff'};
-  const btnG={...btn,background:t.glass,backdropFilter:t.blur,color:t.dim,border:`0.5px solid ${t.border}`};
+  const card={background:t.card,border:`1px solid ${t.border}`,borderRadius:8,padding:16,boxShadow:t.shadow};
+  const btn={display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:6,fontFamily:'inherit',fontSize:13,fontWeight:500,cursor:'pointer',border:'none',transition:`all 0.15s ${sp}`};
+  const btnP={...btn,background:t.accent,color:'#fff',fontWeight:600};
+  const btnG={...btn,background:t.solid,color:t.dim,border:`1px solid ${t.border}`,fontWeight:500};
   const btnD={...btn,background:t.redS,color:t.red,fontSize:12};
-  const inp={width:'100%',padding:'10px 14px',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',border:'none',borderRadius:10,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'};
+  const inp={width:'100%',padding:'9px 12px',background:t.bg2,border:`1px solid ${t.border}`,borderRadius:6,color:t.text,fontFamily:'inherit',fontSize:14,outline:'none'};
   const lbl={display:'block',fontSize:11,color:t.muted,textTransform:'uppercase',letterSpacing:0.8,marginBottom:5,fontWeight:600};
   const eur=n=>'€'+(typeof n==='number'&&!isNaN(n)?n:0).toLocaleString('nl-NL');
 
@@ -2444,7 +2445,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   const renderContactModal=()=>{const d=modal?.data;const f=mf;const sf=setMf;
   const inlineAddCo2=async()=>{if(!mfNewCo.trim())return;const saved=await addCompany_({name:mfNewCo.trim()});if(!saved)return;sf({...f,companyId:saved.id});setMfNewCo('');setMfShowNewCo(false);toast(tx.companyCreated);};
   return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:460,maxHeight:'90vh',overflowY:'auto'}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:10,width:'100%',maxWidth:460,maxHeight:'90vh',overflowY:'auto'}}>
       <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?tx.editContact:tx.newContact}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
       <div style={{padding:'16px 24px'}}>
         {[{k:'name',l:tx.name,p:tx.fullName},{k:'role',l:tx.role,p:'CEO, CTO...'},{k:'email',l:tx.email,p:tx.emailPlaceholder},{k:'phone',l:tx.phone,p:'+31...'}].map(x=><div key={x.k} style={{marginBottom:12}}><label style={lbl}>{x.l}</label><input style={inp} value={f[x.k]||''} onChange={e=>sf({...f,[x.k]:e.target.value})} placeholder={x.p}/></div>)}
@@ -2471,7 +2472,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     const inlineAddAtos=async()=>{if(!mfNewAtosName.trim())return;const saved=await addAtos_({name:mfNewAtosName.trim(),role:mfNewAtosRole});if(!saved)return;if(mfNewAtosRole==='sales')sf({...f,atosSalesId:saved.id});else sf({...f,atosDeliveryId:saved.id});setMfNewAtosName('');setMfShowAtosAdd(false);toast(tx.atosContactAdded);};
     const addContactToOpp=(cid)=>{if(!cid||((f.contactIds||[]).includes(cid)))return;const ct=contacts.find(c=>c.id===cid);sf({...f,contactId:f.contactId||cid,contactIds:[...(f.contactIds||[]),cid],companyId:ct?.companyId||f.companyId});};
   return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:540,maxHeight:'90vh',overflowY:'auto'}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:10,width:'100%',maxWidth:540,maxHeight:'90vh',overflowY:'auto'}}>
       <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?tx.editDeal:tx.newDeal}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
       <div style={{padding:'16px 24px'}}>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.title}</label><input style={inp} value={f.title||''} onChange={e=>sf({...f,title:e.target.value})} placeholder="Elastic Observability, Dynatrace APM..."/></div>
@@ -2564,7 +2565,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
   const renderTaskModal=()=>{const d=modal?.data;const f=mf;const sf=setMf;
   const tStat=TASK_STATUSES.find(s=>s.k===f.status)||TASK_STATUSES[0];
   return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:520,maxHeight:'90vh',overflowY:'auto'}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:10,width:'100%',maxWidth:520,maxHeight:'90vh',overflowY:'auto'}}>
       <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?tx.editTask:tx.newTask}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
       <div style={{padding:'16px 24px'}}>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.tasks2}</label><input style={inp} value={f.title||''} onChange={e=>sf({...f,title:e.target.value})} placeholder={tx.taskDescPlaceholder}/></div>
@@ -2619,7 +2620,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
 
   const renderCompanyModal=()=>{const d=modal?.data;const f=mf;const sf=setMf;
   return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:480,maxHeight:'90vh',overflowY:'auto'}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:10,width:'100%',maxWidth:480,maxHeight:'90vh',overflowY:'auto'}}>
       <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?tx.editCompany:tx.newCompany}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
       <div style={{padding:'16px 24px'}}>
         {[{k:'name',l:tx.companyName,p:lang==='nl'?'Voorbeeld BV':'Example Inc.'},{k:'website',l:tx.website,p:'www.example.com'}].map(x=><div key={x.k} style={{marginBottom:12}}><label style={lbl}>{x.l}</label><input style={inp} value={f[x.k]||''} onChange={e=>sf({...f,[x.k]:e.target.value})} placeholder={x.p}/></div>)}
@@ -2683,7 +2684,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       setImpResult({added,skipped,companiesAdded,contactsAdded});setImpStep(3);
     };
     return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:580,maxHeight:'90vh',overflowY:'auto'}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:10,width:'100%',maxWidth:580,maxHeight:'90vh',overflowY:'auto'}}>
         <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{tx.importTitle}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
         <div style={{padding:'16px 24px'}}>
           {impStep===1&&<div>
@@ -3206,7 +3207,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     const updCiComp=(i,k,v)=>sf({...f,competitors:ciComps.map((c,j)=>j===i?{...c,[k]:v}:c)});
     const delCiComp=(i)=>sf({...f,competitors:ciComps.filter((_,j)=>j!==i)});
     return <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:560,maxHeight:'92vh',overflowY:'auto'}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:10,width:'100%',maxWidth:560,maxHeight:'92vh',overflowY:'auto'}}>
         <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:20,padding:'6px',borderRadius:8,background:selV.c+'20',color:selV.c}}>{selV.ic}</span><span style={{fontSize:18,fontWeight:700}}>{d?.id?tx.ciEdit:tx.ciNew}</span></div>
           <button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
@@ -3434,7 +3435,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
 
   if(isPopup&&!authUser){
     return <>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:Outfit,system-ui,sans-serif;background:${t.bg};color:${t.text}}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;background:${t.bg};color:${t.text}}`}</style>
       <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
         <div style={{textAlign:'center',maxWidth:360}}>
           <div style={{fontSize:48,marginBottom:16}}>🔒</div>
@@ -3448,9 +3449,9 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
 
   if(isPopup&&authUser){
     const popupStyles=`
-      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
       *{margin:0;padding:0;box-sizing:border-box}
-      body{font-family:Outfit,system-ui,-apple-system,sans-serif;background:${t.bg};color:${t.text};height:100vh;overflow:hidden;}
+      body{font-family:Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;background:${t.bg};color:${t.text};height:100vh;overflow:hidden;}
       ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:${t.border};border-radius:3px}
       @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
       @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
@@ -3495,12 +3496,12 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
 
   if(!authUser){
     return <>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:Outfit,system-ui,sans-serif;background:${t.bg};color:${t.text}}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;background:${t.bg};color:${t.text}}`}</style>
       <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-        <div style={{width:'100%',maxWidth:400,background:t.card,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:20,padding:32,boxShadow:t.shadow}}>
+        <div style={{width:'100%',maxWidth:400,background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:32,boxShadow:t.shadow}}>
           <div style={{textAlign:'center',marginBottom:28}}>
-            <div style={{width:56,height:56,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:14,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:24,fontWeight:800,color:'#fff',marginBottom:12}}>D</div>
-            <div style={{fontSize:24,fontWeight:800,letterSpacing:-.5}}>{tx.loginTitle}</div>
+            <div style={{width:56,height:56,background:t.accent,borderRadius:12,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:24,fontWeight:700,color:'#fff',marginBottom:12}}>S</div>
+            <div style={{fontSize:24,fontWeight:700,letterSpacing:-.4}}>{tx.loginTitle}</div>
             <div style={{fontSize:13,color:t.dim,marginTop:4}}>{authPending?'':authResetMode?tx.resetPassword:authMode==='login'?tx.loginSub:tx.registerSub}</div>
           </div>
           {authPending?<div>
@@ -3551,9 +3552,9 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
 
   return <>
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
       *{margin:0;padding:0;box-sizing:border-box}
-      body{font-family:Outfit,system-ui,-apple-system,sans-serif;background:${t.bg};color:${t.text};
+      body{font-family:Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;background:${t.bg};color:${t.text};
         padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);
         padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
       ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:${t.border};border-radius:3px}
@@ -3592,26 +3593,26 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     `}</style>
     <div style={{display:'flex',height:'100vh'}}>
       {sb&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',zIndex:150}} onClick={()=>setSb(false)}/>}
-      <aside className={`sb ${sb?'open':''}`} style={{background:t.bg2,borderRight:`0.5px solid ${t.border}`,display:'flex',flexDirection:'column'}}>
-        <div style={{padding:'20px 16px',borderBottom:`0.5px solid ${t.border}`}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:36,height:36,background:`linear-gradient(135deg,${t.accent},#5856D6)`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,color:'#fff',animation:'glow 3s ease infinite'}}>SP</div><div><div style={{fontSize:15,fontWeight:800,letterSpacing:-.3}}>My Personal Sales Plan</div><div style={{fontSize:9,color:t.muted,letterSpacing:2,textTransform:'uppercase',fontWeight:600}}>Sales Pipeline</div></div></div>
+      <aside className={`sb ${sb?'open':''}`} style={{background:t.sbBg,borderRight:`1px solid ${t.sbBorder}`,display:'flex',flexDirection:'column'}}>
+        <div style={{padding:'18px 16px',borderBottom:`1px solid ${t.sbBorder}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:34,height:34,background:t.accent,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,fontWeight:700,color:'#fff'}}>SP</div><div><div style={{fontSize:14,fontWeight:700,letterSpacing:-.2,color:t.sbText}}>Sales Plan</div><div style={{fontSize:9,color:t.sbDim,letterSpacing:1.5,textTransform:'uppercase',fontWeight:600,marginTop:1}}>Pipeline CRM</div></div></div>
         </div>
-        <nav style={{flex:1,padding:'12px 10px'}}>
-          {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSb(false);if(n.id==='admin')loadPendingUsers();}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:view===n.id?t.accent:t.dim,background:view===n.id?t.accentS:'transparent',fontSize:14,fontWeight:view===n.id?600:400,marginBottom:2,transition:`all .15s ${sp}`}}><span style={{fontSize:15}}>{n.ic}</span>{n.l}{n.id==='admin'&&pendingUsers.length>0&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:t.red,color:'#fff',fontWeight:700,marginLeft:'auto'}}>{pendingUsers.length}</span>}</div>)}
-          <div style={{borderTop:`0.5px solid ${t.border}`,marginTop:16,paddingTop:12}}>
-            <div onClick={()=>setDark(!dark)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>{dark?'🌙':'☀️'} {tx.dark}/{tx.light}</div>
-            <div onClick={()=>{const nl=lang==='nl'?'en':'nl';setLang(nl);LS.set('lang',nl);}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🌐 {lang==='nl'?'English':'Nederlands'}</div>
-            <div onClick={doBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📤 {tx.backup}</div>
-            <div onClick={doRestore} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>📥 {tx.restore}</div>
-            {isAdmin&&<div onClick={forceReloadFromServer} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.dim,fontSize:13}}>🔄 {lang==='nl'?'Herlaad van server':'Reload from server'}</div>}
-            {isAdmin&&<div onClick={restoreFromLocalBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.orange,fontSize:13,fontWeight:600}}>🛟 {lang==='nl'?'Herstel lokale backup':'Restore local backup'}</div>}
-            {installPrompt&&<div onClick={installApp} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:'pointer',color:t.accent,fontSize:13,fontWeight:600}}>{tx.installPrompt}</div>}
-            {isLocalDev&&<div onClick={doSync} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:10,cursor:syncing?'default':'pointer',color:syncing?t.muted:t.green,fontSize:13,fontWeight:600,opacity:syncing?.6:1}}>{syncing?'⏳':'⬇'} {syncing?tx.syncing:tx.syncApp}</div>}
+        <nav style={{flex:1,padding:'12px 10px',overflowY:'auto'}}>
+          {nav.map(n=><div key={n.id} onClick={()=>{setView(n.id);setSb(false);if(n.id==='admin')loadPendingUsers();}} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:6,cursor:'pointer',color:view===n.id?t.sbActive:t.sbDim,background:view===n.id?t.accent:'transparent',fontSize:13.5,fontWeight:view===n.id?600:500,marginBottom:2,transition:`all .12s ${sp}`}}><span style={{fontSize:15,width:20,textAlign:'center'}}>{n.ic}</span>{n.l}{n.id==='admin'&&pendingUsers.length>0&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:10,background:t.red,color:'#fff',fontWeight:700,marginLeft:'auto'}}>{pendingUsers.length}</span>}</div>)}
+          <div style={{borderTop:`1px solid ${t.sbBorder}`,marginTop:16,paddingTop:12}}>
+            <div onClick={()=>setDark(!dark)} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:6,cursor:'pointer',color:t.sbDim,fontSize:13}}>{dark?'🌙':'☀️'} {tx.dark}/{tx.light}</div>
+            <div onClick={()=>{const nl=lang==='nl'?'en':'nl';setLang(nl);LS.set('lang',nl);}} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:6,cursor:'pointer',color:t.sbDim,fontSize:13}}>🌐 {lang==='nl'?'English':'Nederlands'}</div>
+            <div onClick={doBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:6,cursor:'pointer',color:t.sbDim,fontSize:13}}>📤 {tx.backup}</div>
+            <div onClick={doRestore} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:6,cursor:'pointer',color:t.sbDim,fontSize:13}}>📥 {tx.restore}</div>
+            {isAdmin&&<div onClick={forceReloadFromServer} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:6,cursor:'pointer',color:t.sbDim,fontSize:13}}>🔄 {lang==='nl'?'Herlaad van server':'Reload from server'}</div>}
+            {isAdmin&&<div onClick={restoreFromLocalBackup} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:6,cursor:'pointer',color:t.orange,fontSize:13,fontWeight:600}}>🛟 {lang==='nl'?'Herstel lokale backup':'Restore local backup'}</div>}
+            {installPrompt&&<div onClick={installApp} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:6,cursor:'pointer',color:t.accent,fontSize:13,fontWeight:600}}>{tx.installPrompt}</div>}
+            {isLocalDev&&<div onClick={doSync} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:6,cursor:syncing?'default':'pointer',color:syncing?t.sbDim:t.green,fontSize:13,fontWeight:600,opacity:syncing?.6:1}}>{syncing?'⏳':'⬇'} {syncing?tx.syncing:tx.syncApp}</div>}
           </div>
         </nav>
-        <div style={{padding:'12px 16px',borderTop:`0.5px solid ${t.border}`}}>
-          {authUser&&<div style={{fontSize:11,color:t.dim,marginBottom:6,display:'flex',justifyContent:'space-between',alignItems:'center'}}><span>👤 {authUser.name||authUser.email}</span><span onClick={doLogout} style={{color:t.red,cursor:'pointer',fontSize:10,fontWeight:600}}>{tx.logout}</span></div>}
-          <div style={{fontSize:11,color:t.muted}}>{tx.pipelineLabel} {eur(totalPipeline)}</div>
+        <div style={{padding:'12px 16px',borderTop:`1px solid ${t.sbBorder}`}}>
+          {authUser&&<div style={{fontSize:11,color:t.sbDim,marginBottom:6,display:'flex',justifyContent:'space-between',alignItems:'center'}}><span>👤 {authUser.name||authUser.email}</span><span onClick={doLogout} style={{color:t.red,cursor:'pointer',fontSize:10,fontWeight:600}}>{tx.logout}</span></div>}
+          <div style={{fontSize:11,color:t.sbDim}}>{tx.pipelineLabel} {eur(totalPipeline)}</div>
           <div style={{fontSize:11,color:t.green}}>{wonOpps.length} {tx.wonShort} · {eur(wonRevenue)}</div>
           <div onClick={dbStatus!=='connected'?checkDb:undefined} style={{display:'flex',alignItems:'center',gap:4,marginTop:8,cursor:dbStatus!=='connected'?'pointer':'default'}}>
             <div style={{width:7,height:7,borderRadius:'50%',background:dbStatus==='connected'?t.green:dbStatus==='checking'?t.accent:t.orange,animation:dbStatus==='checking'?'pulse 1.5s infinite':'none'}} title={dbStatus==='connected'?'Connected':dbStatus==='checking'?'Connecting...':'Offline'}/>
@@ -3621,8 +3622,8 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       </aside>
 
       <main style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-        <header style={{padding:'10px 16px',borderBottom:`0.5px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexWrap:'wrap',background:t.bg}}>
-          <div style={{display:'flex',alignItems:'center',gap:8}}><button className="ham" onClick={()=>setSb(true)} style={{display:'none',width:36,height:36,border:'none',background:t.elev,borderRadius:10,cursor:'pointer',color:t.text,fontSize:18,alignItems:'center',justifyContent:'center'}}>☰</button><h1 style={{fontSize:20,fontWeight:800,letterSpacing:-.5}}>{titles[view]}</h1></div>
+        <header style={{padding:'12px 20px',borderBottom:`1px solid ${t.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexWrap:'wrap',background:t.bg2}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}><button className="ham" onClick={()=>setSb(true)} style={{display:'none',width:36,height:36,border:`1px solid ${t.border}`,background:t.solid,borderRadius:6,cursor:'pointer',color:t.text,fontSize:18,alignItems:'center',justifyContent:'center'}}>☰</button><h1 style={{fontSize:19,fontWeight:700,letterSpacing:-.3}}>{titles[view]}</h1></div>
           <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
             {view==='pipeline'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'kanban',l:tx.kanbanView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'},{id:'funnel',l:tx.funnelView,ic:'▽'}].map(v=><button key={v.id} onClick={()=>setPipeView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:pipeView===v.id?600:400,border:'none',background:pipeView===v.id?t.accent:'transparent',color:pipeView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<><button onClick={()=>setModal({type:'import'})} style={{...btnG,padding:'6px 10px',fontSize:11}}>📥</button><button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button></>}</>}
             {view==='contacts'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setContactsView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:contactsView===v.id?600:400,border:'none',background:contactsView===v.id?t.accent:'transparent',color:contactsView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'contact'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addContact2}</button>}</>}
@@ -3774,7 +3775,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       {modal?.type==='import'&&renderImportModal()}
       {modal?.type==='competitive'&&renderCompetitiveModal()}
       {atModal&&<div onClick={()=>setAtModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-        <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:400}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:10,width:'100%',maxWidth:400}}>
           <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{atModal.id?tx.editLabel:tx.newTeam}</span><button onClick={()=>setAtModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
           <div style={{padding:'16px 24px'}}>
             {[{k:'name',l:tx.name,p:tx.fullName},{k:'email',l:tx.email,p:'name@atos.net'},{k:'phone',l:tx.phone,p:'+31...'}].map(x=><div key={x.k} style={{marginBottom:12}}><label style={lbl}>{x.l}</label><input style={inp} value={atModal[x.k]||''} onChange={e=>setAtModal({...atModal,[x.k]:e.target.value})} placeholder={x.p}/></div>)}
@@ -3785,7 +3786,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       </div>}
       <div style={{position:'fixed',bottom:20,right:20,zIndex:9999,display:'flex',flexDirection:'column',gap:6}}>{toasts.map(x=><div key={x.id} style={{padding:'10px 16px',background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,borderRadius:12,fontSize:13,boxShadow:t.shadow,animation:'fadeIn .3s',borderLeft:`3px solid ${x.ty==='ok'?t.green:x.ty==='error'?t.red:t.accent}`,display:'flex',alignItems:'center',gap:8}}><span>{x.ty==='ok'?'✓':x.ty==='error'?'✕':'ℹ'} {x.m}</span>{x.action&&<button onClick={()=>{setToasts(p=>p.filter(t=>t.id!==x.id));x.action.fn();}} style={{padding:'3px 10px',borderRadius:7,border:`1px solid ${t.accent}`,background:t.accentS,color:t.accent,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',minHeight:0,minWidth:0}}>{x.action.label}</button>}</div>)}</div>
       {intModal&&<div onClick={()=>setIntModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-        <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:480,maxHeight:'90vh',overflowY:'auto'}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:10,width:'100%',maxWidth:480,maxHeight:'90vh',overflowY:'auto'}}>
           <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:18}}>{INT_TYPES.find(x=>x.id===intModal.type)?.ic}</span><span style={{fontSize:19,fontWeight:700}}>{INT_TYPES.find(x=>x.id===intModal.type)?.l} {tx.logAction}</span></div>
             <button onClick={()=>setIntModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
@@ -3814,7 +3815,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         </div>
       </div>}
       {reasonModal&&<div onClick={()=>setReasonModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(12px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-        <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:16,width:'100%',maxWidth:400}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:t.solid,borderRadius:10,width:'100%',maxWidth:400}}>
           <div style={{padding:'20px 24px 0'}}><span style={{fontSize:19,fontWeight:700}}>{reasonModal.title}</span></div>
           <div style={{padding:'16px 24px'}}>
             <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:12}}>
