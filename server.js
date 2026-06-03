@@ -13,6 +13,7 @@ const fns = {
   contacts:      require('./api/contacts'),
   opportunities: require('./api/opportunities'),
   tasks:         require('./api/tasks'),
+  task_lists:    require('./api/task_lists'),
   atos:          require('./api/atos'),
   interactions:  require('./api/interactions'),
   health:        require('./api/health'),
