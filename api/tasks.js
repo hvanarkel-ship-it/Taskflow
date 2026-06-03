@@ -31,7 +31,7 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'POST') {
       const b = parseBody(event);
       if (!b.title) return err(400, 'Titel vereist');
-      const [task] = await sql`INSERT INTO tasks (title, contact_id, opp_id, due_date, due_time, priority, reminder, reminder_min, progress, status, notes, atos_id, company_contact_id, user_id) VALUES (
+      const [task] = await sql`INSERT INTO tasks (title, contact_id, opp_id, due_date, due_time, priority, reminder, reminder_min, progress, status, notes, atos_id, company_contact_id, list_id, parent_id, starred, position, user_id) VALUES (
         ${b.title},
         ${toInt(b.contact_id)},
         ${toInt(b.opp_id)},
@@ -45,6 +45,10 @@ exports.handler = async (event) => {
         ${b.notes || ''},
         ${toInt(b.atos_id)},
         ${toInt(b.company_contact_id)},
+        ${toInt(b.list_id)},
+        ${toInt(b.parent_id)},
+        ${b.starred || false},
+        ${b.position !== undefined && b.position !== null ? parseInt(b.position) || 0 : 0},
         ${user.id}
       ) RETURNING *`;
       return ok({ task });
@@ -72,6 +76,10 @@ exports.handler = async (event) => {
         notes=COALESCE(${b.notes !== undefined ? b.notes : null},notes),
         atos_id=CASE WHEN ${b.atos_id !== undefined ? 1 : 0}=1 THEN ${toInt(b.atos_id)} ELSE atos_id END,
         company_contact_id=CASE WHEN ${b.company_contact_id !== undefined ? 1 : 0}=1 THEN ${toInt(b.company_contact_id)} ELSE company_contact_id END,
+        list_id=CASE WHEN ${b.list_id !== undefined ? 1 : 0}=1 THEN ${toInt(b.list_id)} ELSE list_id END,
+        parent_id=CASE WHEN ${b.parent_id !== undefined ? 1 : 0}=1 THEN ${toInt(b.parent_id)} ELSE parent_id END,
+        starred=COALESCE(${b.starred !== undefined ? b.starred : null},starred),
+        position=COALESCE(${b.position !== undefined ? (parseInt(b.position) || 0) : null},position),
         updated_at=NOW()
       WHERE id=${b.id} AND user_id=${user.id} RETURNING *`;
       return ok({ task });

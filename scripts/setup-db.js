@@ -155,6 +155,15 @@ async function setup() {
     { sql: "ALTER TABLE competitive_accounts ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'", v: '39' },
     { sql: "ALTER TABLE competitive_accounts ADD COLUMN IF NOT EXISTS competitors JSONB DEFAULT '[]'", v: '40' },
     { sql: "ALTER TABLE competitive_accounts ADD COLUMN IF NOT EXISTS countries JSONB DEFAULT '[]'", v: '41' },
+    // ─── Google Tasks-style task manager (v42) ───
+    { sql: "CREATE TABLE IF NOT EXISTS task_lists (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL, position INTEGER DEFAULT 0, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, created_at TIMESTAMPTZ DEFAULT NOW())", v: '42' },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_task_lists_user ON task_lists(user_id)", v: '42' },
+    { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS list_id INTEGER REFERENCES task_lists(id) ON DELETE SET NULL", v: '42' },
+    { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE", v: '42' },
+    { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS starred BOOLEAN DEFAULT false", v: '42' },
+    { sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0", v: '42' },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_tasks_list ON tasks(list_id)", v: '42' },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_id)", v: '42' },
   ];
 
   let migrated = 0;

@@ -246,6 +246,8 @@ const TX={
     notifTitle:'My Personal Sales Plan',
     // Table view
     tableView:'Tabel',kanbanView:'Kanban',funnelView:'Funnel',funnelTitle:'Pipeline Funnel',funnelDeals:'deals',funnelConv:'Conversie',groupBy:'Groepeer op',groupDate:'Datum',groupCompany:'Klant',groupDeal:'Deal',groupContact:'Contactpersoon',noCompany:'Geen klant',noDeal:'Geen deal',noContact:'Geen contactpersoon',filterTasks:'Filter',clearFilters:'Wis filters',dateFrom:'Van',dateTo:'Tot',allCompanies:'Alle klanten',allDeals:'Alle deals',allContacts:'Alle contacten',tkShowCompleted:'Afgerond tonen',tkHideCompleted:'Afgerond verbergen',noTasksKanban:'Geen taken',
+    // Google Tasks-style view
+    gtView:'Taken',gtAddTask:'Een taak toevoegen',gtAddDetails:'Details',gtAddSubtask:'Subtaak toevoegen',gtCompleted:'Afgerond',gtNewList:'Nieuwe lijst',gtRenameList:'Naam wijzigen',gtDeleteList:'Lijst verwijderen',gtStarred:'Met ster',gtSortMyOrder:'Mijn volgorde',gtSortDate:'Datum',gtSortStarred:'Ster',gtSort:'Sorteren',gtListNamePrompt:'Naam van de lijst:',gtMoveTo:'Verplaatsen naar lijst',gtList:'Lijst',gtNoTasks:'Nog geen taken',gtNoTasksSub:'Voeg hierboven een taak toe',gtNoStarred:'Nog geen taken met ster',gtDeleteListConfirm:'Deze lijst verwijderen? De taken blijven behouden en worden naar de standaardlijst verplaatst.',gtSubtasks:'Subtaken',gtCrmLinks:'CRM-koppelingen',gtRenameListPrompt:'Nieuwe naam:',gtStar:'Ster',gtUnstar:'Ster verwijderen',gtDetails:'Details',gtDeleteTask:'Taak verwijderen',
     // DB Backup
     dbBackup:'Database backup',dbRestore:'Database terugzetten',dbBackupSuccess:'Database backup gedownload',dbRestoreSuccess:'Database teruggezet',dbRestoreConfirm:'Database terugzetten van',dbBackupError:'Backup fout — database niet verbonden',dbRestoring:'Terugzetten...',
     // Next action task
@@ -423,6 +425,8 @@ const TX={
     notifTitle:'My Personal Sales Plan',
     // Table view
     tableView:'Table',kanbanView:'Kanban',funnelView:'Funnel',funnelTitle:'Pipeline Funnel',funnelDeals:'deals',funnelConv:'Conversion',groupBy:'Group by',groupDate:'Date',groupCompany:'Company',groupDeal:'Deal',groupContact:'Contact',noCompany:'No company',noDeal:'No deal',noContact:'No contact',filterTasks:'Filter',clearFilters:'Clear filters',dateFrom:'From',dateTo:'To',allCompanies:'All companies',allDeals:'All deals',allContacts:'All contacts',tkShowCompleted:'Show completed',tkHideCompleted:'Hide completed',noTasksKanban:'No tasks',
+    // Google Tasks-style view
+    gtView:'Tasks',gtAddTask:'Add a task',gtAddDetails:'Details',gtAddSubtask:'Add a subtask',gtCompleted:'Completed',gtNewList:'New list',gtRenameList:'Rename',gtDeleteList:'Delete list',gtStarred:'Starred',gtSortMyOrder:'My order',gtSortDate:'Date',gtSortStarred:'Starred',gtSort:'Sort',gtListNamePrompt:'List name:',gtMoveTo:'Move to list',gtList:'List',gtNoTasks:'No tasks yet',gtNoTasksSub:'Add a task above',gtNoStarred:'No starred tasks yet',gtDeleteListConfirm:'Delete this list? Its tasks are kept and moved to the default list.',gtSubtasks:'Subtasks',gtCrmLinks:'CRM links',gtRenameListPrompt:'New name:',gtStar:'Star',gtUnstar:'Remove star',gtDetails:'Details',gtDeleteTask:'Delete task',
     // DB Backup
     dbBackup:'Database backup',dbRestore:'Restore database',dbBackupSuccess:'Database backup downloaded',dbRestoreSuccess:'Database restored',dbRestoreConfirm:'Restore database from',dbBackupError:'Backup error — database not connected',dbRestoring:'Restoring...',
     // Next action task
@@ -706,6 +710,7 @@ const App = function(){
   const[companies,setCompanies]=useState(()=>safeArr('companies'));
   const[opps,setOpps]=useState(()=>safeArr('opps'));
   const[tasks,setTasks]=useState(()=>safeArr('tasks'));
+  const[taskLists,setTaskLists]=useState(()=>safeArr('taskLists'));
   const[atosTeam,setAtosTeam]=useState(()=>safeArr('atos'));
   const[interactions,setInteractions]=useState(()=>safeArr('interactions'));
   const[compAccts,setCompAccts]=useState([]);
@@ -790,8 +795,23 @@ const App = function(){
   useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('companies',companies);},[companies]);
   useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('opps',opps);},[opps]);
   useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('tasks',tasks);},[tasks]);
+  useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('taskLists',taskLists);},[taskLists]);
   useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('atos',atosTeam);},[atosTeam]);
   useEffect(()=>{if(dataLoaded.current||!authUser?.token)LS.set('interactions',interactions);},[interactions]);
+  // Ensure a default task list exists once server data has loaded, and keep a valid active list selected
+  const listBootstrap=useRef(false);
+  useEffect(()=>{
+    if(dataSource!=='server'||!authUser?.token)return;
+    if(taskLists.length===0){
+      if(listBootstrap.current)return;listBootstrap.current=true;
+      addList_(lang==='nl'?'Mijn taken':'My Tasks').then(l=>{if(l)setActiveListId(l.id);});
+      return;
+    }
+    if(!activeListId||!taskLists.some(l=>l.id===activeListId)){
+      const sorted=[...taskLists].sort((a,b)=>(a.position||0)-(b.position||0));
+      setActiveListId(sorted[0].id);
+    }
+  },[dataSource,taskLists,authUser]);
 
   // ── Load data from server on login ──
   const dataLoaded=useRef(false);
@@ -813,6 +833,7 @@ const App = function(){
           fetch('/api/atos',{headers,signal:AbortSignal.timeout(10000)}),
           fetch('/api/interactions',{headers,signal:AbortSignal.timeout(10000)}),
           fetch('/api/competitive',{headers,signal:AbortSignal.timeout(10000)}).catch(()=>({ok:false})),
+          fetch('/api/task_lists',{headers,signal:AbortSignal.timeout(10000)}).catch(()=>({ok:false})),
         ]);
         // If any API returned 401/403, the user is no longer authorized — auto-logout
         if(resps.slice(0,6).some(r=>r.status===401||r.status===403)){LS.set('auth_session',null);setAuthUser(null);return;}
@@ -820,16 +841,17 @@ const App = function(){
         const failedCount=resps.slice(0,6).filter(r=>!r.ok).length;
         if(failedCount===6){console.warn('Server: all APIs failed');setDataSource('offline');dbReady.current=true;return;}
         if(failedCount>0)console.warn(`Server: ${failedCount} API(s) failed, loading available data`);
-        const[cos,cts,ops,tks,ats,ints,ciRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
+        const[cos,cts,ops,tks,ats,ints,ciRes,tlRes]=await Promise.all(resps.map(r=>r.ok?r.json().catch(()=>({})):Promise.resolve({})));
         const cc=camelArr(cos.companies||cos.data||[]).map(c=>({...c,tags:parseArr(c.tags)}));
         const ct=camelArr(cts.contacts||cts.data||[]).map(c=>({...c,tags:parseArr(c.tags)}));
         const op=camelArr(ops.opportunities||ops.data||[]).map(o=>({...o,techTags:parseArr(o.techTags),contactIds:parseArr(o.contactIds),atosContactIds:parseArr(o.atosContactIds),notes:parseArr(o.notes),expectedCloseDate:o.expectedCloseDate?o.expectedCloseDate.slice(0,10):o.expectedCloseDate}));
         const tk=camelArr(tks.tasks||tks.data||[]).map(t=>({...t,dueDate:t.dueDate?t.dueDate.slice(0,10):t.dueDate}));
+        const tl=camelArr(tlRes&&tlRes.lists||[]);
         const at=camelArr(ats.team||ats.data||[]);
         const it=camelArr(ints.interactions||ints.data||[]).map(i=>({...i,at:i.at||i.createdAt}));
         const ci=camelArr(ciRes.accounts||[]).map(a=>({...a,productsUsed:parseArr(a.productsUsed),contacts:parseArr(a.contacts),competitors:parseArr(a.competitors),countries:parseArr(a.countries),renewalDate:a.renewalDate?String(a.renewalDate).slice(0,10):null}));
         // Server is the single source of truth — always use server data
-        setCompanies(cc); setContacts(ct); setOpps(op); setTasks(tk); setAtosTeam(at); setInteractions(it);
+        setCompanies(cc); setContacts(ct); setOpps(op); setTasks(tk); setTaskLists(tl); setAtosTeam(at); setInteractions(it);
         setCompAccts(ci);
         setDataSource('server');
         // Only mark as loaded AFTER successful data fetch
@@ -929,7 +951,17 @@ const App = function(){
   const[taskQuickAdd,setTaskQuickAdd]=useState('');
   const[contactsView,setContactsView]=useState('list');
   const[companiesView,setCompaniesView]=useState('list');
-  const[tasksView,setTasksView]=useState('list');
+  const[tasksView,setTasksView]=useState(()=>LS.get('tasksView','gtasks'));
+  const[activeListId,setActiveListId]=useState(()=>LS.get('activeListId',null));
+  const[taskSort,setTaskSort]=useState(()=>LS.get('taskSort','myorder'));
+  const[gtCompletedOpen,setGtCompletedOpen]=useState(false);
+  const[gtSubAdd,setGtSubAdd]=useState(null);// parent id currently adding a subtask to
+  const[gtSubText,setGtSubText]=useState('');
+  const[gtListMenu,setGtListMenu]=useState(false);
+  const[gtDragId,setGtDragId]=useState(null);
+  useEffect(()=>{LS.set('tasksView',tasksView);},[tasksView]);
+  useEffect(()=>{LS.set('activeListId',activeListId);},[activeListId]);
+  useEffect(()=>{LS.set('taskSort',taskSort);},[taskSort]);
   const[kanbanDrag,setKanbanDrag]=useState(null);
   const[ctTblSel,setCtTblSel]=useState([]);
   const[coTblSel,setCoTblSel]=useState([]);
@@ -954,6 +986,8 @@ const App = function(){
   const[mfShowAtosAdd,setMfShowAtosAdd]=useState(false);
   const[mfNewAtosName,setMfNewAtosName]=useState('');
   const[mfNewAtosRole,setMfNewAtosRole]=useState('sales');
+  const[mfCrmOpen,setMfCrmOpen]=useState(false);
+  const[mfSubInput,setMfSubInput]=useState('');
   const[impData,setImpData]=useState([]);const[impCols,setImpCols]=useState([]);
   const[impMapping,setImpMapping]=useState({title:'',company:'',contact:'',value:'',stage:'',probability:'',priority:'',tech:'',nextAction:'',closeDate:''});
   const[impStep,setImpStep]=useState(1);const[impResult,setImpResult]=useState(null);
@@ -980,7 +1014,7 @@ const App = function(){
     if(mt&&(mt!==prevModalRef.current.type||curId!==prevModalRef.current.id)){
       prevModalRef.current={type:mt,id:curId};
       setMfTag('');setMfNewCo('');setMfNewCt('');setMfTechIn('');
-      setMfShowNewCo(false);setMfShowNewCt(false);setMfShowAtosAdd(false);
+      setMfShowNewCo(false);setMfShowNewCt(false);setMfShowAtosAdd(false);setMfCrmOpen(false);setMfSubInput('');
       setMfNewAtosName('');setMfNewAtosRole('sales');
       if(mt==='import'){setImpData([]);setImpCols([]);setImpMapping({title:'',company:'',contact:'',value:'',stage:'',probability:'',priority:'',tech:'',nextAction:'',closeDate:''});setImpStep(1);setImpResult(null);}
       if(mt==='opp'){
@@ -989,7 +1023,7 @@ const App = function(){
       }else if(mt==='contact'){
         setMf(md?.id?{...md}:{name:'',email:'',phone:'',companyId:md?.companyId||'',role:'',category:'',tags:[],notes:'',...(md||{})});
       }else if(mt==='task'){
-        setMf(md?.id?{...md}:{title:'',contactId:md?.contactId||'',oppId:md?.oppId||'',dueDate:td(),dueTime:'',done:false,priority:'medium',reminder:true,reminderMin:15,status:'todo',notes:'',atosId:'',companyContactId:'',...(md||{})});
+        setMf(md?.id?{...md}:{title:'',contactId:md?.contactId||'',oppId:md?.oppId||'',dueDate:td(),dueTime:'',done:false,priority:'medium',reminder:true,reminderMin:15,status:'todo',notes:'',atosId:'',companyContactId:'',listId:md?.listId??(taskLists.some(l=>l.id===activeListId)?activeListId:(taskLists[0]?.id||null)),starred:md?.starred||false,...(md||{})});
       }else if(mt==='company'){
         setMf(md?.id?{...md}:{name:'',website:'',industry:'',address:'',size:'',phone:'',email:'',notes:'',tags:[],...(md||{})});
       }else if(mt==='competitive'){
@@ -1052,7 +1086,7 @@ const App = function(){
     if(Array.isArray(body.tags))body.tags=JSON.stringify(body.tags);
     if(Array.isArray(body.atos_contact_ids))body.atos_contact_ids=JSON.stringify(body.atos_contact_ids);
     // Remove client-only / read-only fields that shouldn't be sent
-    delete body.created_at;delete body.updated_at;delete body.avatar;delete body.notes;delete body.user_id;
+    delete body.created_at;delete body.updated_at;delete body.avatar;if(endpoint!=='tasks')delete body.notes;delete body.user_id;
     const resp=await fetch('/api/'+endpoint,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify(body)});
     if(!resp.ok){const e=await resp.json().catch(()=>({}));console.error('serverUpdate error',endpoint,resp.status,e);throw new Error(e.error||'Server error '+resp.status);}
     const j=await resp.json();const rec=j.company||j.contact||j.opportunity||j.task||j.member||j.interaction;
@@ -1074,7 +1108,11 @@ const App = function(){
   const addOpp=async(o)=>{try{const s=await serverCreate('opportunities',o);if(!s)return null;const saved={...s,notes:parseArr(s.notes),techTags:parseArr(s.techTags),contactIds:parseArr(s.contactIds),atosContactIds:parseArr(s.atosContactIds),expectedCloseDate:s.expectedCloseDate?String(s.expectedCloseDate).slice(0,10):s.expectedCloseDate};setOpps(p=>[...p,saved]);return saved;}catch(e){showErr('addOpp',e);return null;}};
   const addContact_=async(c)=>{try{const s=await serverCreate('contacts',c);if(!s)return null;const saved={...s,tags:parseArr(s.tags)};setContacts(p=>[...p,saved]);return saved;}catch(e){showErr('addContact',e);return null;}};
   const addCompany_=async(c)=>{try{const s=await serverCreate('companies',c);if(!s)return null;const saved={...s,tags:parseArr(s.tags)};setCompanies(p=>[...p,saved]);return saved;}catch(e){showErr('addCompany',e);return null;}};
-  const addTask_=async(t)=>{try{const s=await serverCreate('tasks',t);if(!s)return null;setTasks(p=>[...p,s]);return s;}catch(e){showErr('addTask',e);return null;}};
+  const addTask_=async(t)=>{try{const s=await serverCreate('tasks',t);if(!s)return null;const saved={...s,dueDate:s.dueDate?String(s.dueDate).slice(0,10):s.dueDate};setTasks(p=>[...p,saved]);return saved;}catch(e){showErr('addTask',e);return null;}};
+  // ── Task list CRUD (Google Tasks-style named lists) ──
+  const addList_=async(name)=>{try{if(!authUser?.token)return null;const pos=taskLists.reduce((m,l)=>Math.max(m,l.position||0),0)+1;const resp=await fetch('/api/task_lists',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({name,position:pos})});if(!resp.ok)throw new Error('Server error '+resp.status);const j=await resp.json();const saved=j.list?camelObj(j.list):null;if(saved)setTaskLists(p=>[...p,saved]);return saved;}catch(e){showErr('addList',e);return null;}};
+  const updateList_=async(id,fields)=>{const prev=taskLists.find(x=>x.id===id);setTaskLists(p=>p.map(x=>x.id===id?{...x,...fields}:x));try{if(!authUser?.token)return;const resp=await fetch('/api/task_lists',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authUser.token},body:JSON.stringify({id,...snakeObj(fields)})});if(!resp.ok)throw new Error('Server error '+resp.status);}catch(e){if(prev)setTaskLists(p=>p.map(x=>x.id===id?prev:x));showErr('updateList',e);}};
+  const deleteList_=async(id)=>{const n=Number(id);try{await serverDelete('task_lists',id);setTaskLists(p=>p.filter(x=>Number(x.id)!==n));setTasks(p=>p.map(x=>Number(x.listId)===n?{...x,listId:null}:x));return true;}catch(e){showErr('deleteList',e);return false;}};
   const addAtos_=async(a)=>{try{const s=await serverCreate('atos',a);if(!s)return null;setAtosTeam(p=>[...p,s]);return s;}catch(e){showErr('addAtos',e);return null;}};
   const addInteraction_=async(i)=>{try{const s=await serverCreate('interactions',i);if(!s)return null;const saved={...s,at:s.at||s.createdAt};setInteractions(p=>[saved,...p]);return saved;}catch(e){showErr('addInteraction',e);return null;}};
 
@@ -1822,7 +1860,99 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
     </div>;
   };
 
+  // ─── Google Tasks-style view ───
+  const renderTasksGoogle=()=>{
+    const lists=[...taskLists].sort((a,b)=>(a.position||0)-(b.position||0));
+    const defaultListId=lists[0]?.id||null;
+    const isStarred=activeListId==='__starred__';
+    const curListId=isStarred?null:(lists.some(l=>l.id===activeListId)?activeListId:defaultListId);
+    const curList=lists.find(l=>l.id===curListId);
+    const inScope=(tk)=>isStarred?!!tk.starred:(tk.listId===curListId||(tk.listId==null&&curListId===defaultListId));
+    const subsOf=(pid)=>tasks.filter(tk=>tk.parentId===pid).sort((a,b)=>(a.position||0)-(b.position||0));
+    const topLevel=tasks.filter(tk=>!tk.parentId&&inScope(tk));
+    let incomplete=topLevel.filter(tk=>!tk.done);
+    let complete=topLevel.filter(tk=>tk.done);
+    if(taskSort==='date')incomplete=[...incomplete].sort((a,b)=>{const ad=a.dueDate||'9999-99',bd=b.dueDate||'9999-99';return ad<bd?-1:ad>bd?1:(a.position||0)-(b.position||0);});
+    else if(taskSort==='starred')incomplete=[...incomplete].sort((a,b)=>(b.starred?1:0)-(a.starred?1:0)||(a.position||0)-(b.position||0));
+    else incomplete=[...incomplete].sort((a,b)=>(a.position||0)-(b.position||0)||(Number(b.id)||0)-(Number(a.id)||0));
+    complete=[...complete].sort((a,b)=>new Date(b.updatedAt||b.createdAt||0)-new Date(a.updatedAt||a.createdAt||0));
+
+    const gtDate=(d)=>{if(!d)return null;d=String(d).slice(0,10);const now=new Date(td()+'T00:00:00');const dt=new Date(d+'T00:00:00');const diff=Math.round((dt-now)/86400000);let label;if(diff===0)label=lang==='nl'?'Vandaag':'Today';else if(diff===1)label=lang==='nl'?'Morgen':'Tomorrow';else if(diff===-1)label=lang==='nl'?'Gisteren':'Yesterday';else label=dt.toLocaleDateString(lang==='nl'?'nl-NL':'en-US',{weekday:(diff>-7&&diff<7)?'short':undefined,day:'numeric',month:'short',...(dt.getFullYear()!==now.getFullYear()?{year:'numeric'}:{})});return{label,overdue:diff<0,today:diff===0};};
+
+    const addInList=async(title,parentId)=>{const v=(title||'').trim();if(!v)return;const siblings=parentId?subsOf(parentId):tasks.filter(tk=>!tk.parentId&&inScope(tk)&&!tk.done);const minPos=siblings.reduce((m,tk)=>Math.min(m,tk.position||0),0);await addTask_({title:v,listId:parentId?(curListId):curListId,parentId:parentId||null,status:'todo',done:false,priority:'medium',position:minPos-1,starred:false});};
+    const reorder=(dragId,targetId)=>{if(dragId===targetId||taskSort!=='myorder'||isStarred)return;const arr=[...incomplete];const from=arr.findIndex(x=>x.id===dragId);if(from<0)return;const[m]=arr.splice(from,1);let to=arr.findIndex(x=>x.id===targetId);if(to<0)to=arr.length;arr.splice(to,0,m);arr.forEach((x,i)=>{if((x.position||0)!==i)updateTask_(x.id,{position:i});});};
+
+    const checkbox=(tk,sz)=>tk.done
+      ? <div onClick={e=>{e.stopPropagation();updateTask_(tk.id,{done:false,status:'todo'});}} style={{width:sz,height:sz,borderRadius:'50%',background:t.accent,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:Math.round(sz*0.62),fontWeight:700,cursor:'pointer',flexShrink:0,marginTop:1}}>✓</div>
+      : <div onClick={e=>{e.stopPropagation();completeTask(tk.id);}} style={{width:sz,height:sz,borderRadius:'50%',border:`2px solid ${t.muted}`,cursor:'pointer',flexShrink:0,marginTop:1,transition:'all .15s'}} onMouseOver={e=>{e.currentTarget.style.borderColor=t.accent;e.currentTarget.style.background=t.accentS;}} onMouseOut={e=>{e.currentTarget.style.borderColor=t.muted;e.currentTarget.style.background='transparent';}}/>;
+
+    const Row=({tk,sub})=>{
+      const dd=gtDate(tk.dueDate);const co=tk.oppId&&opps.find(o=>o.id===tk.oppId);const ct=tk.contactId&&contacts.find(c=>c.id===tk.contactId);
+      const subs=sub?[]:subsOf(tk.id);
+      const drag=(!sub&&taskSort==='myorder'&&!isStarred)?{draggable:true,onDragStart:e=>{setGtDragId(tk.id);e.dataTransfer.effectAllowed='move';},onDragOver:e=>e.preventDefault(),onDrop:e=>{e.preventDefault();if(gtDragId)reorder(gtDragId,tk.id);setGtDragId(null);}}:{};
+      return <div>
+        <div {...drag} onClick={()=>setModal({type:'task',data:tk})} style={{display:'flex',alignItems:'flex-start',gap:12,padding:sub?'7px 10px 7px 0':'11px 12px',borderBottom:`1px solid ${t.border}`,cursor:'pointer',marginLeft:sub?42:0,opacity:gtDragId===tk.id?.4:1}} onMouseOver={e=>e.currentTarget.style.background=dark?'rgba(255,255,255,.025)':'rgba(0,0,0,.015)'} onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+          {checkbox(tk,sub?18:20)}
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:sub?13:14.5,color:tk.done?t.muted:t.text,textDecoration:tk.done?'line-through':'none',lineHeight:1.35,wordBreak:'break-word'}}>{tk.title}</div>
+            {tk.notes&&!tk.done&&<div style={{fontSize:12,color:t.dim,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{String(tk.notes).split('\n')[0]}</div>}
+            {(dd||co||ct)&&!tk.done&&<div style={{display:'flex',alignItems:'center',gap:7,marginTop:4,flexWrap:'wrap'}}>
+              {dd&&<span style={{fontSize:11.5,fontWeight:500,color:dd.overdue?t.red:dd.today?t.accent:t.dim}}>📅 {dd.label}{tk.dueTime?' · '+tk.dueTime:''}</span>}
+              {co&&<span onClick={e=>{e.stopPropagation();setDetail({type:'opp',id:co.id});}} style={{fontSize:11,color:t.purple,background:t.purpleS,padding:'1px 7px',borderRadius:4,fontWeight:500,maxWidth:170,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📊 {co.title}</span>}
+              {ct&&!co&&<span onClick={e=>{e.stopPropagation();setDetail({type:'contact',id:ct.id});}} style={{fontSize:11,color:t.accent,background:t.accentS,padding:'1px 7px',borderRadius:4,fontWeight:500}}>👤 {ct.name}</span>}
+            </div>}
+          </div>
+          {!sub&&<button onClick={e=>{e.stopPropagation();updateTask_(tk.id,{starred:!tk.starred});}} title={tk.starred?tx.gtUnstar:tx.gtStar} style={{border:'none',background:'none',cursor:'pointer',fontSize:16,lineHeight:1,color:tk.starred?'#f59e0b':t.muted,padding:'2px 4px',minHeight:0,minWidth:0,opacity:tk.starred?1:.5,flexShrink:0}}>{tk.starred?'★':'☆'}</button>}
+        </div>
+        {subs.length>0&&<div>{subs.map(s=><Row key={s.id} tk={s} sub/>)}</div>}
+      </div>;
+    };
+
+    const box={border:`1px solid ${t.border}`,borderRadius:10,background:t.bg2,overflow:'hidden',boxShadow:t.shadow};
+    return <div style={{maxWidth:760,margin:'0 auto'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',flex:1,minWidth:0}}>
+          {lists.map(l=>{const active=!isStarred&&l.id===curListId;return <button key={l.id} onClick={()=>setActiveListId(l.id)} style={{padding:'6px 14px',borderRadius:20,fontSize:13,fontWeight:active?600:500,minHeight:34,minWidth:0,border:`1px solid ${active?t.accent:t.border}`,background:active?t.accent:t.bg2,color:active?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'}}>{l.name}</button>;})}
+          <button onClick={()=>setActiveListId('__starred__')} style={{padding:'6px 14px',borderRadius:20,fontSize:13,fontWeight:isStarred?600:500,minHeight:34,minWidth:0,border:`1px solid ${isStarred?'#f59e0b':t.border}`,background:isStarred?'#f59e0b':t.bg2,color:isStarred?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'}}>★ {tx.gtStarred}</button>
+          <button onClick={async()=>{const n=prompt(tx.gtListNamePrompt);if(n&&n.trim()){const l=await addList_(n.trim());if(l)setActiveListId(l.id);}}} title={tx.gtNewList} style={{padding:'6px 13px',borderRadius:20,fontSize:15,fontWeight:600,minHeight:34,minWidth:0,border:`1px dashed ${t.border}`,background:'transparent',color:t.dim,cursor:'pointer',fontFamily:'inherit'}}>+</button>
+        </div>
+        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+          <select value={taskSort} onChange={e=>setTaskSort(e.target.value)} style={{...inp,width:'auto',padding:'6px 8px',fontSize:12,cursor:'pointer',minHeight:34}}>
+            <option value="myorder">{tx.gtSortMyOrder}</option>
+            <option value="date">{tx.gtSortDate}</option>
+            <option value="starred">{tx.gtSortStarred}</option>
+          </select>
+          {!isStarred&&curList&&<button onClick={()=>{const n=prompt(tx.gtRenameListPrompt,curList.name);if(n&&n.trim())updateList_(curList.id,{name:n.trim()});}} title={tx.gtRenameList} style={{...btnG,padding:'6px 9px',fontSize:13,minHeight:34}}>✎</button>}
+          {!isStarred&&curList&&lists.length>1&&<button onClick={async()=>{if(confirm(tx.gtDeleteListConfirm)){const okd=await deleteList_(curList.id);if(okd)setActiveListId(lists.find(l=>l.id!==curList.id)?.id||null);}}} title={tx.gtDeleteList} style={{...btnG,padding:'6px 9px',fontSize:13,minHeight:34,color:t.red,borderColor:t.red+'55'}}>🗑</button>}
+        </div>
+      </div>
+
+      {!isStarred&&<form onSubmit={async e=>{e.preventDefault();const inp2=e.target.gtadd;if(inp2.value.trim()){await addInList(inp2.value);inp2.value='';}}} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',border:`1px solid ${t.border}`,borderRadius:10,background:t.bg2,marginBottom:14,boxShadow:t.shadow}}>
+        <span style={{fontSize:22,color:t.accent,fontWeight:300,lineHeight:1,marginTop:-2}}>＋</span>
+        <input name="gtadd" autoComplete="off" placeholder={tx.gtAddTask} style={{flex:1,border:'none',background:'none',outline:'none',color:t.text,fontFamily:'inherit',fontSize:15}}/>
+      </form>}
+
+      <div style={box}>
+        {incomplete.length===0&&complete.length===0&&<div style={{textAlign:'center',padding:'52px 20px',color:t.muted}}>
+          <div style={{fontSize:40,marginBottom:10,opacity:.5}}>{isStarred?'★':'☑'}</div>
+          <div style={{fontSize:15,fontWeight:600,color:t.dim}}>{isStarred?tx.gtNoStarred:tx.gtNoTasks}</div>
+          {!isStarred&&<div style={{fontSize:13,marginTop:4}}>{tx.gtNoTasksSub}</div>}
+        </div>}
+        {incomplete.map(tk=><Row key={tk.id} tk={tk}/>)}
+      </div>
+
+      {complete.length>0&&<div style={{...box,marginTop:14}}>
+        <div onClick={()=>setGtCompletedOpen(o=>!o)} style={{display:'flex',alignItems:'center',gap:8,padding:'12px 14px',cursor:'pointer',fontSize:13,fontWeight:600,color:t.dim,borderBottom:gtCompletedOpen?`1px solid ${t.border}`:'none'}}>
+          <span style={{display:'inline-block',transition:'transform .15s',transform:gtCompletedOpen?'rotate(90deg)':'none',fontSize:11}}>▸</span>
+          {tx.gtCompleted} ({complete.length})
+        </div>
+        {gtCompletedOpen&&<div>{complete.map(tk=><Row key={tk.id} tk={tk}/>)}</div>}
+      </div>}
+    </div>;
+  };
+
   const renderTasks=()=>{
+    if(tasksView==='gtasks')return renderTasksGoogle();
     const allOpen=tasks.filter(t=>!t.done);
     const today=allOpen.filter(t=>t.dueDate===td());
     const overdue=allOpen.filter(t=>t.dueDate&&t.dueDate<td());
@@ -2569,10 +2699,17 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
       <div style={{padding:'20px 24px 0',display:'flex',justifyContent:'space-between'}}><span style={{fontSize:19,fontWeight:700}}>{d?.id?tx.editTask:tx.newTask}</span><button onClick={()=>setModal(null)} style={{width:30,height:30,borderRadius:'50%',border:'none',background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button></div>
       <div style={{padding:'16px 24px'}}>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.tasks2}</label><input style={inp} value={f.title||''} onChange={e=>sf({...f,title:e.target.value})} placeholder={tx.taskDescPlaceholder}/></div>
+        {/* List + star (Google Tasks) */}
+        <div style={{display:'flex',gap:10,marginBottom:12,alignItems:'flex-end'}}>
+          <div style={{flex:1}}><label style={lbl}>{tx.gtList}</label><select style={{...inp,cursor:'pointer'}} value={f.listId??''} onChange={e=>sf({...f,listId:e.target.value?Number(e.target.value):null})}>{taskLists.length===0&&<option value="">—</option>}{[...taskLists].sort((a,b)=>(a.position||0)-(b.position||0)).map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></div>
+          <button onClick={()=>sf({...f,starred:!f.starred})} title={f.starred?tx.gtUnstar:tx.gtStar} style={{...inp,width:'auto',cursor:'pointer',display:'flex',alignItems:'center',gap:6,color:f.starred?'#f59e0b':t.dim,fontWeight:600,whiteSpace:'nowrap'}}>{f.starred?'★':'☆'} {tx.gtStar}</button>
+        </div>
         {/* Status selector */}
         <div style={{marginBottom:12}}><label style={lbl}>{tx.taskStatus}</label>
           <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{TASK_STATUSES.map(s=><button key={s.k} onClick={()=>sf({...f,status:s.k,done:s.k==='done'||s.k==='cancelled'})} style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:f.status===s.k?600:400,border:`1.5px solid ${f.status===s.k?s.c:'transparent'}`,background:f.status===s.k?s.c+'20':'transparent',color:f.status===s.k?s.c:t.dim,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4,minHeight:32}}><span>{s.ic}</span>{s.l[lang]}</button>)}</div>
         </div>
+        <button onClick={()=>setMfCrmOpen(o=>!o)} style={{display:'flex',alignItems:'center',gap:6,width:'100%',background:'none',border:'none',borderTop:`1px solid ${t.border}`,padding:'12px 0 8px',marginBottom:6,cursor:'pointer',fontFamily:'inherit',color:t.dim,fontSize:12,fontWeight:600,textAlign:'left'}}><span style={{display:'inline-block',transition:'transform .15s',transform:mfCrmOpen?'rotate(90deg)':'none',fontSize:10}}>▸</span>{tx.gtCrmLinks}{(f.contactId||f.oppId||f.atosId||f.companyContactId)&&<span style={{marginLeft:6,width:6,height:6,borderRadius:'50%',background:t.accent,display:'inline-block'}}/>}</button>
+        {mfCrmOpen&&<div>
         <div style={{marginBottom:12}}><label style={lbl}>{tx.contact}</label><SearchSelect t={t} lang={lang} value={f.contactId||''} onChange={v=>sf({...f,contactId:v})} placeholder={tx.optional} options={contacts.map(c=>({value:c.id,label:c.name,sub:compName(c.companyId)||(c.role||'')}))}/></div>
         <div style={{marginBottom:12}}><label style={lbl}>Deal / Opportunity</label><SearchSelect t={t} lang={lang} value={f.oppId||''} onChange={v=>{const opp=opps.find(o=>o.id===v);sf({...f,oppId:v,contactId:opp?.contactId||f.contactId});}} placeholder={tx.optional} options={[...opps.filter(o=>o.stage!=='won'&&o.stage!=='lost').map(o=>({value:o.id,label:o.title,sub:`${eur(o.value)} · ${stageC(o.stage,lang).l}`}))]}/></div>
         {/* Collega + optionele contactpersoon */}
@@ -2594,6 +2731,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           <input value={mfNewCt} onChange={e=>setMfNewCt(e.target.value)} placeholder={tx.name+'...'} style={{...inp,flex:1,padding:'6px 10px',fontSize:12}}/>
           <button onClick={async()=>{if(!mfNewCt.trim())return;const c=await addContact_({name:mfNewCt.trim(),email:'',phone:'',companyId:f.companyId||'',role:'',tags:[]});if(c){sf({...f,companyContactId:c.id});setMfNewCt('');setMfShowNewCt(false);toast(tx.contactCreated);}}} style={{...btnP,padding:'6px 10px',fontSize:11,minHeight:32,minWidth:32}}>+</button>
         </div>}
+        </div>}
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:12}}>
           <div><label style={lbl}>{tx.date}</label><input type="date" style={inp} value={f.dueDate||''} onChange={e=>sf({...f,dueDate:e.target.value})}/></div>
           <div><label style={lbl}>{lang==='nl'?'Tijd':'Time'}</label><input type="time" style={inp} value={f.dueTime||''} onChange={e=>sf({...f,dueTime:e.target.value})}/></div>
@@ -2602,6 +2740,20 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
         <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:12}}>{PRIS.map(p=><button key={p.id} onClick={()=>sf({...f,priority:p.id})} style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:f.priority===p.id?700:400,border:`1.5px solid ${f.priority===p.id?p.c:'transparent'}`,background:f.priority===p.id?p.c+'20':'transparent',color:f.priority===p.id?p.c:t.dim,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4,minHeight:32}}>{p.id==='urgent'&&<span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:f.priority==='urgent'?'#FF2D55':t.dim,boxShadow:f.priority==='urgent'?'0 0 6px #FF2D55':'none',animation:f.priority==='urgent'?'pulse 1.5s infinite':'none'}}/>}{p.l[lang]}</button>)}</div>
         {/* Notes */}
         <div style={{marginBottom:12}}><label style={lbl}>{tx.taskNotes}</label><textarea style={{...inp,minHeight:70,resize:'vertical'}} value={f.notes||''} onChange={e=>sf({...f,notes:e.target.value})} placeholder={tx.taskNotesPlaceholder}/></div>
+        {/* Subtasks (existing tasks only) */}
+        {d?.id&&!f.parentId&&<div style={{marginBottom:12}}><label style={lbl}>{tx.gtSubtasks}</label>
+          <div style={{display:'flex',flexDirection:'column',gap:1,marginBottom:6}}>
+            {tasks.filter(s=>s.parentId===d.id).sort((a,b)=>(a.position||0)-(b.position||0)).map(s=><div key={s.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0'}}>
+              <div onClick={()=>s.done?updateTask_(s.id,{done:false,status:'todo'}):completeTask(s.id)} style={{width:17,height:17,borderRadius:'50%',border:s.done?'none':`2px solid ${t.muted}`,background:s.done?t.accent:'transparent',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,cursor:'pointer',flexShrink:0}}>{s.done&&'✓'}</div>
+              <span style={{flex:1,fontSize:13,color:s.done?t.muted:t.text,textDecoration:s.done?'line-through':'none'}}>{s.title}</span>
+              <button onClick={()=>deleteTask_(s.id)} style={{border:'none',background:'none',color:t.muted,cursor:'pointer',fontSize:12,minHeight:0,minWidth:0,padding:'2px 4px'}}>✕</button>
+            </div>)}
+          </div>
+          <form onSubmit={async e=>{e.preventDefault();if(!mfSubInput.trim())return;const sibs=tasks.filter(s=>s.parentId===d.id);const maxPos=sibs.reduce((m,s)=>Math.max(m,s.position||0),0);await addTask_({title:mfSubInput.trim(),listId:f.listId||null,parentId:d.id,status:'todo',done:false,priority:'medium',position:maxPos+1});setMfSubInput('');}} style={{display:'flex',alignItems:'center',gap:8}}>
+            <span style={{fontSize:17,color:t.accent,lineHeight:1}}>＋</span>
+            <input value={mfSubInput} onChange={e=>setMfSubInput(e.target.value)} placeholder={tx.gtAddSubtask} style={{...inp,padding:'7px 10px',fontSize:13}}/>
+          </form>
+        </div>}
         <div style={{padding:'12px 14px',borderRadius:10,background:dark?'rgba(118,118,128,0.06)':'rgba(118,118,128,0.03)',marginBottom:8}}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:f.reminder?10:0}}>
             <div onClick={()=>sf({...f,reminder:!f.reminder})} style={{width:22,height:22,borderRadius:6,background:f.reminder?t.accent:t.elev,border:f.reminder?'none':`2px solid ${t.muted}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:12,color:'#fff',fontWeight:700,transition:`all 0.15s ${sp}`}}>{f.reminder&&'✓'}</div>
@@ -3473,7 +3625,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
           </div>
           <div style={{display:'flex',gap:8,alignItems:'center'}}>
             <div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>
-              {[{id:'list',ic:'▦',l:tx.listView},{id:'table',ic:'☰',l:tx.tableView},{id:'kanban',ic:'⬛',l:lang==='nl'?'Bord':'Board'}].map(v=><button key={v.id} onClick={()=>setTasksView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:tasksView===v.id?600:400,border:'none',background:tasksView===v.id?t.accent:'transparent',color:tasksView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}
+              {[{id:'gtasks',ic:'✓',l:tx.gtView},{id:'list',ic:'▦',l:tx.listView},{id:'table',ic:'☰',l:tx.tableView},{id:'kanban',ic:'⬛',l:lang==='nl'?'Bord':'Board'}].map(v=><button key={v.id} onClick={()=>setTasksView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:tasksView===v.id?600:400,border:'none',background:tasksView===v.id?t.accent:'transparent',color:tasksView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}
             </div>
             <button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'6px 14px',fontSize:12}}>{tx.addTask}</button>
             <button onClick={()=>setDark(!dark)} style={{width:32,height:32,borderRadius:8,border:`0.5px solid ${t.border}`,background:t.elev,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,minHeight:32,minWidth:32}}>{dark?'🌙':'☀️'}</button>
@@ -3628,7 +3780,7 @@ Contacten: ${contacts.length} totaal, Bedrijven: ${companies.length} totaal`;
             {view==='pipeline'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'kanban',l:tx.kanbanView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'},{id:'funnel',l:tx.funnelView,ic:'▽'}].map(v=><button key={v.id} onClick={()=>setPipeView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:pipeView===v.id?600:400,border:'none',background:pipeView===v.id?t.accent:'transparent',color:pipeView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<><button onClick={()=>setModal({type:'import'})} style={{...btnG,padding:'6px 10px',fontSize:11}}>📥</button><button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button></>}</>}
             {view==='contacts'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setContactsView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:contactsView===v.id?600:400,border:'none',background:contactsView===v.id?t.accent:'transparent',color:contactsView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'contact'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addContact2}</button>}</>}
             {view==='companies'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setCompaniesView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:companiesView===v.id?600:400,border:'none',background:companiesView===v.id?t.accent:'transparent',color:companiesView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'company'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addCompany}</button>}</>}
-            {view==='tasks'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'},{id:'kanban',l:lang==='nl'?'Bord':'Board',ic:'⊞'}].map(v=><button key={v.id} onClick={()=>setTasksView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:tasksView===v.id?600:400,border:'none',background:tasksView===v.id?t.accent:'transparent',color:tasksView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div><button onClick={()=>window.open('/tasks-popup','_blank','width=1400,height=900,resizable=yes')} style={{...btnG,padding:'6px 10px',fontSize:12,display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap'}} title={lang==='nl'?'Open in apart venster':'Open in separate window'}>⧉ Pop-out</button>{!isMobile&&<button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addTask}</button>}</>}
+            {view==='tasks'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'gtasks',l:tx.gtView,ic:'✓'},{id:'list',l:tx.listView,ic:'▦'},{id:'table',l:tx.tableView,ic:'☰'},{id:'kanban',l:lang==='nl'?'Bord':'Board',ic:'⊞'}].map(v=><button key={v.id} onClick={()=>setTasksView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:tasksView===v.id?600:400,border:'none',background:tasksView===v.id?t.accent:'transparent',color:tasksView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div><button onClick={()=>window.open('/tasks-popup','_blank','width=1400,height=900,resizable=yes')} style={{...btnG,padding:'6px 10px',fontSize:12,display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap'}} title={lang==='nl'?'Open in apart venster':'Open in separate window'}>⧉ Pop-out</button>{!isMobile&&<button onClick={()=>setModal({type:'task'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addTask}</button>}</>}
             {view==='dashboard'&&!isMobile&&<button onClick={()=>setModal({type:'opp'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>{tx.addDeal}</button>}
             {view==='competitive'&&<><div style={{display:'flex',background:dark?'rgba(118,118,128,0.12)':'rgba(118,118,128,0.06)',borderRadius:8,padding:2}}>{[{id:'group',l:tx.ciGroupByIndustry,ic:'⊞'},{id:'list',l:tx.listView,ic:'☰'}].map(v=><button key={v.id} onClick={()=>setCompCiView(v.id)} style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:compCiView===v.id?600:400,border:'none',background:compCiView===v.id?t.accent:'transparent',color:compCiView===v.id?'#fff':t.dim,cursor:'pointer',fontFamily:'inherit',minHeight:32,minWidth:32}}>{v.ic} {v.l}</button>)}</div>{!isMobile&&<button onClick={()=>setModal({type:'competitive'})} style={{...btnP,padding:'6px 12px',fontSize:12}}>+ {tx.ciNew}</button>}</>}
             {!isMobile&&<button onClick={runDailyScan} style={{height:32,padding:'0 10px',borderRadius:8,background:t.glass,backdropFilter:t.blur,border:`0.5px solid ${t.border}`,color:t.dim,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,fontFamily:'inherit',gap:3,minHeight:32,minWidth:32}} title={tx.dailyScan}>🔍</button>}
