@@ -4,7 +4,7 @@ echo   My Personal Sales Plan — Update
 echo ============================================
 echo.
 
-echo [1/3] Nieuwste versie ophalen van GitHub...
+echo [1/4] Nieuwste versie ophalen van GitHub...
 cd /d C:\taskflow
 if not exist ".git" (
     echo ERROR: Map C:\taskflow bestaat niet of is geen git repository.
@@ -19,7 +19,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [2/3] Dependencies installeren...
+echo [2/4] Dependencies installeren...
 npm install --silent
 if %errorlevel% neq 0 (
     echo ERROR: npm install mislukt.
@@ -27,7 +27,15 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [3/3] Server herstarten...
+echo [3/4] Database bijwerken (veilig en idempotent - verwijdert nooit data)...
+call npm run db:setup
+if %errorlevel% neq 0 (
+    echo ERROR: Database migratie mislukt. Controleer DATABASE_URL in het .env bestand.
+    pause
+    exit /b 1
+)
+
+echo [4/4] Server herstarten...
 pm2 restart taskflow
 if %errorlevel% neq 0 (
     echo Server nog niet geregistreerd bij PM2, wordt nu gestart...
