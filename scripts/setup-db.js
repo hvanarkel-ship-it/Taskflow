@@ -140,7 +140,6 @@ async function setup() {
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS atos_contact_ids JSONB DEFAULT '[]'", v: '31' },
     { sql: "ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS folder_url TEXT DEFAULT ''", v: '31' },
     { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT false", v: '32' },
-    { sql: "UPDATE users SET approved = true WHERE email = 'hvanarkel@gmail.com'", v: '32' },
     { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_hash TEXT DEFAULT NULL", v: '33' },
     { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ DEFAULT NULL", v: '33' },
     { sql: "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ DEFAULT NULL", v: '34' },
