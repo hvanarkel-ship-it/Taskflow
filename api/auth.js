@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { sql, ok, err, json, signToken, checkRate, parseBody, safeErr } = require('./shared/db');
 
-const ADMIN_EMAIL = 'hvanarkel@gmail.com';
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
 
 // Separate rate limiter for password resets: max 3 per hour per email
 const resetRateMap = new Map();
@@ -18,15 +18,19 @@ const checkResetRate = (email) => {
 const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 
 // Helper: verify admin JWT and return caller
-const verifyAdmin = (event) => {
+const verifyAdmin = async (event) => {
+  if (!ADMIN_EMAIL) throw { status: 500, message: 'ADMIN_EMAIL is niet geconfigureerd' };
   const auth = event.headers?.authorization || event.headers?.Authorization || '';
   if (!auth.startsWith('Bearer ')) throw { status: 401, message: 'Niet ingelogd' };
   const jwt = require('jsonwebtoken');
   let caller;
   try { caller = jwt.verify(auth.slice(7), process.env.JWT_SECRET, { issuer: 'dpm-crm' }); }
   catch { throw { status: 401, message: 'Ongeldige sessie' }; }
-  if (caller.email !== ADMIN_EMAIL) throw { status: 403, message: 'Alleen admin heeft toegang' };
-  return caller;
+  const [dbUser] = await sql`SELECT id, email, approved FROM users WHERE id = ${caller.id}`;
+  if (!dbUser || !dbUser.approved || dbUser.email.toLowerCase() !== ADMIN_EMAIL) {
+    throw { status: 403, message: 'Alleen admin heeft toegang' };
+  }
+  return dbUser;
 };
 
 exports.handler = async (event) => {
@@ -47,10 +51,11 @@ exports.handler = async (event) => {
       const existing = await sql`SELECT id FROM users WHERE email = ${email}`;
       if (existing.length > 0) return err(409, 'Email already in use');
       const hash = await bcrypt.hash(password, 12);
-      const isAdmin = email === ADMIN_EMAIL;
-      const [user] = await sql`INSERT INTO users (email, password_hash, name, approved) VALUES (${email}, ${hash}, ${name.trim()}, ${isAdmin}) RETURNING id, email, name, approved`;
+      // Registration never grants privileges. This prevents an attacker from
+      // claiming the configured admin email on a fresh database.
+      const [user] = await sql`INSERT INTO users (email, password_hash, name, approved) VALUES (${email}, ${hash}, ${name.trim()}, false) RETURNING id, email, name, approved`;
 
-      if (!isAdmin && process.env.APPROVAL_WEBHOOK) {
+      if (process.env.APPROVAL_WEBHOOK) {
         try {
           await fetch(process.env.APPROVAL_WEBHOOK, {
             method: 'POST',
@@ -60,9 +65,6 @@ exports.handler = async (event) => {
         } catch (e) { console.error('Webhook notification failed:', e.message); }
       }
 
-      if (isAdmin) {
-        return ok({ token: signToken(user), name: user.name });
-      }
       return json(200, { success: true, pending: true });
     }
 
@@ -143,7 +145,7 @@ exports.handler = async (event) => {
     ];
 
     if (adminActions.includes(action)) {
-      const caller = verifyAdmin(event);
+      const caller = await verifyAdmin(event);
 
       // List pending (unapproved) users
       if (action === 'list_pending') {

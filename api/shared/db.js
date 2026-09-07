@@ -6,8 +6,9 @@ if (!process.env.JWT_SECRET) { console.error('FATAL: JWT_SECRET not set'); }
 
 let sql = null;
 if (process.env.DATABASE_URL) {
-  const pg = postgres(process.env.DATABASE_URL, { ssl: false, max: 5 });
-  sql = (strings, ...values) => pg(strings, ...values);
+  // Let the connection string select SSL (for example sslmode=require on Neon).
+  // Forcing ssl:false here silently weakened or broke hosted database connections.
+  sql = postgres(process.env.DATABASE_URL, { max: 5 });
 }
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -18,7 +19,8 @@ const RATE_LIMIT = 120; // requests per minute per IP
 const RATE_WINDOW = 60000; // 1 minute
 
 const checkRate = (event) => {
-  const ip = event.headers?.['x-forwarded-for'] || event.headers?.['client-ip'] || 'unknown';
+  const forwarded = event.headers?.['x-forwarded-for'];
+  const ip = (forwarded ? forwarded.split(',')[0] : event.headers?.['client-ip'] || 'unknown').trim();
   const now = Date.now();
   const entry = rateMap.get(ip) || { count: 0, reset: now + RATE_WINDOW };
   if (now > entry.reset) { entry.count = 0; entry.reset = now + RATE_WINDOW; }

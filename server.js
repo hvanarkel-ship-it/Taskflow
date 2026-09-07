@@ -3,7 +3,7 @@ const express = require('express');
 const path = require('path');
 
 const app = express();
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Load all API handlers
@@ -53,7 +53,7 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.ht
 app.use((err, req, res, next) => {
   console.error('Express middleware error:', err.type || err.status, err.message);
   if (err.type === 'entity.too.large') {
-    return res.status(413).json({ success: false, error: 'Verzoek te groot (max 2MB)' });
+    return res.status(413).json({ success: false, error: 'Verzoek te groot (max 1MB)' });
   }
   if (err.type === 'entity.parse.failed') {
     return res.status(400).json({ success: false, error: 'Ongeldig JSON verzoek' });

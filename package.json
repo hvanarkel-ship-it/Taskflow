@@ -11,7 +11,10 @@
     "db:setup": "node scripts/setup-db.js",
     "db:copy-local": "node scripts/copy-to-local.js",
     "db:reset": "node scripts/reset-db.js",
-    "db:health": "node scripts/health-check.js"
+    "db:health": "node scripts/health-check.js",
+    "admin:approve": "node scripts/approve-admin.js",
+    "check": "node scripts/check-syntax.js && node --test",
+    "test": "node --test"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

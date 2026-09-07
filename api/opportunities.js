@@ -124,8 +124,15 @@ exports.handler = async (event) => {
       const b = parseBody(event);
       const id = p.id || b.id;
       if (!id) return err(400, 'ID vereist');
-      await sql`DELETE FROM opp_notes WHERE opp_id=${id}`;
-      const [deleted] = await sql`DELETE FROM opportunities WHERE id=${id} AND user_id=${user.id} RETURNING id`;
+      // Lock and verify ownership before touching related notes. Keeping the
+      // operations in one transaction prevents partial or cross-user deletes.
+      const deleted = await sql.begin(async (tx) => {
+        const [owned] = await tx`SELECT id FROM opportunities WHERE id=${id} AND user_id=${user.id} FOR UPDATE`;
+        if (!owned) return null;
+        await tx`DELETE FROM opp_notes WHERE opp_id=${id}`;
+        const [removed] = await tx`DELETE FROM opportunities WHERE id=${id} AND user_id=${user.id} RETURNING id`;
+        return removed;
+      });
       if (!deleted) return err(404, 'Deal niet gevonden of geen toegang');
       return ok({ deleted: id });
     }
