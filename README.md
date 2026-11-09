@@ -1,5 +1,13 @@
 # DPM CRM — Sales Pipeline Management
 
+<!-- documentation-hub:start -->
+## Projectdocumentatie
+
+[Documentatie-index](DOCUMENTATION.md) · [Installatie en beheer](HANDBOOK.md) · [Verificatie en open punten](VERIFICATION.md)
+
+Bijgewerkt op 9 november 2026. Het handboek onderscheidt bronconfiguratie, historische informatie en nog te verifiëren werking.
+<!-- documentation-hub:end -->
+
 Persoonlijke, lokaal draaiende CRM met pipeline-kanban, bedrijven, contacten,
 deals, taken, teambeheer, AI-assistent en CSV-import. De interface ondersteunt
 Nederlands en Engels.
